@@ -5,12 +5,11 @@ Non richiede BLE né credenziali Google.
 Uso: cd petcube_companion && python3 test_e2e.py
 """
 import asyncio
-import json
 import sys
 
 # Stub di un plugin che genera eventi sintetici
 from plugins.base import Plugin, RawEvent
-from notification_packet import NotifSource, NotifPriority, NotifPacket
+from notification_packet import NotifSource, NotifPriority, NotifPacket, truncate_seed
 from plugin_manager import PluginManager, PLUGIN_REGISTRY
 from ble_sender import Sender
 
@@ -53,7 +52,7 @@ PLUGIN_REGISTRY["mock"] = "__main__.MockPlugin"
 
 
 async def main():
-    received_packets = []
+    received_packets: list[NotifPacket] = []
 
     config = {
         "plugins": {"mock": {"enabled": True, "poll_interval_sec": 1}},
@@ -62,7 +61,11 @@ async def main():
         "logging": {"level": "INFO"},
     }
     import logging
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s", datefmt="%H:%M:%S")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+        datefmt="%H:%M:%S",
+    )
 
     sender = Sender(config)
 
@@ -72,7 +75,7 @@ async def main():
 
     # Loop manuale che bypassa il main.py
     loop = asyncio.get_running_loop()
-    queue = asyncio.Queue()
+    queue: asyncio.Queue[NotifPacket] = asyncio.Queue()
 
     def on_notif(pkt):
         loop.call_soon_threadsafe(queue.put_nowait, pkt)
@@ -102,10 +105,13 @@ async def main():
     for p in received_packets:
         print(f"{p.source.name:<10} {p.priority.name:<8} {p.category.name:<12} {p.seed_hash:>6}  {p.seed_preview!r}")
 
-    # Verifica
+    # Verifica conteggio
     assert len(received_packets) == 8, f"Expected 8, got {len(received_packets)}"
 
-    # Verifica categorizzazione
+    # Verifica categorizzazione.
+    # by_text è indicizzato su seed_preview (già truncato da _dispatch).
+    # Le check key usano truncate_seed() per essere sempre allineate a ciò che
+    # il dispatcher produce — evita KeyError se il testo è stato troncato.
     by_text = {p.seed_preview: p for p in received_packets}
     checks = [
         ("URGENT: server is down, fix ASAP", "CRISI"),
@@ -118,10 +124,26 @@ async def main():
         ("Riunione settimanale alle 15:00", "ROUTINE"),
     ]
     print()
-    for txt, expected_cat in checks:
-        actual = by_text[txt].category.name
+    all_ok = True
+    for original_text, expected_cat in checks:
+        # Calcola la chiave effettiva come la calcolerebbe il dispatcher
+        key = truncate_seed(original_text, max_len=50)
+        pkt = by_text.get(key)
+        if pkt is None:
+            print(f"  ✗ {original_text!r:<50} → PACCHETTO NON TROVATO (key={key!r})")
+            all_ok = False
+            continue
+        actual = pkt.category.name
         mark = "✓" if actual == expected_cat else "✗"
-        print(f"  {mark} {txt!r:<50} → {actual} (atteso {expected_cat})")
+        if actual != expected_cat:
+            all_ok = False
+        print(f"  {mark} {original_text!r:<50} → {actual} (atteso {expected_cat})")
+
+    if all_ok:
+        print("\n✅  Tutti i check passati.")
+    else:
+        print("\n❌  Alcuni check falliti.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

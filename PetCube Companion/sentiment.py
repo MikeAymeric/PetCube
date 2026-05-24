@@ -140,8 +140,19 @@ def detect_sentiment(tokens: list[str], original_text: str) -> str:
     pos_score = sum(1 for t in tokens if t in POSITIVE_KEYWORDS)
     neg_score = sum(1 for t in tokens if t in NEGATIVE_KEYWORDS)
 
-    # Gestione negazione semplice: "non" o "not" o "no" cambiano segno
-    has_negation = any(t in {"non", "not", "no", "nessuno", "nothing", "never"} for t in tokens)
+    # Gestione negazione contestuale: inverte i punteggi solo se un token di
+    # negazione forte ("non", "not", "never"…) è adiacente a una keyword scored.
+    # "no" da solo è escluso perché è ambiguo in inglese ("no problem" = positivo).
+    # La finestra è di 3 token: NEG_TOKEN ... KEYWORD (o KEYWORD ... NEG_TOKEN).
+    STRONG_NEGATIONS = {"non", "not", "nessuno", "nothing", "never", "né"}
+    has_negation = False
+    WINDOW = 3
+    for i, t in enumerate(tokens):
+        if t in STRONG_NEGATIONS:
+            window_tokens = tokens[max(0, i - WINDOW): i + WINDOW + 1]
+            if any(w in POSITIVE_KEYWORDS or w in NEGATIVE_KEYWORDS for w in window_tokens):
+                has_negation = True
+                break
     if has_negation:
         pos_score, neg_score = neg_score, pos_score
 

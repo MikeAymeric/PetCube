@@ -489,14 +489,29 @@ class CompanionGUI(ctk.CTk):
         self.recent_notifications.append({"pkt": pkt, "ok": send_ok, "ts": pkt.timestamp})
         if len(self.recent_notifications) > 100:
             self.recent_notifications.pop(0)
-            # Rimuovi anche dalla UI (l'ultimo widget pack-side="top")
+            # Con pack(side="top") i widget sono in ordine di creazione:
+            # children[0] = più vecchio (visivamente in alto) → è quello da rimuovere.
             children = self.notif_scroll.winfo_children()
             if children:
-                children[-1].destroy()
+                children[0].destroy()
 
     def _update_status_periodic(self) -> None:
         """Aggiorna pannello status ogni 500ms se engine running."""
         if not self.engine or not self.engine.is_running():
+            # Se l'engine era partito ma è morto inaspettatamente (crash del thread),
+            # ripristina la UI come se l'utente avesse premuto Stop.
+            if self.engine is not None:
+                self._append_log_line("⚠️  Engine terminato inaspettatamente.", color=ERROR)
+                self.engine = None
+                self.start_btn.configure(state="normal", fg_color=ACCENT,
+                                         hover_color=ACCENT_HOVER)
+                self.stop_btn.configure(state="disabled", fg_color=BG_TERTIARY)
+                self.status_dot.configure(text_color=ERROR)
+                self.status_text.configure(text="Crashed", text_color=ERROR)
+                for dot in self.plugin_labels.values():
+                    dot.configure(text_color=TEXT_DIM)
+                self.transport_dot.configure(text_color=TEXT_DIM)
+                self.transport_label.configure(text="—")
             return
         status = self.engine.get_status()
 

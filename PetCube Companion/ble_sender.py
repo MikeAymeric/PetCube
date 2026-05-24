@@ -68,7 +68,11 @@ class BLESender:
     async def send(self, packet: NotifPacket) -> bool:
         """Invia un pacchetto. Ritorna True se inviato con successo."""
         data = packet.to_bytes()
-        assert len(data) == PACKET_SIZE
+        if len(data) != PACKET_SIZE:
+            raise ValueError(
+                f"BLESender.send: dimensione pacchetto errata "
+                f"({len(data)} byte, attesi {PACKET_SIZE})"
+            )
 
         async with self._lock:
             ok = await self._ensure_connected()
@@ -166,8 +170,10 @@ class Sender:
                 return True
             logger.info("BLE fallito, provo WiFi fallback...")
 
-        # 2. WiFi fallback (sync, lo wrapo)
-        loop = asyncio.get_event_loop()
+        # 2. WiFi fallback (sync, lo wrapo in executor)
+        # get_running_loop() è il modo corretto dentro una coroutine (Python 3.7+).
+        # get_event_loop() è deprecato in contesto async da Python 3.10.
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._wifi.send_sync, packet)
 
     async def close(self) -> None:

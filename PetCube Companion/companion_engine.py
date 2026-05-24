@@ -247,8 +247,17 @@ class CompanionEngine:
 
     def _on_notification(self, pkt: NotifPacket) -> None:
         """Callback dai plugin (thread non-async)."""
-        if self._loop and self._pending_queue:
-            self._loop.call_soon_threadsafe(self._pending_queue.put_nowait, pkt)
+        # Copia atomica del riferimento al loop prima del check: evita la race
+        # condition TOCTOU in cui il thread engine azzera _loop tra il guard e
+        # la call_soon_threadsafe.
+        loop = self._loop
+        queue = self._pending_queue
+        if loop is not None and queue is not None:
+            try:
+                loop.call_soon_threadsafe(queue.put_nowait, pkt)
+            except RuntimeError:
+                # Loop già chiuso (shutdown in corso): notifica ignorata.
+                logger.debug("_on_notification: loop chiuso, notifica scartata.")
 
 
 def load_config(path: Path = Path("config.json")) -> dict:
