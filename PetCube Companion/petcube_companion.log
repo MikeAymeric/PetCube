@@ -1,0 +1,1211 @@
+14:54:16 [INFO] ble_sender � Sender in modalit� MOCK (nessun invio reale).
+14:54:16 [INFO] plugins.base � Plugin calendar inizializzato.
+14:54:16 [INFO] plugins.calendar_plugin � Avvio autenticazione OAuth (si aprir� il browser)...
+14:54:16 [INFO] google_auth_oauthlib.flow � Please visit this URL to authorize this application: https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=283999171078-jfgnk3jnaq8o4tik7vc0brum42gdcuu0.apps.googleusercontent.com&redirect_uri=http%3A%2F%2Flocalhost%3A62741%2F&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly&state=zxO0DXe82iqxM1opIJwUBPr2D9ZM94&code_challenge=2oiWfszPP6WQemLG-6NLE3oEvXzbvs7hUMmOc2f-W3o&code_challenge_method=S256&access_type=offline
+14:54:27 [INFO] google_auth_oauthlib.flow � "GET /?state=zxO0DXe82iqxM1opIJwUBPr2D9ZM94&iss=https://accounts.google.com&code=4/0AeoWuM-yOP1QB0C0Q9woVUR_QmSV45I6L5vPdk5WFBwSGcL1CIc9hr3ZlGxps3rTRx0VhQ&scope=https://www.googleapis.com/auth/calendar.readonly HTTP/1.1" 200 65
+14:54:27 [INFO] googleapiclient.discovery_cache � file_cache is only supported with oauth2client<4.0.0
+14:54:27 [INFO] plugins.calendar_plugin � Google Calendar API pronta.
+14:54:27 [INFO] plugin_manager � Plugin 'calendar' caricato.
+14:54:27 [INFO] plugin_manager � [calendar] poll loop avviato (intervallo 60s).
+14:54:27 [INFO] root � PetCube Companion avviato. Ctrl+C per uscire.
+14:56:29 [INFO] sentiment � spaCy 'it_core_news_sm' caricato.
+14:56:29 [INFO] ble_sender � [MOCK SEND] source=CALENDAR cat=CRISI priority=HIGH preview='Urgente: fix bug'
+14:57:33 [INFO] root � Shutdown in corso...
+14:57:33 [INFO] plugin_manager � Arresto plugin manager...
+14:57:33 [INFO] plugin_manager � [calendar] poll loop terminato.
+14:57:33 [INFO] plugin_manager � Plugin manager fermato.
+14:57:33 [INFO] root � Arresto completato.
+14:57:36 [INFO] ble_sender — Sender in modalità MOCK (nessun invio reale).
+14:57:36 [INFO] plugins.base — Plugin calendar inizializzato.
+14:57:37 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+14:57:37 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+14:57:37 [INFO] plugin_manager — Plugin 'calendar' caricato.
+14:57:37 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+14:57:37 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+14:57:37 [INFO] plugins.calendar_plugin — 📅 Evento imminente: 'Urgente: fix bug' (priority=NORMAL)
+14:57:38 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+14:57:38 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=CRISI hash=41311 preview='Urgente: fix bug'
+14:57:38 [INFO] ble_sender — [MOCK SEND] source=CALENDAR cat=CRISI priority=HIGH preview='Urgente: fix bug'
+15:01:18 [INFO] root — Shutdown in corso...
+15:01:18 [INFO] plugin_manager — Arresto plugin manager...
+15:01:18 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:01:18 [INFO] plugin_manager — Plugin manager fermato.
+15:01:18 [INFO] root — Arresto completato.
+15:08:27 [INFO] plugins.base — Plugin calendar inizializzato.
+15:08:28 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:08:28 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:08:28 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:08:28 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:08:28 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:10:28 [INFO] plugins.calendar_plugin — 📅 Evento imminente: 'Urgente: bug fix' (priority=HIGH)
+15:10:29 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:10:29 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=CRISI hash=23007 preview='Urgente: bug fix'
+15:10:29 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:10:30 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:10:32 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:16:57 [INFO] plugins.base — Plugin calendar inizializzato.
+15:16:57 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:16:57 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:16:57 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:16:57 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:16:57 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:16:58 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:17:13 [INFO] root — Shutdown in corso...
+15:17:13 [INFO] plugin_manager — Arresto plugin manager...
+15:17:13 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:17:13 [INFO] plugin_manager — Plugin manager fermato.
+15:17:13 [INFO] root — Arresto completato.
+15:17:16 [INFO] plugins.base — Plugin calendar inizializzato.
+15:17:17 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:17:17 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:17:17 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:17:17 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:17:17 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:17:17 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:17:18 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=NORMAL)
+15:17:19 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:17:19 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=NORMAL category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:17:19 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:17:19 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:17:22 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:17:41 [INFO] root — Shutdown in corso...
+15:17:41 [INFO] plugin_manager — Arresto plugin manager...
+15:17:41 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:17:41 [INFO] plugin_manager — Plugin manager fermato.
+15:17:41 [INFO] root — Arresto completato.
+15:17:43 [INFO] plugins.base — Plugin calendar inizializzato.
+15:17:43 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:17:43 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:17:43 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:17:43 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:17:43 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:17:44 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:17:44 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=NORMAL)
+15:17:46 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:17:46 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=NORMAL category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:17:46 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:17:46 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:17:48 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:17:49 [INFO] root — Shutdown in corso...
+15:17:49 [INFO] plugin_manager — Arresto plugin manager...
+15:17:49 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:17:49 [INFO] plugin_manager — Plugin manager fermato.
+15:17:49 [INFO] ble_sender — BLE disconnesso.
+15:17:49 [INFO] root — Arresto completato.
+15:26:07 [INFO] plugins.base — Plugin calendar inizializzato.
+15:26:08 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:26:08 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:26:08 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:26:08 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:26:08 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:26:08 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:26:09 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+15:26:10 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:26:10 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:26:10 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:26:10 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:26:12 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:33:04 [INFO] root — Shutdown in corso...
+15:33:04 [INFO] plugin_manager — Arresto plugin manager...
+15:33:04 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:33:04 [INFO] plugin_manager — Plugin manager fermato.
+15:33:04 [INFO] root — Arresto completato.
+15:33:06 [INFO] plugins.base — Plugin calendar inizializzato.
+15:33:07 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:33:07 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:33:07 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:33:07 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:33:07 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:33:07 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:33:07 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+15:33:09 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:33:09 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:33:09 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:33:10 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:33:13 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:33:45 [INFO] root — Shutdown in corso...
+15:33:45 [INFO] plugin_manager — Arresto plugin manager...
+15:33:45 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:33:45 [INFO] plugin_manager — Plugin manager fermato.
+15:33:45 [INFO] root — Arresto completato.
+15:41:52 [INFO] plugins.base — Plugin calendar inizializzato.
+15:41:52 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:41:52 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:41:52 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:41:52 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:41:52 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:41:53 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:41:53 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+15:41:54 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:41:54 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:41:54 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:41:55 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:41:57 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:44:57 [INFO] root — Shutdown in corso...
+15:44:57 [INFO] plugin_manager — Arresto plugin manager...
+15:44:57 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:44:57 [INFO] plugin_manager — Plugin manager fermato.
+15:44:57 [INFO] root — Arresto completato.
+15:45:24 [INFO] plugins.base — Plugin calendar inizializzato.
+15:45:24 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:45:24 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:45:24 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:45:24 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:45:24 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:45:25 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:45:25 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+15:45:26 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:45:26 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:45:26 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:45:27 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:45:30 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:49:23 [INFO] root — Shutdown in corso...
+15:49:23 [INFO] plugin_manager — Arresto plugin manager...
+15:49:23 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:49:23 [INFO] plugin_manager — Plugin manager fermato.
+15:49:23 [INFO] root — Arresto completato.
+15:49:27 [INFO] plugins.base — Plugin calendar inizializzato.
+15:49:28 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:49:28 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:49:28 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:49:28 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:49:28 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:49:28 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:49:29 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+15:49:30 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:49:30 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:49:30 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:49:30 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:49:33 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:51:54 [INFO] root — Shutdown in corso...
+15:51:54 [INFO] plugin_manager — Arresto plugin manager...
+15:51:54 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:51:54 [INFO] plugin_manager — Plugin manager fermato.
+15:51:54 [INFO] root — Arresto completato.
+15:53:27 [INFO] plugins.base — Plugin calendar inizializzato.
+15:53:27 [INFO] plugins.calendar_plugin — Refresh del token Google in corso...
+15:53:28 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:53:28 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:53:28 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:53:28 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:53:28 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:53:28 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:53:29 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+15:53:30 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:53:30 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:53:30 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:53:30 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:53:33 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:54:14 [INFO] root — Shutdown in corso...
+15:54:14 [INFO] plugin_manager — Arresto plugin manager...
+15:54:14 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:54:14 [INFO] plugin_manager — Plugin manager fermato.
+15:54:14 [INFO] root — Arresto completato.
+15:54:16 [INFO] plugins.base — Plugin calendar inizializzato.
+15:54:17 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:54:17 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:54:17 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:54:17 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:54:17 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:54:17 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:54:18 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+15:54:19 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:54:19 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:54:19 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:54:21 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:54:24 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:57:56 [INFO] root — Shutdown in corso...
+15:57:56 [INFO] plugin_manager — Arresto plugin manager...
+15:57:56 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:57:56 [INFO] plugin_manager — Plugin manager fermato.
+15:57:56 [INFO] root — Arresto completato.
+15:57:58 [INFO] plugins.base — Plugin calendar inizializzato.
+15:57:59 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+15:57:59 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+15:57:59 [INFO] plugin_manager — Plugin 'calendar' caricato.
+15:57:59 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+15:57:59 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+15:57:59 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+15:57:59 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+15:58:01 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+15:58:01 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+15:58:01 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+15:58:01 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+15:58:03 [INFO] ble_sender — Connesso al PetCube via BLE.
+15:59:44 [INFO] root — Shutdown in corso...
+15:59:44 [INFO] plugin_manager — Arresto plugin manager...
+15:59:44 [INFO] plugin_manager — [calendar] poll loop terminato.
+15:59:44 [INFO] plugin_manager — Plugin manager fermato.
+15:59:44 [INFO] root — Arresto completato.
+16:08:04 [INFO] plugins.base — Plugin calendar inizializzato.
+16:08:05 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+16:08:05 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+16:08:05 [INFO] plugin_manager — Plugin 'calendar' caricato.
+16:08:05 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+16:08:05 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+16:08:05 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+16:08:06 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+16:08:07 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+16:08:07 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+16:08:07 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+16:08:07 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+16:08:10 [INFO] ble_sender — Connesso al PetCube via BLE.
+16:08:27 [INFO] root — Shutdown in corso...
+16:08:27 [INFO] plugin_manager — Arresto plugin manager...
+16:08:27 [INFO] plugin_manager — [calendar] poll loop terminato.
+16:08:27 [INFO] plugin_manager — Plugin manager fermato.
+16:08:27 [INFO] root — Arresto completato.
+16:15:48 [INFO] plugins.base — Plugin calendar inizializzato.
+16:15:48 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+16:15:48 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+16:15:48 [INFO] plugin_manager — Plugin 'calendar' caricato.
+16:15:48 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+16:15:48 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+16:15:49 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+16:15:49 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='Mike & Ross Impegni', priority=HIGH)
+16:15:50 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+16:15:50 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+16:15:50 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+16:15:51 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+16:15:53 [INFO] ble_sender — Connesso al PetCube via BLE.
+16:16:44 [INFO] root — Shutdown in corso...
+16:16:44 [INFO] plugin_manager — Arresto plugin manager...
+16:16:44 [INFO] plugin_manager — [calendar] poll loop terminato.
+16:16:44 [INFO] plugin_manager — Plugin manager fermato.
+16:16:45 [INFO] ble_sender — BLE disconnesso.
+16:16:45 [INFO] root — Arresto completato.
+16:20:15 [INFO] plugins.base — Plugin calendar inizializzato.
+16:20:16 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+16:20:16 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+16:20:16 [INFO] plugin_manager — Plugin 'calendar' caricato.
+16:20:16 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+16:20:16 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+16:20:16 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+16:20:17 [INFO] plugins.calendar_plugin — 📅 Evento imminente: 'Psicologa Mike' (cal='Mike & Ross Impegni', priority=NORMAL)
+16:20:18 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+16:20:18 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=NORMAL category=ROUTINE hash=43879 preview='Psicologa Mike'
+16:20:18 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+16:20:18 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+16:20:20 [INFO] ble_sender — Connesso al PetCube via BLE.
+16:20:43 [INFO] root — Shutdown in corso...
+16:20:43 [INFO] plugin_manager — Arresto plugin manager...
+16:20:43 [INFO] plugin_manager — [calendar] poll loop terminato.
+16:20:43 [INFO] plugin_manager — Plugin manager fermato.
+16:20:43 [INFO] ble_sender — BLE disconnesso.
+16:20:43 [INFO] root — Arresto completato.
+16:30:39 [INFO] plugins.base — Plugin calendar inizializzato.
+16:30:40 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+16:30:40 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+16:30:40 [INFO] plugin_manager — Plugin 'calendar' caricato.
+16:30:40 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+16:30:40 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+16:30:40 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+16:30:41 [INFO] plugins.calendar_plugin — 📅 Evento imminente: 'Psicologa Mike' (cal='Mike & Ross Impegni', priority=HIGH)
+16:30:42 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+16:30:42 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=43879 preview='Psicologa Mike'
+16:30:42 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+16:30:43 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+16:30:46 [INFO] ble_sender — Connesso al PetCube via BLE.
+16:31:38 [INFO] root — Shutdown in corso...
+16:31:38 [INFO] plugin_manager — Arresto plugin manager...
+16:31:38 [INFO] plugin_manager — [calendar] poll loop terminato.
+16:31:38 [INFO] plugin_manager — Plugin manager fermato.
+16:31:38 [INFO] ble_sender — BLE disconnesso.
+16:31:38 [INFO] root — Arresto completato.
+16:34:10 [INFO] plugins.base — Plugin calendar inizializzato.
+16:34:10 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+16:34:10 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+16:34:10 [INFO] plugin_manager — Plugin 'calendar' caricato.
+16:34:10 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+16:34:10 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+16:34:10 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 5 (mik.maneia@gmail.com, Demontini, Mike & Ross Impegni, Lavoro, Cyberollini) — esclusi: 0
+16:34:11 [INFO] plugins.calendar_plugin — 📅 Evento imminente: 'Psicologa Mike' (cal='Mike & Ross Impegni', priority=HIGH)
+16:34:12 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+16:34:12 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=43879 preview='Psicologa Mike'
+16:34:12 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+16:34:13 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+16:34:15 [INFO] ble_sender — Connesso al PetCube via BLE.
+16:34:41 [INFO] root — Shutdown in corso...
+16:34:41 [INFO] plugin_manager — Arresto plugin manager...
+16:34:41 [INFO] plugin_manager — [calendar] poll loop terminato.
+16:34:41 [INFO] plugin_manager — Plugin manager fermato.
+16:34:42 [INFO] ble_sender — BLE disconnesso.
+16:34:42 [INFO] root — Arresto completato.
+18:02:31 [INFO] plugins.base — Plugin calendar inizializzato.
+18:02:31 [INFO] plugins.calendar_plugin — Avvio autenticazione OAuth (si aprirà il browser)...
+18:02:32 [INFO] google_auth_oauthlib.flow — Please visit this URL to authorize this application: https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=283999171078-jfgnk3jnaq8o4tik7vc0brum42gdcuu0.apps.googleusercontent.com&redirect_uri=http%3A%2F%2Flocalhost%3A58754%2F&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly&state=cHgMJUnkWRRaCFkG5OFmnkp27gdseh&code_challenge=gjYvNNpFerBO7pjTZ8YBAHWfExrAMSZff0tdW9DTFuM&code_challenge_method=S256&access_type=offline
+18:02:43 [INFO] google_auth_oauthlib.flow — "GET /?state=cHgMJUnkWRRaCFkG5OFmnkp27gdseh&iss=https://accounts.google.com&code=4/0AeoWuM_DCJlbzCwbYe1htvXSbl61iNhC5a8IIAzxPFdjJ3noblYs256wCoNhM5bTyzmb1g&scope=https://www.googleapis.com/auth/gmail.readonly%20https://www.googleapis.com/auth/calendar.readonly HTTP/1.1" 200 65
+18:02:44 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+18:02:44 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+18:02:44 [INFO] plugin_manager — Plugin 'calendar' caricato.
+18:02:44 [INFO] plugins.base — Plugin gmail inizializzato.
+18:02:44 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+18:02:44 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+18:02:44 [INFO] plugin_manager — Plugin 'gmail' caricato.
+18:02:44 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+18:02:44 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+18:02:44 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+18:02:45 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Avviso di sicurezza'
+18:02:45 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Information about your new Google Account'
+18:02:45 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+18:02:47 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+18:02:47 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=20436 preview='Google — Avviso di sicurezza'
+18:02:47 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=8921 preview='Google — Information about your new Google Account'
+18:02:47 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+18:02:57 [WARNING] ble_sender — Device 'PetCube' non trovato.
+18:02:57 [INFO] ble_sender — BLE fallito, provo WiFi fallback...
+18:03:01 [WARNING] ble_sender — WiFi send fallita: HTTPConnectionPool(host='petcube.local', port=8080): Max retries exceeded with url: /notify (Caused by NameResolutionError("HTTPConnection(host='petcube.local', port=8080): Failed to resolve 'petcube.local' ([Errno 11001] getaddrinfo failed)"))
+18:03:01 [WARNING] root — Invio fallito, scarto il pacchetto.
+18:03:01 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+18:03:11 [WARNING] ble_sender — Device 'PetCube' non trovato.
+18:03:11 [INFO] ble_sender — BLE fallito, provo WiFi fallback...
+18:03:15 [WARNING] ble_sender — WiFi send fallita: HTTPConnectionPool(host='petcube.local', port=8080): Max retries exceeded with url: /notify (Caused by NameResolutionError("HTTPConnection(host='petcube.local', port=8080): Failed to resolve 'petcube.local' ([Errno 11001] getaddrinfo failed)"))
+18:03:15 [WARNING] root — Invio fallito, scarto il pacchetto.
+18:03:50 [INFO] root — Shutdown in corso...
+18:03:50 [INFO] plugin_manager — Arresto plugin manager...
+18:03:50 [INFO] plugin_manager — [calendar] poll loop terminato.
+18:03:50 [INFO] plugin_manager — [gmail] poll loop terminato.
+18:03:50 [INFO] plugin_manager — Plugin manager fermato.
+18:03:50 [INFO] root — Arresto completato.
+18:03:57 [INFO] plugins.base — Plugin calendar inizializzato.
+18:03:57 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+18:03:57 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+18:03:57 [INFO] plugin_manager — Plugin 'calendar' caricato.
+18:03:57 [INFO] plugins.base — Plugin gmail inizializzato.
+18:03:57 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+18:03:58 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+18:03:58 [INFO] plugin_manager — Plugin 'gmail' caricato.
+18:03:58 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+18:03:58 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+18:03:58 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+18:03:58 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Avviso di sicurezza'
+18:03:58 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+18:03:58 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Information about your new Google Account'
+18:04:00 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+18:04:00 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=20436 preview='Google — Avviso di sicurezza'
+18:04:00 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=8921 preview='Google — Information about your new Google Account'
+18:04:00 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+18:04:01 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+18:04:03 [INFO] ble_sender — Connesso al PetCube via BLE.
+18:04:50 [INFO] root — Shutdown in corso...
+18:04:50 [INFO] plugin_manager — Arresto plugin manager...
+18:04:50 [INFO] plugin_manager — [gmail] poll loop terminato.
+18:04:50 [INFO] plugin_manager — [calendar] poll loop terminato.
+18:04:50 [INFO] plugin_manager — Plugin manager fermato.
+18:04:50 [INFO] ble_sender — BLE disconnesso.
+18:04:50 [INFO] root — Arresto completato.
+18:04:51 [INFO] plugins.base — Plugin calendar inizializzato.
+18:04:52 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+18:04:52 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+18:04:52 [INFO] plugin_manager — Plugin 'calendar' caricato.
+18:04:52 [INFO] plugins.base — Plugin gmail inizializzato.
+18:04:52 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+18:04:52 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+18:04:52 [INFO] plugin_manager — Plugin 'gmail' caricato.
+18:04:52 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+18:04:52 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+18:04:52 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+18:04:52 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Avviso di sicurezza'
+18:04:53 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+18:04:53 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Information about your new Google Account'
+18:04:55 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+18:04:55 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=20436 preview='Google — Avviso di sicurezza'
+18:04:55 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=8921 preview='Google — Information about your new Google Account'
+18:04:55 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+18:04:56 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+18:04:58 [INFO] ble_sender — Connesso al PetCube via BLE.
+18:05:27 [INFO] root — Shutdown in corso...
+18:05:27 [INFO] plugin_manager — Arresto plugin manager...
+18:05:27 [INFO] plugin_manager — [calendar] poll loop terminato.
+18:05:27 [INFO] plugin_manager — [gmail] poll loop terminato.
+18:05:27 [INFO] plugin_manager — Plugin manager fermato.
+18:05:27 [INFO] ble_sender — BLE disconnesso.
+18:05:27 [INFO] root — Arresto completato.
+19:30:15 [INFO] plugins.base — Plugin calendar inizializzato (0 ID nello storico).
+19:30:15 [INFO] plugins.calendar_plugin — Refresh del token Google in corso...
+19:30:16 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:30:16 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+19:30:16 [INFO] plugin_manager — Plugin 'calendar' caricato.
+19:30:16 [INFO] plugins.base — Plugin gmail inizializzato (0 ID nello storico).
+19:30:16 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:30:16 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+19:30:16 [INFO] plugin_manager — Plugin 'gmail' caricato.
+19:30:16 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+19:30:17 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+19:30:17 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+19:30:17 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+19:30:17 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+19:30:17 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+19:30:17 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+19:30:17 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Avviso di sicurezza'
+19:30:17 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 0 ()
+19:30:17 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Information about your new Google Account'
+19:30:17 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+19:30:18 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='michael.maneia.gd@gmail.com', priority=NORMAL)
+19:30:19 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+19:30:19 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=20436 preview='Google — Avviso di sicurezza'
+19:30:19 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=8921 preview='Google — Information about your new Google Account'
+19:30:19 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+19:30:20 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+19:30:20 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=NORMAL category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+19:30:21 [INFO] ble_sender — Connesso al PetCube via BLE.
+19:31:20 [INFO] root — Shutdown in corso...
+19:31:20 [INFO] plugin_manager — Arresto plugin manager...
+19:31:20 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+19:31:20 [INFO] plugin_manager — [gmail] poll loop terminato.
+19:31:22 [INFO] plugin_manager — [calendar] poll loop terminato.
+19:31:22 [INFO] plugin_manager — Plugin manager fermato.
+19:31:22 [INFO] ble_sender — BLE disconnesso.
+19:31:22 [INFO] root — Arresto completato.
+19:31:25 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+19:31:26 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:31:26 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+19:31:26 [INFO] plugin_manager — Plugin 'calendar' caricato.
+19:31:26 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+19:31:26 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:31:26 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+19:31:26 [INFO] plugin_manager — Plugin 'gmail' caricato.
+19:31:26 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+19:31:27 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+19:31:27 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+19:31:27 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+19:31:27 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+19:31:27 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+19:31:27 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+19:31:27 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 0 ()
+19:31:27 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+19:31:53 [INFO] root — Shutdown in corso...
+19:31:53 [INFO] plugin_manager — Arresto plugin manager...
+19:31:53 [INFO] plugin_manager — [calendar] poll loop terminato.
+19:31:53 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+19:31:53 [INFO] plugin_manager — [gmail] poll loop terminato.
+19:31:53 [INFO] plugin_manager — Plugin manager fermato.
+19:31:53 [INFO] root — Arresto completato.
+19:33:13 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+19:33:13 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:33:13 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+19:33:13 [INFO] plugin_manager — Plugin 'calendar' caricato.
+19:33:13 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+19:33:13 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:33:14 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+19:33:14 [INFO] plugin_manager — Plugin 'gmail' caricato.
+19:33:14 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+19:33:14 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+19:33:14 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+19:33:14 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+19:33:14 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+19:33:14 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+19:33:14 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+19:33:15 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/users/me/projects → HTTP 404
+19:33:15 [INFO] plugins.hacknplan_plugin — 📋 Endpoint non trovato, provo il prossimo.
+19:33:15 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+19:33:15 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/projects → HTTP 200
+19:33:15 [INFO] plugins.hacknplan_plugin — 📋 Risposta è una list di 1 elementi
+19:33:15 [INFO] plugins.hacknplan_plugin — 📋 Sample risposta:
+[
+  {
+    "id": 237539,
+    "workspaceId": 12112,
+    "name": "Lemon Loop Studio",
+    "description": "",
+    "creationDate": "2026-05-12T13:42:50.903",
+    "owner": {
+      "id": 262771,
+      "username": "MichaelManeia_LemonLoop",
+      "email": "michael.maneia@lemonloop.it",
+      "name": "Michael Maneia",
+      "creationDate": "2026-05-12T13:42:01.103"
+    },
+    "costMetric": "points",
+    "isDemo": false,
+    "hoursPerDay": 8.0,
+    "moduleConfig": {
+      "workItems": true,
+      "workIte
+19:33:15 [WARNING] plugins.hacknplan_plugin — 📋 Trovati 1 elementi ma nessuno con campo 'projectId'. Campi del primo: ['id', 'workspaceId', 'name', 'description', 'creationDate', 'owner', 'costMetric', 'isDemo', 'hoursPerDay', 'moduleConfig', 'defaultBoardId']
+19:33:15 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 0 ()
+19:33:33 [INFO] root — Shutdown in corso...
+19:33:33 [INFO] plugin_manager — Arresto plugin manager...
+19:33:33 [INFO] plugin_manager — [calendar] poll loop terminato.
+19:33:33 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+19:33:33 [INFO] plugin_manager — [gmail] poll loop terminato.
+19:33:33 [INFO] plugin_manager — Plugin manager fermato.
+19:33:33 [INFO] root — Arresto completato.
+19:35:00 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+19:35:00 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:35:00 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+19:35:00 [INFO] plugin_manager — Plugin 'calendar' caricato.
+19:35:00 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+19:35:00 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:35:01 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+19:35:01 [INFO] plugin_manager — Plugin 'gmail' caricato.
+19:35:01 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+19:35:01 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+19:35:01 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+19:35:01 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+19:35:01 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+19:35:01 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+19:35:01 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+19:35:02 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/users/me/projects → HTTP 404
+19:35:02 [INFO] plugins.hacknplan_plugin — 📋 Endpoint non trovato, provo il prossimo.
+19:35:02 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+19:35:02 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/projects → HTTP 200
+19:35:02 [INFO] plugins.hacknplan_plugin — 📋 Risposta è una list di 1 elementi
+19:35:02 [INFO] plugins.hacknplan_plugin — 📋 Sample risposta:
+[
+  {
+    "id": 237539,
+    "workspaceId": 12112,
+    "name": "Lemon Loop Studio",
+    "description": "",
+    "creationDate": "2026-05-12T13:42:50.903",
+    "owner": {
+      "id": 262771,
+      "username": "MichaelManeia_LemonLoop",
+      "email": "michael.maneia@lemonloop.it",
+      "name": "Michael Maneia",
+      "creationDate": "2026-05-12T13:42:01.103"
+    },
+    "costMetric": "points",
+    "isDemo": false,
+    "hoursPerDay": 8.0,
+    "moduleConfig": {
+      "workItems": true,
+      "workIte
+19:35:02 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+19:35:03 [WARNING] plugins.hacknplan_plugin — HacknPlan: errore GET workitems progetto 237539: 400 Client Error: Bad Request for url: https://api.hacknplan.com/v0/projects/237539/workitems?assignedUserId=262771&limit=200
+19:35:14 [INFO] root — Shutdown in corso...
+19:35:14 [INFO] plugin_manager — Arresto plugin manager...
+19:35:14 [INFO] plugin_manager — [calendar] poll loop terminato.
+19:35:14 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+19:35:14 [INFO] plugin_manager — [gmail] poll loop terminato.
+19:35:14 [INFO] plugin_manager — Plugin manager fermato.
+19:35:14 [INFO] root — Arresto completato.
+19:36:33 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+19:36:34 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:36:34 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+19:36:34 [INFO] plugin_manager — Plugin 'calendar' caricato.
+19:36:34 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+19:36:34 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+19:36:34 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+19:36:34 [INFO] plugin_manager — Plugin 'gmail' caricato.
+19:36:34 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+19:36:35 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+19:36:35 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+19:36:35 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+19:36:35 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+19:36:35 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+19:36:35 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+19:36:35 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/users/me/projects → HTTP 404
+19:36:35 [INFO] plugins.hacknplan_plugin — 📋 Endpoint non trovato, provo il prossimo.
+19:36:35 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+19:36:36 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/projects → HTTP 200
+19:36:36 [INFO] plugins.hacknplan_plugin — 📋 Risposta è una list di 1 elementi
+19:36:36 [INFO] plugins.hacknplan_plugin — 📋 Sample risposta:
+[
+  {
+    "id": 237539,
+    "workspaceId": 12112,
+    "name": "Lemon Loop Studio",
+    "description": "",
+    "creationDate": "2026-05-12T13:42:50.903",
+    "owner": {
+      "id": 262771,
+      "username": "MichaelManeia_LemonLoop",
+      "email": "michael.maneia@lemonloop.it",
+      "name": "Michael Maneia",
+      "creationDate": "2026-05-12T13:42:01.103"
+    },
+    "costMetric": "points",
+    "isDemo": false,
+    "hoursPerDay": 8.0,
+    "moduleConfig": {
+      "workItems": true,
+      "workIte
+19:36:36 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+19:36:36 [INFO] plugins.hacknplan_plugin — 📋 Tentativo params={'limit': 200} → HTTP 400: "Invalid offset and limit values."
+19:36:36 [INFO] plugins.hacknplan_plugin — 📋 Tentativo params={'limit': 200, 'assigneeId': 262771} → HTTP 400: "Invalid offset and limit values."
+19:36:37 [INFO] plugins.hacknplan_plugin — 📋 Tentativo params={'limit': 200, 'filterUserId': 262771} → HTTP 400: "Invalid offset and limit values."
+19:36:37 [INFO] plugins.hacknplan_plugin — 📋 Tentativo params={'limit': 200, 'userId': 262771} → HTTP 400: "Invalid offset and limit values."
+19:36:37 [WARNING] plugins.hacknplan_plugin — 📋 Tutti i tentativi falliti per progetto 'Lemon Loop Studio'
+19:36:51 [INFO] root — Shutdown in corso...
+19:36:51 [INFO] plugin_manager — Arresto plugin manager...
+19:36:51 [INFO] plugin_manager — [gmail] poll loop terminato.
+19:36:51 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+19:36:51 [INFO] plugin_manager — [calendar] poll loop terminato.
+19:36:51 [INFO] plugin_manager — Plugin manager fermato.
+19:36:51 [INFO] root — Arresto completato.
+20:04:44 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+20:04:44 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:04:44 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+20:04:44 [INFO] plugin_manager — Plugin 'calendar' caricato.
+20:04:44 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+20:04:44 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:04:45 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+20:04:45 [INFO] plugin_manager — Plugin 'gmail' caricato.
+20:04:45 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+20:04:45 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+20:04:45 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+20:04:45 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+20:04:45 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+20:04:45 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+20:04:45 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+20:04:46 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/users/me/projects → HTTP 404
+20:04:46 [INFO] plugins.hacknplan_plugin — 📋 Endpoint non trovato, provo il prossimo.
+20:04:46 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/projects → HTTP 200
+20:04:46 [INFO] plugins.hacknplan_plugin — 📋 Risposta è una list di 1 elementi
+20:04:46 [INFO] plugins.hacknplan_plugin — 📋 Sample risposta:
+[
+  {
+    "id": 237539,
+    "workspaceId": 12112,
+    "name": "Lemon Loop Studio",
+    "description": "",
+    "creationDate": "2026-05-12T13:42:50.903",
+    "owner": {
+      "id": 262771,
+      "username": "MichaelManeia_LemonLoop",
+      "email": "michael.maneia@lemonloop.it",
+      "name": "Michael Maneia",
+      "creationDate": "2026-05-12T13:42:01.103"
+    },
+    "costMetric": "points",
+    "isDemo": false,
+    "hoursPerDay": 8.0,
+    "moduleConfig": {
+      "workItems": true,
+      "workIte
+20:04:46 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+20:04:46 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+20:04:47 [INFO] plugins.hacknplan_plugin — 📋 Sample work item ('Lemon Loop Studio'):
+{
+  "projectId": 237539,
+  "workItemId": 1,
+  "isStory": true,
+  "title": "Brand Foundation",
+  "description": "Costruire le fondamenta strategiche del brand Lemon Loop prima di qualsiasi attivit\u00e0 visiva o di lancio. Definisce chi siamo, per chi esistiamo e cosa ci rende diversi.",
+  "category": {
+    "projectId": 237539,
+    "categoryId": -1,
+    "name": "User story",
+    "icon": "list-alt",
+    "color": "#888888",
+    "creationDate": "2026-05-12T13:42:50.993"
+  },
+  "stage": {
+    "projectId": 237539,
+    "stageId": 1,
+    "name": "Planned",
+    "icon": "calendar",
+    "color": "#888888",
+    "status": "created",
+    "isUnblocker": false,
+    "creationDate": "2026-05-12T13:42:51.027"
+  },
+  "estimatedCost": 0.0,
+  "loggedCost": 0.0,
+  "storyTasksEstimatedCost": 19.0,
+  "storyTasksLo
+20:04:54 [INFO] root — Shutdown in corso...
+20:04:54 [INFO] plugin_manager — Arresto plugin manager...
+20:04:54 [INFO] plugin_manager — [calendar] poll loop terminato.
+20:04:54 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+20:04:54 [INFO] plugin_manager — [gmail] poll loop terminato.
+20:04:54 [INFO] plugin_manager — Plugin manager fermato.
+20:04:54 [INFO] root — Arresto completato.
+20:06:13 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+20:06:14 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:06:14 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+20:06:14 [INFO] plugin_manager — Plugin 'calendar' caricato.
+20:06:14 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+20:06:14 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:06:14 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+20:06:14 [INFO] plugin_manager — Plugin 'gmail' caricato.
+20:06:14 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+20:06:14 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+20:06:14 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+20:06:14 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+20:06:14 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+20:06:14 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+20:06:14 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+20:06:15 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/users/me/projects → HTTP 404
+20:06:15 [INFO] plugins.hacknplan_plugin — 📋 Endpoint non trovato, provo il prossimo.
+20:06:15 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+20:06:15 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/projects → HTTP 200
+20:06:15 [INFO] plugins.hacknplan_plugin — 📋 Risposta è una list di 1 elementi
+20:06:15 [INFO] plugins.hacknplan_plugin — 📋 Sample risposta:
+[
+  {
+    "id": 237539,
+    "workspaceId": 12112,
+    "name": "Lemon Loop Studio",
+    "description": "",
+    "creationDate": "2026-05-12T13:42:50.903",
+    "owner": {
+      "id": 262771,
+      "username": "MichaelManeia_LemonLoop",
+      "email": "michael.maneia@lemonloop.it",
+      "name": "Michael Maneia",
+      "creationDate": "2026-05-12T13:42:01.103"
+    },
+    "costMetric": "points",
+    "isDemo": false,
+    "hoursPerDay": 8.0,
+    "moduleConfig": {
+      "workItems": true,
+      "workIte
+20:06:15 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+20:06:16 [INFO] plugins.hacknplan_plugin — 📋 Sample work item ('Lemon Loop Studio'):
+{
+  "projectId": 237539,
+  "workItemId": 1,
+  "isStory": true,
+  "title": "Brand Foundation",
+  "description": "Costruire le fondamenta strategiche del brand Lemon Loop prima di qualsiasi attivit\u00e0 visiva o di lancio. Definisce chi siamo, per chi esistiamo e cosa ci rende diversi.",
+  "category": {
+    "projectId": 237539,
+    "categoryId": -1,
+    "name": "User story",
+    "icon": "list-alt",
+    "color": "#888888",
+    "creationDate": "2026-05-12T13:42:50.993"
+  },
+  "stage": {
+    "projectId": 237539,
+    "stageId": 1,
+    "name": "Planned",
+    "icon": "calendar",
+    "color": "#888888",
+    "status": "created",
+    "isUnblocker": false,
+    "creationDate": "2026-05-12T13:42:51.027"
+  },
+  "estimatedCost": 0.0,
+  "loggedCost": 0.0,
+  "storyTasksEstimatedCost": 19.0,
+  "storyTasksLoggedCost": 16.0,
+  "boardIndex": 3,
+  "designElementIndex": 3,
+  "designElement": {
+    "index": 2,
+    "projectId": 237539,
+    "designElementId": 39,
+    "type": {
+      "projectId": 237539,
+      "designElementTypeId": 1,
+      "name": "Chapter",
+      "creationDate": "2026-05-12T13:42:51.01"
+    },
+    "name": "Strategia",
+    "parent": {
+      "index": 0,
+      "projectId": 237539,
+      "designElementId": 38,
+      "children": [],
+      "totalWorkItemCount": 0,
+      "closedWorkItemCount": 0,
+      "description": "",
+      "creationDate": "0001-01-01T00:00:00"
+    },
+    "children": [],
+    "totalWorkItemCount": 4,
+    "closedWorkItemCount": 2,
+    "description": "",
+    "creationDate": "2026-05-18T13:29:46.333",
+    "user": {
+      "projectId": 237539,
+      "user": {
+        "id": 20150,
+        "username": "MikeAymeric",
+        "name": "Michael Maneia"
+      },
+      "isAdmin": true,
+      "isGuest": false,
+      "isActive": false,
+      "creationDate": "2026-05-12T13:50:46.583",
+      "permissions": {
+        "categoryPermissions": [
+          {
+            "categoryId": -1,
+            "canRead": true,
+            "canWrite": true,
+            "canUpdate": true
+          },
+          {
+            "categoryId": 1,
+            "canRead": true,
+            "canWrite": false,
+            "canUpdate": false
+          },
+          {
+            "categoryId": 2,
+            "canRead": true,
+            "canWrite": false,
+            "canUpdate": false
+          },
+          {
+            "categoryId": 3,
+            "canRead": true,
+            "canWrite": true,
+            "canUpdate": true
+          },
+          {
+            "categoryId": 4,
+            "canRead"
+20:06:16 [INFO] plugins.hacknplan_plugin — 📋 Chiavi top-level work item: ['projectId', 'workItemId', 'isStory', 'title', 'description', 'category', 'stage', 'estimatedCost', 'loggedCost', 'storyTasksEstimatedCost', 'storyTasksLoggedCost', 'boardIndex', 'designElementIndex', 'designElement', 'startDate', 'dueDate', 'updateDate', 'creationDate', 'user', 'board', 'assignedUsers', 'tags', 'importanceLevel', 'hasDependencies', 'isBlocked']
+20:06:20 [INFO] root — Shutdown in corso...
+20:06:20 [INFO] plugin_manager — Arresto plugin manager...
+20:06:20 [INFO] plugin_manager — [calendar] poll loop terminato.
+20:06:20 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+20:06:20 [INFO] plugin_manager — [gmail] poll loop terminato.
+20:06:20 [INFO] plugin_manager — Plugin manager fermato.
+20:06:20 [INFO] root — Arresto completato.
+20:11:36 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+20:11:36 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:11:36 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+20:11:36 [INFO] plugin_manager — Plugin 'calendar' caricato.
+20:11:36 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+20:11:36 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:11:37 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+20:11:37 [INFO] plugin_manager — Plugin 'gmail' caricato.
+20:11:37 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+20:11:37 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+20:11:37 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+20:11:37 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+20:11:37 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+20:11:37 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+20:11:37 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+20:11:38 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/users/me/projects → HTTP 404
+20:11:38 [INFO] plugins.hacknplan_plugin — 📋 Endpoint non trovato, provo il prossimo.
+20:11:38 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+20:11:38 [INFO] plugins.hacknplan_plugin — 📋 GET https://api.hacknplan.com/v0/projects → HTTP 200
+20:11:38 [INFO] plugins.hacknplan_plugin — 📋 Risposta è una list di 1 elementi
+20:11:38 [INFO] plugins.hacknplan_plugin — 📋 Sample risposta:
+[
+  {
+    "id": 237539,
+    "workspaceId": 12112,
+    "name": "Lemon Loop Studio",
+    "description": "",
+    "creationDate": "2026-05-12T13:42:50.903",
+    "owner": {
+      "id": 262771,
+      "username": "MichaelManeia_LemonLoop",
+      "email": "michael.maneia@lemonloop.it",
+      "name": "Michael Maneia",
+      "creationDate": "2026-05-12T13:42:01.103"
+    },
+    "costMetric": "points",
+    "isDemo": false,
+    "hoursPerDay": 8.0,
+    "moduleConfig": {
+      "workItems": true,
+      "workIte
+20:11:38 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 Sample work item ('Lemon Loop Studio'):
+{
+  "projectId": 237539,
+  "workItemId": 1,
+  "isStory": true,
+  "title": "Brand Foundation",
+  "description": "Costruire le fondamenta strategiche del brand Lemon Loop prima di qualsiasi attivit\u00e0 visiva o di lancio. Definisce chi siamo, per chi esistiamo e cosa ci rende diversi.",
+  "category": {
+    "projectId": 237539,
+    "categoryId": -1,
+    "name": "User story",
+    "icon": "list-alt",
+    "color": "#888888",
+    "creationDate": "2026-05-12T13:42:50.993"
+  },
+  "stage": {
+    "projectId": 237539,
+    "stageId": 1,
+    "name": "Planned",
+    "icon": "calendar",
+    "color": "#888888",
+    "status": "created",
+    "isUnblocker": false,
+    "creationDate": "2026-05-12T13:42:51.027"
+  },
+  "estimatedCost": 0.0,
+  "loggedCost": 0.0,
+  "storyTasksEstimatedCost": 19.0,
+  "storyTasksLoggedCost": 16.0,
+  "boardIndex": 3,
+  "designElementIndex": 3,
+  "designElement": {
+    "index": 2,
+    "projectId": 237539,
+    "designElementId": 39,
+    "type": {
+      "projectId": 237539,
+      "designElementTypeId": 1,
+      "name": "Chapter",
+      "creationDate": "2026-05-12T13:42:51.01"
+    },
+    "name": "Strategia",
+    "parent": {
+      "index": 0,
+      "projectId": 237539,
+      "designElementId": 38,
+      "children": [],
+      "totalWorkItemCount": 0,
+      "closedWorkItemCount": 0,
+      "description": "",
+      "creationDate": "0001-01-01T00:00:00"
+    },
+    "children": [],
+    "totalWorkItemCount": 4,
+    "closedWorkItemCount": 2,
+    "description": "",
+    "creationDate": "2026-05-18T13:29:46.333",
+    "user": {
+      "projectId": 237539,
+      "user": {
+        "id": 20150,
+        "username": "MikeAymeric",
+        "name": "Michael Maneia"
+      },
+      "isAdmin": true,
+      "isGuest": false,
+      "isActive": false,
+      "creationDate": "2026-05-12T13:50:46.583",
+      "permissions": {
+        "categoryPermissions": [
+          {
+            "categoryId": -1,
+            "canRead": true,
+            "canWrite": true,
+            "canUpdate": true
+          },
+          {
+            "categoryId": 1,
+            "canRead": true,
+            "canWrite": false,
+            "canUpdate": false
+          },
+          {
+            "categoryId": 2,
+            "canRead": true,
+            "canWrite": false,
+            "canUpdate": false
+          },
+          {
+            "categoryId": 3,
+            "canRead": true,
+            "canWrite": true,
+            "canUpdate": true
+          },
+          {
+            "categoryId": 4,
+            "canRead"
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 Chiavi top-level work item: ['projectId', 'workItemId', 'isStory', 'title', 'description', 'category', 'stage', 'estimatedCost', 'loggedCost', 'storyTasksEstimatedCost', 'storyTasksLoggedCost', 'boardIndex', 'designElementIndex', 'designElement', 'startDate', 'dueDate', 'updateDate', 'creationDate', 'user', 'board', 'assignedUsers', 'tags', 'importanceLevel', 'hasDependencies', 'isBlocked']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Brand Foundation' dueDate=2026-05-31T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: Shop' dueDate=2026-05-28T15:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)', '263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Collegare mappa a livelli del match3' dueDate=2026-05-20T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: aggiungere freemium currency' dueDate=2026-05-28T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: aggiungere boosters' dueDate=2026-05-26T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: creare shop con boosters' dueDate=2026-05-28T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Definire tipologie di booster e funziona' dueDate=2026-05-15T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Definire Monetizzazione' dueDate=2026-05-20T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match 3: Difficoltà e progressione livel' dueDate=2026-06-01T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)', '263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: Booster' dueDate=2026-05-29T15:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)', '262774(StefanoIlMagnifico)', '263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Definire processo di Registrazione/Log i' dueDate=2026-05-22T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Definire difficoltà livelli e progressio' dueDate=2026-05-15T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Brand Strategy Core' dueDate=2026-05-25T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Audience mapping' dueDate=2026-05-26T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Competitor & reference research' dueDate=2026-05-30T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Verbal Identity' dueDate=2026-06-15T07:00:00 assignedUsers=['146286(LorenzoFalvo)', '262771(MichaelManeia_LemonLoop)', '262774(StefanoIlMagnifico)', '262776(tullio)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Verifica nome e disponibilità' dueDate=2026-05-20T07:00:00 assignedUsers=['146286(LorenzoFalvo)', '262771(MichaelManeia_LemonLoop)', '262774(StefanoIlMagnifico)', '262776(tullio)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Tone of voice' dueDate=2026-06-10T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Copy fondamentali' dueDate=2026-06-15T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Visual Identity - Parte 1' dueDate=2026-06-01T07:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)', '262774(StefanoIlMagnifico)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Brief di sintesi Brand strategy per Ste' dueDate=2026-05-25T16:00:00 assignedUsers=['262771(MichaelManeia_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Esplorazione Logo' dueDate=2026-05-29T07:00:00 assignedUsers=['262774(StefanoIlMagnifico)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Sostituire Banana Pirata con Lemon Loop' dueDate=2026-05-19T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Sostituire logo e titolo sulla build' dueDate=2026-05-19T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Creare account itch e caricare la build ' dueDate=2026-05-19T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Creare meccanica CrazyBall' dueDate=2026-05-26T07:00:00 assignedUsers=['263145(LorenzoFalvo_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Visual Identity - Parte 2' dueDate=2026-06-08T07:00:00 assignedUsers=['262774(StefanoIlMagnifico)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'creazione booster' dueDate=2026-05-22T07:00:00 assignedUsers=['262774(StefanoIlMagnifico)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: polish' dueDate=2026-05-22T15:00:00 assignedUsers=['262774(StefanoIlMagnifico)', '263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: creazione bg' dueDate=2026-05-22T07:00:00 assignedUsers=['262774(StefanoIlMagnifico)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: sostituire bg' dueDate=2026-05-21T07:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: aggiungere animazioni powerup' dueDate=2026-05-20T07:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: bugs' dueDate=2026-05-22T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Bug gameplay Match3: target con frutti n' dueDate=2026-05-22T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Bug gameplay Explore: errore in console ' dueDate=2026-05-22T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:39 [INFO] plugins.hacknplan_plugin — 📋 WI 'Match3: aggiungere animazioni combo powe' dueDate=2026-05-21T15:00:00 assignedUsers=['263133(TullioGuli_LemonLoop)']
+20:11:45 [INFO] root — Shutdown in corso...
+20:11:45 [INFO] plugin_manager — Arresto plugin manager...
+20:11:45 [INFO] plugin_manager — [gmail] poll loop terminato.
+20:11:45 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+20:11:45 [INFO] plugin_manager — [calendar] poll loop terminato.
+20:11:45 [INFO] plugin_manager — Plugin manager fermato.
+20:11:45 [INFO] root — Arresto completato.
+20:15:42 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+20:15:42 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:15:42 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+20:15:42 [INFO] plugin_manager — Plugin 'calendar' caricato.
+20:15:42 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+20:15:42 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:15:43 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+20:15:43 [INFO] plugin_manager — Plugin 'gmail' caricato.
+20:15:43 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+20:15:43 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+20:15:43 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+20:15:43 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+20:15:43 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+20:15:43 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+20:15:43 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+20:15:44 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+20:15:44 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+20:15:45 [WARNING] plugins.hacknplan_plugin — HacknPlan: errore polling progetto 'Lemon Loop Studio': cannot use 'dict' as a dict key (unhashable type: 'dict')
+20:15:55 [INFO] root — Shutdown in corso...
+20:15:55 [INFO] plugin_manager — Arresto plugin manager...
+20:15:55 [INFO] plugin_manager — [calendar] poll loop terminato.
+20:15:55 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+20:15:55 [INFO] plugin_manager — [gmail] poll loop terminato.
+20:15:55 [INFO] plugin_manager — Plugin manager fermato.
+20:15:55 [INFO] root — Arresto completato.
+20:17:08 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+20:17:08 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:17:08 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+20:17:08 [INFO] plugin_manager — Plugin 'calendar' caricato.
+20:17:08 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+20:17:08 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:17:09 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+20:17:09 [INFO] plugin_manager — Plugin 'gmail' caricato.
+20:17:09 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+20:17:09 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+20:17:09 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+20:17:09 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+20:17:09 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+20:17:09 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+20:17:09 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+20:17:10 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+20:17:10 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+20:17:11 [WARNING] plugins.hacknplan_plugin — HacknPlan: errore polling progetto 'Lemon Loop Studio': cannot use 'dict' as a dict key (unhashable type: 'dict')
+Traceback (most recent call last):
+  File "C:\Users\mikma\Desktop\Petcube\PetCube Companion\plugins\hacknplan_plugin.py", line 171, in poll
+    events = self._poll_project(project_id, project_name, now, threshold)
+  File "C:\Users\mikma\Desktop\Petcube\PetCube Companion\plugins\hacknplan_plugin.py", line 288, in _poll_project
+    base_priority = HACKNPLAN_PRIORITY_MAP.get(importance, NotifPriority.NORMAL)
+TypeError: cannot use 'dict' as a dict key (unhashable type: 'dict')
+
+20:17:20 [INFO] root — Shutdown in corso...
+20:17:20 [INFO] plugin_manager — Arresto plugin manager...
+20:17:20 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+20:17:20 [INFO] plugin_manager — [calendar] poll loop terminato.
+20:17:20 [INFO] plugin_manager — [gmail] poll loop terminato.
+20:17:20 [INFO] plugin_manager — Plugin manager fermato.
+20:17:20 [INFO] root — Arresto completato.
+20:21:55 [INFO] plugins.base — Plugin calendar inizializzato (1 ID nello storico).
+20:21:55 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:21:55 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+20:21:55 [INFO] plugin_manager — Plugin 'calendar' caricato.
+20:21:55 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+20:21:55 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:21:56 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+20:21:56 [INFO] plugin_manager — Plugin 'gmail' caricato.
+20:21:56 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+20:21:56 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+20:21:56 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+20:21:56 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+20:21:56 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+20:21:56 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+20:21:56 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+20:21:57 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+20:21:57 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+20:21:58 [INFO] plugins.hacknplan_plugin — 📋 Work item imminente: 'Lemon Loop Studio — Brand Strategy Core' (due in 36.6h, priority=HIGH)
+20:21:58 [INFO] plugins.hacknplan_plugin — 📋 Work item imminente: 'Lemon Loop Studio — Brief di sintesi Brand strategy per Ste' (due in 45.6h, priority=HIGH)
+20:21:59 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+20:21:59 [INFO] plugin_manager — 📦 NotifPacket pronto: source=TRELLO priority=HIGH category=ROUTINE hash=64588 preview='Lemon Loop Studio — Brand Strategy Core'
+20:21:59 [INFO] plugin_manager — 📦 NotifPacket pronto: source=TRELLO priority=HIGH category=ROUTINE hash=46590 preview='Lemon Loop Studio — Brief di sintesi Brand strateg'
+20:21:59 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+20:22:09 [WARNING] ble_sender — Device 'PetCube' non trovato.
+20:22:09 [INFO] ble_sender — BLE fallito, provo WiFi fallback...
+20:22:13 [WARNING] ble_sender — WiFi send fallita: HTTPConnectionPool(host='petcube.local', port=8080): Max retries exceeded with url: /notify (Caused by NameResolutionError("HTTPConnection(host='petcube.local', port=8080): Failed to resolve 'petcube.local' ([Errno 11001] getaddrinfo failed)"))
+20:22:13 [WARNING] root — Invio fallito, scarto il pacchetto.
+20:22:13 [INFO] root — Shutdown in corso...
+20:22:13 [INFO] plugin_manager — Arresto plugin manager...
+20:22:13 [INFO] plugin_manager — [gmail] poll loop terminato.
+20:22:13 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+20:22:13 [INFO] plugin_manager — [calendar] poll loop terminato.
+20:22:13 [INFO] plugin_manager — Plugin manager fermato.
+20:22:13 [INFO] root — Arresto completato.
+20:25:06 [INFO] plugins.base — Plugin calendar inizializzato (0 ID nello storico).
+20:25:07 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:25:07 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+20:25:07 [INFO] plugin_manager — Plugin 'calendar' caricato.
+20:25:07 [INFO] plugins.base — Plugin gmail inizializzato (0 ID nello storico).
+20:25:07 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:25:07 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+20:25:07 [INFO] plugin_manager — Plugin 'gmail' caricato.
+20:25:07 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+20:25:08 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+20:25:08 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+20:25:08 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+20:25:08 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+20:25:08 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+20:25:08 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+20:25:08 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Avviso di sicurezza'
+20:25:08 [INFO] plugins.gmail_plugin — 📧 Mail rilevante: 'Google — Information about your new Google Account'
+20:25:08 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+20:25:09 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+20:25:09 [INFO] plugins.calendar_plugin — 📅 Evento imminente: "ANTIPULCI OLLY e G'RAHA" (cal='michael.maneia.gd@gmail.com', priority=HIGH)
+20:25:09 [INFO] plugins.hacknplan_plugin — 📋 Work item imminente: 'Lemon Loop Studio — Brand Strategy Core' (due in 36.6h, priority=HIGH)
+20:25:09 [INFO] plugins.hacknplan_plugin — 📋 Work item imminente: 'Lemon Loop Studio — Brief di sintesi Brand strategy per Ste' (due in 45.6h, priority=HIGH)
+20:25:10 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+20:25:11 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+20:25:11 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=20436 preview='Google — Avviso di sicurezza'
+20:25:11 [INFO] plugin_manager — 📦 NotifPacket pronto: source=TRELLO priority=HIGH category=ROUTINE hash=64588 preview='Lemon Loop Studio — Brand Strategy Core'
+20:25:11 [INFO] plugin_manager — 📦 NotifPacket pronto: source=GMAIL priority=NORMAL category=ROUTINE hash=8921 preview='Google — Information about your new Google Account'
+20:25:11 [INFO] plugin_manager — 📦 NotifPacket pronto: source=TRELLO priority=HIGH category=ROUTINE hash=46590 preview='Lemon Loop Studio — Brief di sintesi Brand strateg'
+20:25:11 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+20:25:11 [INFO] plugin_manager — 📦 NotifPacket pronto: source=CALENDAR priority=HIGH category=ROUTINE hash=63364 preview="ANTIPULCI OLLY e G'RAHA"
+20:25:11 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+20:25:11 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+20:25:13 [INFO] ble_sender — Connesso al PetCube via BLE.
+20:27:03 [INFO] root — Shutdown in corso...
+20:27:03 [INFO] plugin_manager — Arresto plugin manager...
+20:27:03 [INFO] plugin_manager — [calendar] poll loop terminato.
+20:27:03 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+20:27:03 [INFO] plugin_manager — [gmail] poll loop terminato.
+20:27:03 [INFO] plugin_manager — Plugin manager fermato.
+20:27:03 [INFO] ble_sender — BLE disconnesso.
+20:27:03 [INFO] root — Arresto completato.
+20:35:28 [INFO] plugins.base — Plugin calendar inizializzato (0 ID nello storico).
+20:35:28 [INFO] plugins.calendar_plugin — Refresh del token Google in corso...
+20:35:29 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:35:29 [INFO] plugins.calendar_plugin — Google Calendar API pronta.
+20:35:29 [INFO] plugin_manager — Plugin 'calendar' caricato.
+20:35:29 [INFO] plugins.base — Plugin gmail inizializzato (9 ID nello storico).
+20:35:29 [INFO] googleapiclient.discovery_cache — file_cache is only supported with oauth2client<4.0.0
+20:35:29 [INFO] plugins.gmail_plugin — 📧 Gmail API pronta (account: michael.maneia.gd@gmail.com)
+20:35:29 [INFO] plugin_manager — Plugin 'gmail' caricato.
+20:35:29 [INFO] plugins.base — Plugin hacknplan inizializzato (0 ID nello storico).
+20:35:30 [INFO] plugins.hacknplan_plugin — 📋 HacknPlan API pronta (utente: MichaelManeia_LemonLoop, id=262771)
+20:35:30 [INFO] plugin_manager — Plugin 'hacknplan' caricato.
+20:35:30 [INFO] plugin_manager — [calendar] poll loop avviato (intervallo 60s).
+20:35:30 [INFO] plugin_manager — [gmail] poll loop avviato (intervallo 600s).
+20:35:30 [INFO] plugin_manager — [hacknplan] poll loop avviato (intervallo 7200s).
+20:35:30 [INFO] root — PetCube Companion avviato. Ctrl+C per uscire.
+20:35:31 [INFO] plugins.hacknplan_plugin — 📋 Progetti HacknPlan attivi: 1 (Lemon Loop Studio)
+20:35:31 [INFO] plugins.calendar_plugin — 📆 Calendari attivi: 6 (michael.maneia.gd@gmail.com, mik.maneia@gmail.com, Cyberollini, Demontini, Lavoro...) — esclusi: 1
+20:35:31 [INFO] plugins.hacknplan_plugin — 📋 Work item imminente: 'Lemon Loop Studio — Brand Strategy Core' (due in 36.4h, priority=HIGH)
+20:35:31 [INFO] plugins.hacknplan_plugin — 📋 Work item imminente: 'Lemon Loop Studio — Brief di sintesi Brand strategy per Ste' (due in 45.4h, priority=HIGH)
+20:35:32 [INFO] sentiment — spaCy 'it_core_news_sm' caricato.
+20:35:32 [INFO] plugin_manager — 📦 NotifPacket pronto: source=TRELLO priority=HIGH category=ROUTINE hash=64588 preview='Lemon Loop Studio — Brand Strategy Core'
+20:35:32 [INFO] plugin_manager — 📦 NotifPacket pronto: source=TRELLO priority=HIGH category=ROUTINE hash=46590 preview='Lemon Loop Studio — Brief di sintesi Brand strateg'
+20:35:32 [INFO] ble_sender — Scan BLE per 'PetCube' (timeout 10s)...
+20:35:33 [INFO] ble_sender — Trovato E0:72:A1:FA:4B:7D. Connessione...
+20:35:37 [INFO] ble_sender — Connesso al PetCube via BLE.
+20:36:21 [INFO] root — Shutdown in corso...
+20:36:21 [INFO] plugin_manager — Arresto plugin manager...
+20:36:21 [INFO] plugin_manager — [gmail] poll loop terminato.
+20:36:21 [INFO] plugin_manager — [calendar] poll loop terminato.
+20:36:21 [INFO] plugin_manager — [hacknplan] poll loop terminato.
+20:36:21 [INFO] plugin_manager — Plugin manager fermato.
+20:36:21 [INFO] ble_sender — BLE disconnesso.
+20:36:21 [INFO] root — Arresto completato.

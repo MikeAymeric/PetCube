@@ -1,0 +1,1 @@
+"""PetCube Companion plugins package."""

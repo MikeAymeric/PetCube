@@ -1,0 +1,317 @@
+# PetCube
+
+> A Tamagotchi-meets-Pomodoro virtual pet cube. Train, study, and work — your cube knows which, because it can feel which way it's facing.
+
+PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise a Digimon-inspired creature by completing real-life pomodoro sessions: tilt the cube **left to train**, **right to study**, **upside down to work**. A companion desktop app turns your real notifications (calendar events, emails, project deadlines) into in-game battles the pet must fight.
+
+**Status**: work in progress. Battle system, companion plugins (Calendar / Gmail / HacknPlan) and BLE transport are operational. Portable LiPo power and GUI Steps 2-3 are in progress.
+
+---
+
+## Table of contents
+
+1. [Hardware](#hardware)
+2. [Architecture](#architecture)
+3. [Repository structure](#repository-structure)
+4. [Getting started — Firmware](#getting-started--firmware)
+5. [Getting started — Companion app](#getting-started--companion-app)
+6. [First connection](#first-connection)
+7. [Configuration reference](#configuration-reference)
+8. [How the battle system works](#how-the-battle-system-works)
+9. [Roadmap](#roadmap)
+10. [Credits](#credits)
+11. [License](#license)
+
+---
+
+## Hardware
+
+| Component | Role | Notes |
+|---|---|---|
+| Seeed XIAO ESP32-S3 | MCU | Built-in BLE + WiFi, Arduino-compatible |
+| SH1106 OLED 1.3" 128×64 | Display | I²C address `0x3C` |
+| MPU6050 | Orientation sensor | I²C address `0x68`, shares bus with OLED |
+| 3× momentary buttons | Inputs A / B / C | Active-low, internal pull-ups |
+| Passive piezo buzzer | Audio | Single GPIO, tone() driven |
+| TP4056 USB-C module | LiPo charger | Currently base variant; upgrading to one with DW01+FS8205 protection |
+| LiPo 3.7V 500-1000 mAh | Battery | PH2.0 connector (planned) |
+
+The cube currently runs from the XIAO's USB-C while the LiPo + protected TP4056 are sourced. See [`docs/PetCube_Breadboard_Fase3_TP4056.svg`](docs/) for the planned power topology.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Companion app (PC, Python)                  │
+│                                                                  │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐                       │
+│   │ Calendar │  │  Gmail   │  │ HacknPlan│   (plugin manager)    │
+│   └────┬─────┘  └────┬─────┘  └────┬─────┘                       │
+│        └─────────────┼──────────────┘                            │
+│                      ▼                                           │
+│               ┌──────────────┐                                   │
+│               │  Sentiment   │  (spaCy IT — categorizes event)   │
+│               │  classifier  │                                   │
+│               └──────┬───────┘                                   │
+│                      ▼                                           │
+│               ┌──────────────┐                                   │
+│               │  BLE sender  │  (bleak, GATT write)              │
+│               └──────┬───────┘                                   │
+└──────────────────────┼───────────────────────────────────────────┘
+                       │ Notification packet (20 bytes header + seed)
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      PetCube firmware (XIAO)                     │
+│                                                                  │
+│   GATT server  →  Notification queue  →  Idle screen icon       │
+│                                                                  │
+│   Long-press B (5s) on icon  →  Battle vs. enemy generated       │
+│   from notification seed                                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+External sources (Google Calendar, Gmail, HacknPlan REST) → companion polls them → each new event is wrapped in a `NotifPacket` and sent via BLE GATT to the cube. The cube shows an icon on its idle screen; long-pressing **B** starts a battle where the enemy's stats and element derive deterministically from the notification's text and source.
+
+---
+
+## Repository structure
+
+```
+petcube/
+├── firmware/
+│   ├── PetCube.ino                 # Main firmware sketch
+│   ├── petcube_sprites.h           # 32 Digimon × 12 frames + UI icons (XBM)
+│   └── ...
+├── companion/
+│   ├── main.py                     # CLI entry point
+│   ├── gui.py                      # CustomTkinter dashboard + tray icon
+│   ├── companion_engine.py         # Async core, GUI-controllable
+│   ├── plugin_manager.py           # Plugin lifecycle + dispatch
+│   ├── ble_sender.py               # BLE GATT client
+│   ├── sentiment.py                # Italian text classifier
+│   ├── notification_packet.py      # Packet schema
+│   ├── plugins/
+│   │   ├── base.py                 # Plugin base class + seen_ids persistence
+│   │   ├── calendar_plugin.py
+│   │   ├── gmail_plugin.py
+│   │   └── hacknplan_plugin.py
+│   ├── config.json                 # User config (gitignored — see config.example.json)
+│   ├── history/                    # Persisted seen_ids (gitignored)
+│   └── requirements.txt
+├── docs/
+│   ├── PetCube_GDD_v0_11.docx      # Full game design document
+│   └── PetCube_Breadboard_Fase3_TP4056.svg
+└── README.md
+```
+
+---
+
+## Getting started — Firmware
+
+### Prerequisites
+
+- Arduino IDE 2.x (or arduino-cli)
+- ESP32 board package by Espressif Systems (≥ 3.0.0)
+- Board selected: **XIAO_ESP32S3**
+- Libraries:
+  - `U8g2` by oliver
+  - `Adafruit MPU6050`
+  - `Adafruit Unified Sensor`
+  - `Adafruit BusIO`
+  - `ArduinoBLE` is **not** used — the firmware uses the native ESP32 BLE stack via `BLEDevice.h`
+
+### Build & flash
+
+1. Open `firmware/PetCube.ino` in Arduino IDE.
+2. Tools → Board → **XIAO_ESP32S3**.
+3. Tools → USB CDC On Boot → **Enabled** (needed for serial logging).
+4. Tools → Partition Scheme → **8M with spiffs (3MB APP/1.5MB SPIFFS)** or larger (the firmware is around 1.5 MB).
+5. Connect the XIAO via USB-C and select the port.
+6. Click **Upload**.
+
+The serial monitor (115200 baud) shows the boot sequence, plugin events received, and battle state transitions.
+
+### First-time setup on the cube
+
+On first boot the cube enters **boot screen** → asks **Continue / New Game** → asks to set the CEST clock (A=+1h, B=+1min, C=save). For a new game, it then prompts for the starter element (Fire or Water).
+
+---
+
+## Getting started — Companion app
+
+### Prerequisites
+
+- Python 3.11+ (tested on 3.14 Windows)
+- A working PC Bluetooth adapter
+- Google Cloud project with OAuth credentials for Calendar + Gmail (steps below)
+- A HacknPlan API key (optional, for the HacknPlan plugin)
+
+### Install
+
+```powershell
+cd companion
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+python -m spacy download it_core_news_sm
+```
+
+### Google OAuth setup
+
+The Calendar and Gmail plugins share a unified OAuth flow:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a project (e.g. `PetCube Companion`).
+3. Enable the **Google Calendar API** and **Gmail API**.
+4. Configure the OAuth consent screen (External, Testing mode is fine for personal use).
+5. Add the scopes `calendar.readonly` and `gmail.readonly`.
+6. Add your own Google account as a test user.
+7. Create an **OAuth 2.0 Client ID** of type **Desktop application**.
+8. Download the JSON file and save it as `companion/credentials.json`.
+9. First run: the app will open a browser to authorize and save `companion/token.json` for subsequent launches.
+
+### HacknPlan API key
+
+1. Sign in to [HacknPlan](https://app.hacknplan.com/).
+2. Click your avatar → **My Account** → **API**.
+3. Click **Generate Token** and copy it into `config.json` → `plugins.hacknplan.api_key`.
+
+### Run
+
+CLI (no GUI):
+
+```powershell
+python main.py
+```
+
+GUI (dashboard + tray icon):
+
+```powershell
+python gui.py
+```
+
+---
+
+## First connection
+
+1. Power on the cube and let it reach idle state (you should see the pet on screen).
+2. Run the companion (`python gui.py` or `python main.py`).
+3. The BLE sender scans for a device named `PetCube` (10 s timeout). When a real event is generated by a plugin, it is dispatched and sent.
+4. On the cube, an icon appears next to the pet in idle mode.
+5. **Long-press B for 5 seconds** to start the battle generated from that notification.
+
+If the cube is not in idle (e.g. in a session, sleep, or menu), the BLE advertising is stopped — return to idle for the cube to be discoverable.
+
+---
+
+## Configuration reference
+
+`companion/config.json` controls all plugins and transport. Example:
+
+```json
+{
+  "transport": {
+    "prefer": "ble",
+    "ble_device_name": "PetCube",
+    "ble_scan_timeout": 10
+  },
+  "plugins": {
+    "calendar": {
+      "enabled": true,
+      "poll_interval_sec": 60,
+      "lookahead_minutes": 15,
+      "exclude_calendars": ["addressbook.google.com"]
+    },
+    "gmail": {
+      "enabled": true,
+      "poll_interval_sec": 600,
+      "login_hint": "you@example.com",
+      "max_recent": 20
+    },
+    "hacknplan": {
+      "enabled": true,
+      "poll_interval_sec": 7200,
+      "lookahead_hours": 48,
+      "api_key": "<paste here>",
+      "target_user_id": null
+    }
+  }
+}
+```
+
+### Plugin behaviour
+
+| Plugin | Polls every | Filters | Notes |
+|---|---|---|---|
+| Calendar | 60 s | Excludes `*@holiday.calendar.google.com`, `*@group.v.calendar.google.com`, `*@import.calendar.google.com`, `#contacts@` | Multi-calendar (primary + shared) |
+| Gmail | 10 min | `UNREAD` in Inbox, no `category:promotions/social/updates/forums`, recipient must be in `To`/`Cc` (no bulk mail) | Skips `List-Unsubscribe` and `Precedence: bulk/list` |
+| HacknPlan | 2 h | Work items assigned to me with `dueDate` within `lookahead_hours`, not in `stage.status: completed` | Skips user stories (`isStory: true`) |
+
+All plugins persist their seen-IDs to `history/<plugin>.json` (FIFO cap 5000) so the same event is not re-sent after a restart.
+
+---
+
+## How the battle system works
+
+1. **Notification arrives**: a plugin detects a new event, builds a `NotifPacket` with `source`, `priority`, `category` (computed by the spaCy sentiment classifier), and `seed` (the event text, capped at 50 chars).
+2. **BLE write**: the companion writes the packet to the cube's GATT characteristic.
+3. **Idle screen icon**: the cube shows a 12×12 pixel icon for the source (📅 Calendar, 📧 Gmail, 📋 HacknPlan).
+4. **Player triggers battle**: long-pressing **B** for 5 seconds starts the encounter.
+5. **Enemy generation**: deterministic hash of `seed + source + category` selects a Digimon from the bestiary and assigns its stats. Element (Fire / Water) derives from the source; morale alignment (Light / Dark) derives from the sentiment category.
+6. **Battle**: best-of-3 *clashes*. Each clash is a real-time timing minigame where the player presses **B** when a moving cursor enters a critical window (its width depends on `seed` length).
+7. **Outcome**: win → +HAP and the enemy is added to the registry as a battle-only entry (silhouette + name only, no stats unless the player has also evolved that Digimon themselves). Lose → -HAP and a stat penalty.
+
+See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formulas, element/morale type bonuses, tie-breaker rules, etc.).
+
+---
+
+## Roadmap
+
+### Done (May 2026)
+- 32 Digimon with sprites, 12 frames each, full evolution tree
+- Pomodoro session loop with orientation-based input
+- Battle system (firmware + GATT BLE transport)
+- Companion app with Calendar, Gmail, and HacknPlan plugins
+- Italian sentiment classifier (spaCy `it_core_news_sm`)
+- GUI Step 1: dark dashboard + tray icon + live log
+
+### In progress
+- GUI Step 2: visual config editor (replace manual `config.json` editing)
+- GUI Step 3: test console with fake-notification buttons per source/category
+- Hardware: upgrade to TP4056 with DW01+FS8205 protection + LiPo 3.7V PH2.0
+- Solder a wire to the XIAO's BAT pad (back side) for standalone power
+
+### Future
+- 3D-printed case
+- WiFi transport fallback for when BLE is unavailable
+- PCB instead of breadboard
+- Additional plugins: Slack, GitHub
+- Optional: asynchronous PvP — trade battle-ready Digimon between cubes via cloud
+
+---
+
+## Credits
+
+- **Concept, design, firmware, companion app**: Michael Maneia
+- **Inspiration**: Tamagotchi, Digimon (Bandai), pomodoro technique (Francesco Cirillo)
+- **Libraries used**:
+  - Firmware: [U8g2](https://github.com/olikraus/u8g2), [Adafruit MPU6050](https://github.com/adafruit/Adafruit_MPU6050), ESP32 Arduino core
+  - Companion: [bleak](https://github.com/hbldh/bleak), [spaCy](https://spacy.io/), [Google API Python Client](https://github.com/googleapis/google-api-python-client), [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter), [pystray](https://github.com/moses-palmer/pystray)
+
+This is a personal hardware/software project. Digimon names and references are used as design inspiration only — no original Bandai assets are included or distributed.
+
+---
+
+## License
+
+This work is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/) (CC BY-NC-SA 4.0).
+
+In short:
+- ✅ You can share and adapt this work
+- ✅ You must give credit (Michael Maneia)
+- ❌ You may not use it commercially
+- 🔁 Derivative works must be shared under the same license
+
+See [LICENSE](LICENSE) for the full text.
