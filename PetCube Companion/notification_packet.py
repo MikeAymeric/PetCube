@@ -63,8 +63,16 @@ class NotifPacket:
     seed_preview: str   # max 51 char + zero terminator
 
     def to_bytes(self) -> bytes:
-        preview_bytes = self.seed_preview.encode("utf-8", errors="ignore")[:51]
-        preview_bytes = preview_bytes + b"\x00" * (52 - len(preview_bytes))
+        # Tronca prima a livello di code point (non di byte) per evitare di
+        # spezzare sequenze UTF-8 multi-byte, poi codifica e zero-padda a 52 byte.
+        # Il campo seedPreview è 52 byte: max 51 byte di contenuto + 1 null terminator.
+        preview_str = self.seed_preview[:51]          # tronca su codepoint
+        encoded = preview_str.encode("utf-8", errors="ignore")
+        # Se anche dopo il taglio a 51 codepoint il risultato supera 51 byte
+        # (improbabile ma possibile con caratteri > 1 byte), tronca ulteriormente.
+        if len(encoded) > 51:
+            encoded = encoded[:51]
+        preview_bytes = encoded + b"\x00" * (52 - len(encoded))
         packed = struct.pack(
             STRUCT_FORMAT,
             SCHEMA_VERSION,
@@ -77,12 +85,14 @@ class NotifPacket:
             self.timestamp & 0xFFFFFFFF,
             preview_bytes,
         )
-        assert len(packed) == PACKET_SIZE, f"Packet size mismatch: {len(packed)}"
+        if len(packed) != PACKET_SIZE:
+            raise ValueError(f"Packet size mismatch: {len(packed)} byte, attesi {PACKET_SIZE}")
         return packed
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "NotifPacket":
-        assert len(data) == PACKET_SIZE
+        if len(data) != PACKET_SIZE:
+            raise ValueError(f"from_bytes: dati di dimensione errata ({len(data)} byte, attesi {PACKET_SIZE})")
         version, source, priority, category, h, length, _, ts, preview = struct.unpack(
             STRUCT_FORMAT, data
         )
