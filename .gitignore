@@ -1,5 +1,6 @@
 config.json
 token.json
 credentials.json
-_pycache_
+__pycache__
 venv
+history
