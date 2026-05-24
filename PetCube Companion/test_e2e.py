@@ -7,6 +7,12 @@ Uso: cd petcube_companion && python3 test_e2e.py
 import asyncio
 import sys
 
+# Forza stdout UTF-8 su Windows (cp1252 default non regge emoji/box-drawing)
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, Exception):
+    pass
+
 # Stub di un plugin che genera eventi sintetici
 from plugins.base import Plugin, RawEvent
 from notification_packet import NotifSource, NotifPriority, NotifPacket, truncate_seed
