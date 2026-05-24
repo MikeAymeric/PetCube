@@ -134,6 +134,12 @@ class GmailPlugin(Plugin):
 
             with open(TOKEN_FILE, "w") as f:
                 f.write(creds.to_json())
+            # Restringe i permessi a sola lettura del proprietario (rw-------)
+            # per proteggere il token OAuth su sistemi Unix/Linux.
+            try:
+                os.chmod(TOKEN_FILE, 0o600)
+            except OSError:
+                pass  # Windows non supporta chmod nello stesso modo; ignora.
 
         self.service = build("gmail", "v1", credentials=creds)
         # Recupera il mio indirizzo
