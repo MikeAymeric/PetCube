@@ -4,3 +4,4 @@ credentials.json
 __pycache__
 venv
 history
+/PetCube Companion/plugins/__pycache__
