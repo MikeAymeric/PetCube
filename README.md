@@ -4,7 +4,7 @@
 
 PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise a Digimon-inspired creature by completing real-life pomodoro sessions: tilt the cube **left to train**, **right to study**, **upside down to work**. A companion desktop app turns your real notifications (calendar events, emails, project deadlines) into in-game battles the pet must fight.
 
-**Status**: work in progress. Battle system, companion plugins (Calendar / Gmail / HacknPlan) and BLE transport are operational. Portable LiPo power and GUI Steps 2-3 are in progress.
+**Status**: work in progress. Battle system, companion plugins (Calendar / Gmail / HacknPlan / Discord) and BLE transport are operational. Portable LiPo power and GUI Steps 2-3 are in progress.
 
 ---
 
@@ -46,10 +46,10 @@ The cube currently runs from the XIAO's USB-C while the LiPo + protected TP4056 
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Companion app (PC, Python)                  │
 │                                                                  │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐                       │
-│   │ Calendar │  │  Gmail   │  │ HacknPlan│   (plugin manager)    │
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘                       │
-│        └─────────────┼──────────────┘                            │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│   │ Calendar │  │  Gmail   │  │ HacknPlan│  │ Discord  │  (plugins)│
+│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘          │
+│        └─────────────┼──────────────┴──────────────┘             │
 │                      ▼                                           │
 │               ┌──────────────┐                                   │
 │               │  Sentiment   │  (spaCy IT — categorizes event)   │
@@ -95,6 +95,7 @@ petcube/
 │   ├── plugins/
 │   │   ├── base.py                 # Plugin base class + seen_ids persistence
 │   │   ├── calendar_plugin.py
+│   │   ├── discord_plugin.py
 │   │   ├── gmail_plugin.py
 │   │   └── hacknplan_plugin.py
 │   ├── config.json                 # User config (gitignored — see config.example.json)
@@ -147,6 +148,7 @@ On first boot the cube enters **boot screen** → asks **Continue / New Game** �
 - A working PC Bluetooth adapter
 - Google Cloud project with OAuth credentials for Calendar + Gmail (steps below)
 - A HacknPlan API key (optional, for the HacknPlan plugin)
+- A Discord Bot token (optional, for the Discord plugin)
 
 ### Install
 
@@ -155,7 +157,6 @@ cd companion
 python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
-python -m spacy download it_core_news_sm
 ```
 
 ### Google OAuth setup
@@ -177,6 +178,20 @@ The Calendar and Gmail plugins share a unified OAuth flow:
 1. Sign in to [HacknPlan](https://app.hacknplan.com/).
 2. Click your avatar → **My Account** → **API**.
 3. Click **Generate Token** and copy it into `config.json` → `plugins.hacknplan.api_key`.
+
+### Discord Bot setup
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and click **New Application**.
+2. In the left sidebar go to **Bot** → click **Add Bot** → confirm.
+3. Under **Token**, click **Reset Token**, copy it, and paste it into `config.json` → `plugins.discord.bot_token`.
+4. Scroll down to **Privileged Gateway Intents** and enable **Message Content Intent** (required to read message text).
+5. Go to **OAuth2 → URL Generator**, tick the `bot` scope and the `Read Messages / View Channels` permission.
+6. Open the generated URL in a browser and invite the bot to the servers you want to monitor.
+7. In `config.json` set `plugins.discord.enabled` to `true`.
+
+Optionally, list the IDs of specific channels to monitor in `monitor_channel_ids`. To find a channel ID: in Discord, enable **Settings → Advanced → Developer Mode**, then right-click a channel → **Copy Channel ID**.
+
+> **Note**: the bot must be **online** (companion running) to receive events. Messages sent while the companion is stopped are not replayed on reconnect.
 
 ### Run
 
@@ -236,6 +251,12 @@ If the cube is not in idle (e.g. in a session, sleep, or menu), the BLE advertis
       "lookahead_hours": 48,
       "api_key": "<paste here>",
       "target_user_id": null
+    },
+    "discord": {
+      "enabled": false,
+      "bot_token": "<paste here>",
+      "poll_interval_sec": 10,
+      "monitor_channel_ids": []
     }
   }
 }
@@ -243,11 +264,12 @@ If the cube is not in idle (e.g. in a session, sleep, or menu), the BLE advertis
 
 ### Plugin behaviour
 
-| Plugin | Polls every | Filters | Notes |
+| Plugin | Polls every | Triggers / Filters | Notes |
 |---|---|---|---|
-| Calendar | 60 s | Excludes `*@holiday.calendar.google.com`, `*@group.v.calendar.google.com`, `*@import.calendar.google.com`, `#contacts@` | Multi-calendar (primary + shared) |
-| Gmail | 10 min | `UNREAD` in Inbox, no `category:promotions/social/updates/forums`, recipient must be in `To`/`Cc` (no bulk mail) | Skips `List-Unsubscribe` and `Precedence: bulk/list` |
-| HacknPlan | 2 h | Work items assigned to me with `dueDate` within `lookahead_hours`, not in `stage.status: completed` | Skips user stories (`isStory: true`) |
+| Calendar | 60 s | Events starting within `lookahead_minutes` (default 15). Excludes `*@holiday.calendar.google.com`, shared/group calendars, contacts. | Multi-calendar (primary + shared) |
+| Gmail | 10 min | `UNREAD` in Inbox, no `category:promotions/social/updates/forums`. Recipient must be in `To`/`Cc`. Skips `List-Unsubscribe` and `Precedence: bulk/list`. | — |
+| HacknPlan | 2 h | Work items assigned to me with `dueDate` within `lookahead_hours` (default 48). Not in `stage.status: completed`. Skips user stories. | Source shown as TRELLO in firmware (shared enum value). |
+| Discord | 10 s | **@mentions** of your personal account (`user_id`) in any server (priority HIGH). **@here / @everyone** in channels visible to the bot (priority NORMAL). **Messages in `monitor_channel_ids`** (priority NORMAL). | Requires `Message Content Intent` enabled in Discord Developer Portal. Events are real-time (WebSocket); the 10 s interval only controls how often the queue is drained. |
 
 All plugins persist their seen-IDs to `history/<plugin>.json` (FIFO cap 5000) so the same event is not re-sent after a restart.
 
@@ -273,7 +295,7 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 - 32 Digimon with sprites, 12 frames each, full evolution tree
 - Pomodoro session loop with orientation-based input
 - Battle system (firmware + GATT BLE transport)
-- Companion app with Calendar, Gmail, and HacknPlan plugins
+- Companion app with Calendar, Gmail, HacknPlan, and Discord plugins
 - Italian sentiment classifier (spaCy `it_core_news_sm`)
 - GUI Step 1: dark dashboard + tray icon + live log
 
@@ -298,7 +320,7 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 - **Inspiration**: Tamagotchi, Digimon (Bandai), pomodoro technique (Francesco Cirillo)
 - **Libraries used**:
   - Firmware: [U8g2](https://github.com/olikraus/u8g2), [Adafruit MPU6050](https://github.com/adafruit/Adafruit_MPU6050), ESP32 Arduino core
-  - Companion: [bleak](https://github.com/hbldh/bleak), [spaCy](https://spacy.io/), [Google API Python Client](https://github.com/googleapis/google-api-python-client), [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter), [pystray](https://github.com/moses-palmer/pystray)
+  - Companion: [bleak](https://github.com/hbldh/bleak), [spaCy](https://spacy.io/), [Google API Python Client](https://github.com/googleapis/google-api-python-client), [discord.py](https://github.com/Rapptz/discord.py), [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter), [pystray](https://github.com/moses-palmer/pystray)
 
 This is a personal hardware/software project. Digimon names and references are used as design inspiration only — no original Bandai assets are included or distributed.
 
