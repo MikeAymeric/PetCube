@@ -1202,6 +1202,7 @@ void drawMainScreen(unsigned long now) {
       // Source con icona XBM dedicata
       const unsigned char* iconBmp = nullptr;
       switch (src) {
+        case SRC_DISCORD:  iconBmp = ICON_DISCORD;   break;
         case SRC_CALENDAR: iconBmp = ICON_CALENDAR;  break;
         case SRC_GMAIL:    iconBmp = ICON_GMAIL;     break;
         case SRC_TRELLO:   iconBmp = ICON_HACKNPLAN; break;  // HacknPlan riusa SRC_TRELLO

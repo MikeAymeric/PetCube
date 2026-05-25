@@ -3,15 +3,17 @@ bleak>=0.21.0                     # BLE cross-platform
 requests>=2.31.0                  # HTTP fallback per WiFi
 
 # NLP
-spacy>=3.7.0
-# Modello italiano: python -m spacy download it_core_news_sm
-# (non si può mettere in requirements, va scaricato a parte)
+spacy>=3.7.0,<3.9.0
+it_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/it_core_news_sm-3.8.0/it_core_news_sm-3.8.0-py3-none-any.whl
 
 # Google Calendar
 google-auth>=2.23.0
 google-auth-oauthlib>=1.1.0
 google-auth-httplib2>=0.1.0
 google-api-python-client>=2.100.0
+
+# Discord
+discord.py>=2.3.0
 
 # Utility
 python-dateutil>=2.8.2
