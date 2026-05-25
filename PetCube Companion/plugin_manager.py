@@ -25,7 +25,7 @@ PLUGIN_REGISTRY: dict[str, str] = {
     "calendar":  "plugins.calendar_plugin.CalendarPlugin",
     "gmail":     "plugins.gmail_plugin.GmailPlugin",
     "hacknplan": "plugins.hacknplan_plugin.HacknplanPlugin",
-    # "discord":  "plugins.discord_plugin.DiscordPlugin",   # v0.11
+    "discord":  "plugins.discord_plugin.DiscordPlugin",
     # "slack":    "plugins.slack_plugin.SlackPlugin",
     # "github":   "plugins.github_plugin.GithubPlugin",
 }
