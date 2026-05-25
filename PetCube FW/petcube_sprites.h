@@ -7377,3 +7377,19 @@ static const unsigned char ICON_HACKNPLAN[] PROGMEM = {
   0xF7, 0x0E, 0xF7, 0x0E, 0xF7, 0x0E, 0x07, 0x0E,
   0xE7, 0x0F, 0xFE, 0x07, 0xF8, 0x01, 0x60, 0x00
 };
+
+// Clyde semplificato: blob arrotondato, due occhi 2×2, sorriso, due piedi.
+static const unsigned char ICON_DISCORD[] PROGMEM = {
+  0xFC, 0x03,  // . . X X X X X X X X . .
+  0xFE, 0x07,  // . X X X X X X X X X X .
+  0x03, 0x0C,  // X X . . . . . . . . X X
+  0x9B, 0x0D,  // X X . X X . . X X . X X  ← occhi
+  0x9B, 0x0D,  // X X . X X . . X X . X X  ← occhi
+  0x03, 0x0C,  // X X . . . . . . . . X X
+  0x0B, 0x0D,  // X X . X . . . . X . X X  ← angoli bocca
+  0xF3, 0x0C,  // X X . . X X X X . . X X  ← bocca
+  0xFE, 0x07,  // . X X X X X X X X X X .
+  0x9C, 0x03,  // . . X X X . . X X X . .  ← piedi
+  0x00, 0x00,  // . . . . . . . . . . . .
+  0x00, 0x00   // . . . . . . . . . . . .
+};
