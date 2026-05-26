@@ -180,21 +180,31 @@ class InstagramPlugin(Plugin):
                 }
             )
             raw_threads = result.get("inbox", {}).get("threads", [])
+            logger.info(f"Instagram: {len(raw_threads)} thread raw ricevuti dall'API")
             parsed = []
             for t in raw_threads:
+                # Prova extract_direct_thread (instagrapi extractor ufficiale)
                 try:
-                    try:
-                        from instagrapi.extractors import extract_direct_thread
-                        parsed.append(extract_direct_thread(t))
-                    except (ImportError, AttributeError):
-                        from instagrapi.types import DirectThread
-                        parsed.append(DirectThread.model_validate(t))
-                except Exception as parse_err:
-                    logger.debug(f"Instagram: skip thread (parse error): {parse_err}")
-            logger.debug(f"Instagram: recuperati {len(parsed)} thread DM (all)")
+                    from instagrapi.extractors import extract_direct_thread
+                    parsed.append(extract_direct_thread(t))
+                    continue
+                except Exception as e1:
+                    logger.debug(f"Instagram: extract_direct_thread fallito: {e1}")
+                # Fallback: Pydantic model_validate diretto
+                try:
+                    from instagrapi.types import DirectThread
+                    parsed.append(DirectThread.model_validate(t))
+                except Exception as e2:
+                    logger.warning(
+                        f"Instagram: impossibile parsare thread "
+                        f"(id={t.get('thread_id', '?')}): {e2}"
+                    )
+            logger.info(
+                f"Instagram: {len(parsed)}/{len(raw_threads)} thread DM parsati con successo"
+            )
             return parsed
         except Exception as e:
-            logger.debug(f"Instagram: _fetch_threads_all fallback → direct_threads(): {e}")
+            logger.warning(f"Instagram: _fetch_threads_all fallback → direct_threads(): {e}")
             return self._client.direct_threads(amount=limit)
 
     # ------------------------------------------------------------------
@@ -225,10 +235,12 @@ class InstagramPlugin(Plugin):
                     thread_id = str(thread.id)
                     last_item = getattr(thread, "last_permanent_item", None)
                     if last_item is None:
+                        logger.info(f"Instagram: thread {thread_id} senza last_permanent_item, skip")
                         continue
 
                     msg_id = str(getattr(last_item, "item_id", "") or "")
                     if not msg_id:
+                        logger.info(f"Instagram: thread {thread_id} senza item_id, skip")
                         continue
 
                     # Salta messaggi inviati da noi stessi
@@ -247,10 +259,16 @@ class InstagramPlugin(Plugin):
                         if msg_ts is not None:
                             if not msg_ts.tzinfo:
                                 msg_ts = msg_ts.replace(tzinfo=timezone.utc)
+                            logger.info(
+                                f"Instagram: prima obs thread {thread_id} — "
+                                f"msg_ts={msg_ts.isoformat()}, startup_ts={self._startup_ts.isoformat()}, "
+                                f"is_new={msg_ts > self._startup_ts}"
+                            )
                             if msg_ts <= self._startup_ts:
                                 continue  # messaggio precedente all'avvio → skip
                         # Se timestamp assente, skip per sicurezza
                         else:
+                            logger.info(f"Instagram: thread {thread_id} senza timestamp, skip")
                             continue
                     else:
                         # Osservazione successiva: notifica solo se item_id è cambiato
