@@ -193,8 +193,8 @@ const char* WATER_LINE0[]   = { "Garurumon","WereGarurumon" };       // STR
 const char* WATER_LINE1[]   = { "Seadramon","Mermaimon" };       // ENG
 const char* WATER_LINE2[]   = { "Gesomon","Whamon" };               // INT
 const char* WATER_FINAL0[]  = { "MetalGarurumon","CresGarurumon","SkullMammothmon" };
-const char* WATER_FINAL1[]  = { "AncientMermaimon","Vikemon","Mugendramon" };
-const char* WATER_FINAL2[]  = { "Plesiomon","Ryugumon","Mugendramon" };
+const char* WATER_FINAL1[]  = { "AncientMermaimon","Vikemon","SkullMammothmon" };
+const char* WATER_FINAL2[]  = { "Plesiomon","Ryugumon","SkullMammothmon" };
 
 // ── STATO GLOBALE ─────────────────────────────────────────────
 GameState    gState        = STATE_IDLE;
