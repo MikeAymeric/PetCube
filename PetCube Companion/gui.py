@@ -57,7 +57,6 @@ SOURCE_LABEL = {
     NotifSource.GITHUB:    "🐙 GitHub",
     NotifSource.TELEGRAM:  "✈ Telegram",
     NotifSource.WHATSAPP:  "📱 WhatsApp",
-    NotifSource.INSTAGRAM: "📸 Instagram",
     NotifSource.GENERIC:   "❔ Other",
 }
 
@@ -110,12 +109,6 @@ _PLUGIN_FIELDS: dict[str, list[tuple[str, str, str]]] = {
         ("poll_interval_sec", "Polling (sec)",                            "int"),
         ("monitor_chats",     "Chat da monitorare (virgola, vuoto=tutte)", "list_str"),
     ],
-    "instagram": [
-        ("username",          "Username",                  "text"),
-        ("password",          "Password",                  "password"),
-        ("session_file",      "File sessione",             "text"),
-        ("poll_interval_sec", "Polling (sec)",             "int"),
-    ],
     "slack":   [],
     "github":  [],
     "trello":  [],
@@ -123,7 +116,7 @@ _PLUGIN_FIELDS: dict[str, list[tuple[str, str, str]]] = {
 
 # ── Test console mappings ──────────────────────────────────────
 _TEST_SOURCES = ["Discord", "Gmail", "Calendar", "Slack", "HacknPlan", "GitHub",
-                 "Telegram", "WhatsApp", "Instagram", "Generic"]
+                 "Telegram", "WhatsApp", "Generic"]
 _TEST_SOURCE_MAP: dict[str, NotifSource] = {
     "Discord":   NotifSource.DISCORD,
     "Gmail":     NotifSource.GMAIL,
@@ -133,7 +126,6 @@ _TEST_SOURCE_MAP: dict[str, NotifSource] = {
     "GitHub":    NotifSource.GITHUB,
     "Telegram":  NotifSource.TELEGRAM,
     "WhatsApp":  NotifSource.WHATSAPP,
-    "Instagram": NotifSource.INSTAGRAM,
     "Generic":   NotifSource.GENERIC,
 }
 
@@ -166,7 +158,6 @@ _PLUGIN_DISPLAY_NAME = {
     "trello":    "Trello",
     "telegram":  "Telegram",
     "whatsapp":  "WhatsApp",
-    "instagram": "Instagram",
 }
 
 
@@ -459,7 +450,7 @@ class CompanionGUI(ctk.CTk):
         plugins_cfg = self.config_data.get("plugins", {})
         plugin_order = [
             "calendar", "discord", "gmail", "hacknplan",
-            "telegram", "whatsapp", "instagram",
+            "telegram", "whatsapp",
             "slack", "github", "trello",
         ]
         for plugin_name in plugin_order:

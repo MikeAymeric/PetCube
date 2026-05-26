@@ -20,6 +20,11 @@ Config (config.json > plugins > whatsapp):
     "monitor_chats": []
   }
 
+monitor_chats: whitelist di nomi chat (sottostringa, case-insensitive).
+  Vuota = notifica tutte le chat con badge non letto.
+  Valorizzata = notifica solo le chat il cui nome contiene almeno uno
+  dei termini (si applica a DM, gruppi e canali allo stesso modo).
+
 Architettura threading:
   Tutto il codice Playwright gira nel thread 'whatsapp-browser'.
   Il DOM viene scansionato ogni poll_interval_sec secondi dal browser thread
@@ -50,38 +55,7 @@ logger = logging.getLogger(__name__)
 _SEL_APP_READY    = '[data-testid="chatlist-header"]'
 _SEL_CHAT_LIST    = '[data-testid="chat-list"]'
 _SEL_UNREAD_BADGE = '[data-testid="icon-unread-count"]'
-_SEL_CHAT_CELL    = '[data-testid="cell-frame-container"]'
 _SEL_CHAT_TITLE   = '[data-testid="cell-frame-title"]'
-_SEL_LAST_MSG     = '[data-testid="last-msg-status"] ~ span, [data-testid="last-msg-status"]'
-
-# JavaScript per rilevare se una cella è un gruppo o un DM.
-# WhatsApp Web usa data-icon (SVG inline) — non data-testid — per le icone
-# avatar di default. I gruppi CON foto custom non hanno icone, ma nel preview
-# mostrano "Mittente: testo" (span vuoto con testo che termina con ':').
-_JS_IS_GROUP = """el => {
-    // 1. Icone avatar default (gruppi/canali senza foto custom)
-    const iconSels = [
-        '[data-icon="default-group"]',
-        '[data-icon="channel"]',
-        '[data-icon="community"]',
-        '[data-testid="default-group"]',   // fallback versioni future
-        '[data-testid="icon-channel"]',
-    ];
-    if (iconSels.some(s => !!el.querySelector(s))) return true;
-    // 2. Gruppi CON foto: l'anteprima mostra uno span leaf col solo mittente
-    //    seguito da ':' (es. "Mario:", "You:"). I DM non hanno questo span.
-    const secondary = el.querySelector('[data-testid="cell-frame-secondary"]');
-    if (secondary) {
-        const spans = secondary.querySelectorAll('span');
-        for (const s of spans) {
-            if (s.childElementCount === 0) {
-                const t = s.textContent.trim();
-                if (t && t.endsWith(':')) return true;
-            }
-        }
-    }
-    return false;
-}"""
 
 
 class WhatsAppPlugin(Plugin):
@@ -102,8 +76,8 @@ class WhatsAppPlugin(Plugin):
         self._session_dir: str = config.get("session_dir", "whatsapp_session")
         self._headless: bool = bool(config.get("headless", True))
         self._poll_interval: int = int(config.get("poll_interval_sec", 30))
-        # monitor_chats: lista di nomi (case-insensitive, sottostringa).
-        # Vuota = tutti i gruppi. I DM passano sempre.
+        # monitor_chats: whitelist nomi chat (case-insensitive, sottostringa).
+        # Vuota = notifica tutto. Valorizzata = solo chat il cui nome fa match.
         # strip('"\'') rimuove virgolette accidentali inserite dalla GUI.
         raw_chats = config.get("monitor_chats", [])
         self._monitor_chats: list[str] = [
@@ -119,8 +93,8 @@ class WhatsAppPlugin(Plugin):
 
         if self._monitor_chats:
             logger.info(
-                f"WhatsApp: filtro gruppi/canali attivo su {len(self._monitor_chats)} nomi: "
-                f"{self._monitor_chats} (i DM passano sempre)"
+                f"WhatsApp: filtro attivo su {len(self._monitor_chats)} nomi: "
+                f"{self._monitor_chats}"
             )
         else:
             logger.info("WhatsApp: nessun filtro — notifica tutte le chat con messaggi non letti.")
@@ -178,7 +152,6 @@ class WhatsAppPlugin(Plugin):
                     if page.is_closed():
                         break
                     self._scan_page(page)
-                    # Attendi poll_interval usando lo stop_event per uscire subito
                     self._stop_event.wait(timeout=self._poll_interval)
 
             except Exception as e:
@@ -208,25 +181,13 @@ class WhatsAppPlugin(Plugin):
                         continue
                     chat_name = (title_el.inner_text() or "?").strip()
 
-                    # Distingui gruppo/canale da DM tramite JS evaluate
-                    is_group: bool = cell.evaluate(_JS_IS_GROUP)
-                    logger.debug(
-                        f"WhatsApp chat rilevata: {chat_name!r} "
-                        f"tipo={'gruppo' if is_group else 'DM'}"
-                    )
-
-                    # Filtra per monitor_chats solo su gruppi/canali;
-                    # i DM passano sempre indipendentemente dal filtro
-                    if self._monitor_chats and is_group:
+                    # Applica il filtro monitor_chats (sottostringa, case-insensitive)
+                    if self._monitor_chats:
                         name_lower = chat_name.lower()
                         if not any(f in name_lower for f in self._monitor_chats):
-                            logger.debug(
-                                f"WhatsApp: gruppo {chat_name!r} escluso dal filtro "
-                                f"monitor_chats={self._monitor_chats}"
-                            )
                             continue
 
-                    # Tenta di leggere l'ultimo messaggio visibile nel preview
+                    # Leggi l'ultimo messaggio visibile nel preview
                     last_msg = ""
                     spans = cell.query_selector_all("span[dir]")
                     for span in spans:
@@ -241,14 +202,13 @@ class WhatsAppPlugin(Plugin):
 
                     self.seen_ids.add(msg_id)
                     preview = f"{chat_name}: {last_msg}" if last_msg else f"Messaggio da {chat_name}"
-                    chat_type = "gruppo" if is_group else "DM"
                     self._event_queue.put(RawEvent(
                         source=NotifSource.WHATSAPP,
                         priority=NotifPriority.NORMAL,
                         text=preview,
                         external_id=msg_id,
                     ))
-                    logger.info(f"💬 WhatsApp [{chat_type}] nuovo messaggio: {preview!r}")
+                    logger.info(f"💬 WhatsApp nuovo messaggio: {preview!r}")
 
                 except Exception as e:
                     logger.debug(f"WhatsApp: errore parsing chat badge: {e}")
