@@ -360,9 +360,7 @@ inline uint8_t enemyCandidates(uint8_t pet_stage,
         candidates[count++] = IDX_RYUGUMON;
         break;
       case CAT_CRITICA: case CAT_CRISI:
-        candidates[count++] = IDX_SKULLMAMMON;
-        // Per ENG/INT Water Dark = Mugendramon (definito così nel GDD)
-        candidates[count++] = IDX_MUGENDRAMON;
+        candidates[count++] = IDX_SKULLMAMMON;  // Dark condiviso tutte le linee Water
         break;
       case CAT_SCADENZA:
         candidates[count++] = IDX_METALGARURUMON; break;
