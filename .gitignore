@@ -5,3 +5,7 @@ __pycache__
 venv
 history
 /PetCube Companion/plugins/__pycache__
+/PetCube Companion/whatsapp_session/
+/PetCube Companion/telegram_session.session
+/PetCube Companion/telegram_session.session-journal
+/PetCube Companion/instagram_session.json
