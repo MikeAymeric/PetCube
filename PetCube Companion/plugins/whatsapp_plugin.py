@@ -63,11 +63,22 @@ class WhatsAppPlugin(Plugin):
         super().__init__(config)
         self._session_dir: str = config.get("session_dir", "whatsapp_session")
         self._headless: bool = bool(config.get("headless", True))
+        # monitor_chats: lista di nomi (case-insensitive). Vuota = tutte le chat.
+        raw_chats = config.get("monitor_chats", [])
+        self._monitor_chats: list[str] = [c.lower().strip() for c in raw_chats if c.strip()]
         self._event_queue: queue.Queue[RawEvent] = queue.Queue()
         self._page = None
         self._connected = False
         self._browser_thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
+
+        if self._monitor_chats:
+            logger.info(
+                f"WhatsApp: filtro attivo su {len(self._monitor_chats)} chat: "
+                f"{self._monitor_chats}"
+            )
+        else:
+            logger.info("WhatsApp: nessun filtro — notifica tutte le chat con messaggi non letti.")
 
         self._start_browser_thread()
 
@@ -159,6 +170,12 @@ class WhatsAppPlugin(Plugin):
                     if title_el is None:
                         continue
                     chat_name = (title_el.inner_text() or "?").strip()
+
+                    # Filtra per monitor_chats (se configurato)
+                    if self._monitor_chats:
+                        name_lower = chat_name.lower()
+                        if not any(f in name_lower for f in self._monitor_chats):
+                            continue
 
                     # Tenta di leggere l'ultimo messaggio visibile nel preview
                     last_msg = ""
