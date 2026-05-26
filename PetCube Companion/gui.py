@@ -27,7 +27,10 @@ except ImportError:
     HAS_TRAY = False
 
 from companion_engine import CompanionEngine, load_config
-from notification_packet import NotifPacket, NotifSource, NotifCategory, NotifPriority
+from notification_packet import (
+    NotifPacket, NotifSource, NotifCategory, NotifPriority,
+    compute_seed_hash,
+)
 
 
 # ── Dark theme palette (Discord/VS Code style) ─────────────────
@@ -96,6 +99,37 @@ _PLUGIN_FIELDS: dict[str, list[tuple[str, str, str]]] = {
     "trello":  [],
 }
 
+# ── Test console mappings ──────────────────────────────────────
+_TEST_SOURCES = ["Discord", "Gmail", "Calendar", "Slack", "HacknPlan", "GitHub", "Generic"]
+_TEST_SOURCE_MAP: dict[str, NotifSource] = {
+    "Discord":   NotifSource.DISCORD,
+    "Gmail":     NotifSource.GMAIL,
+    "Calendar":  NotifSource.CALENDAR,
+    "Slack":     NotifSource.SLACK,
+    "HacknPlan": NotifSource.TRELLO,
+    "GitHub":    NotifSource.GITHUB,
+    "Generic":   NotifSource.GENERIC,
+}
+
+_TEST_CATEGORIES = ["Lode", "Opportunità", "Routine", "Scadenza", "Critica", "Crisi", "Curiosità", "Aiuto"]
+_TEST_CATEGORY_MAP: dict[str, NotifCategory] = {
+    "Lode":        NotifCategory.LODE,
+    "Opportunità": NotifCategory.OPPORTUNITA,
+    "Routine":     NotifCategory.ROUTINE,
+    "Scadenza":    NotifCategory.SCADENZA,
+    "Critica":     NotifCategory.CRITICA,
+    "Crisi":       NotifCategory.CRISI,
+    "Curiosità":   NotifCategory.CURIOSITA,
+    "Aiuto":       NotifCategory.AIUTO,
+}
+
+_TEST_PRIORITIES = ["Low", "Normal", "High"]
+_TEST_PRIORITY_MAP: dict[str, NotifPriority] = {
+    "Low":    NotifPriority.LOW,
+    "Normal": NotifPriority.NORMAL,
+    "High":   NotifPriority.HIGH,
+}
+
 _PLUGIN_DISPLAY_NAME = {
     "calendar":  "Calendar",
     "discord":   "Discord",
@@ -125,6 +159,13 @@ class CompanionGUI(ctk.CTk):
         self.recent_notifications: list[dict] = []
         self.tray_icon = None
         self._tray_visible = False
+
+        # Test console widget state
+        self._test_sv_source = ctk.StringVar(value="Discord")
+        self._test_sv_category = ctk.StringVar(value="Routine")
+        self._test_sv_priority = ctk.StringVar(value="Normal")
+        self._test_send_btn: Optional[ctk.CTkButton] = None
+        self._test_log: Optional[ctk.CTkTextbox] = None
 
         # Settings widget state
         self._sv_device: dict[str, ctk.StringVar] = {}
@@ -289,9 +330,11 @@ class CompanionGUI(ctk.CTk):
 
         dash_tab = tabview.add("Dashboard")
         settings_tab = tabview.add("Impostazioni")
+        test_tab = tabview.add("Test")
 
         self._build_dashboard_tab(dash_tab)
         self._build_settings_tab(settings_tab)
+        self._build_test_tab(test_tab)
 
         tabview.set("Dashboard")
         self._tabview = tabview
@@ -711,6 +754,161 @@ class CompanionGUI(ctk.CTk):
                 pass
 
     # ═══════════════════════════════════════════════════════════
+    # Test Console Tab
+    # ═══════════════════════════════════════════════════════════
+
+    def _build_test_tab(self, parent) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        # ── Pannello controlli (top) ──
+        ctrl = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        ctrl.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        ctrl.grid_columnconfigure(1, weight=1)
+
+        seg_kw = dict(
+            fg_color=BG_TERTIARY,
+            selected_color=ACCENT,
+            selected_hover_color=ACCENT_HOVER,
+            unselected_color=BG_TERTIARY,
+            unselected_hover_color="#3a3a3e",
+            text_color=TEXT_PRIMARY,
+            font=ctk.CTkFont(size=11),
+        )
+
+        # Source
+        ctk.CTkLabel(ctrl, text="Source", anchor="w", width=90,
+                     text_color=TEXT_DIM, font=ctk.CTkFont(size=11, weight="bold"),
+                     ).grid(row=0, column=0, padx=(15, 8), pady=(14, 6), sticky="w")
+        ctk.CTkSegmentedButton(
+            ctrl, values=_TEST_SOURCES, variable=self._test_sv_source, **seg_kw,
+        ).grid(row=0, column=1, padx=(0, 15), pady=(14, 6), sticky="ew")
+
+        # Category — prima riga (4 voci)
+        ctk.CTkLabel(ctrl, text="Category", anchor="w", width=90,
+                     text_color=TEXT_DIM, font=ctk.CTkFont(size=11, weight="bold"),
+                     ).grid(row=1, column=0, padx=(15, 8), pady=4, sticky="w")
+        ctk.CTkSegmentedButton(
+            ctrl, values=_TEST_CATEGORIES[:4], variable=self._test_sv_category, **seg_kw,
+        ).grid(row=1, column=1, padx=(0, 15), pady=4, sticky="ew")
+
+        # Category — seconda riga (4 voci)
+        ctk.CTkLabel(ctrl, text="", width=90,
+                     ).grid(row=2, column=0, padx=(15, 8), pady=4)
+        self._test_cat_seg2 = ctk.CTkSegmentedButton(
+            ctrl, values=_TEST_CATEGORIES[4:], variable=self._test_sv_category, **seg_kw,
+        )
+        self._test_cat_seg2.grid(row=2, column=1, padx=(0, 15), pady=4, sticky="ew")
+
+        # Priority
+        ctk.CTkLabel(ctrl, text="Priority", anchor="w", width=90,
+                     text_color=TEXT_DIM, font=ctk.CTkFont(size=11, weight="bold"),
+                     ).grid(row=3, column=0, padx=(15, 8), pady=4, sticky="w")
+        ctk.CTkSegmentedButton(
+            ctrl, values=_TEST_PRIORITIES, variable=self._test_sv_priority, **seg_kw,
+        ).grid(row=3, column=1, padx=(0, 15), pady=4, sticky="w")
+
+        # Preview text
+        ctk.CTkLabel(ctrl, text="Preview", anchor="w", width=90,
+                     text_color=TEXT_DIM, font=ctk.CTkFont(size=11, weight="bold"),
+                     ).grid(row=4, column=0, padx=(15, 8), pady=4, sticky="w")
+        self._test_preview_entry = ctk.CTkEntry(
+            ctrl, placeholder_text="Testo anteprima (opzionale — lascia vuoto per auto)",
+            fg_color=BG_PRIMARY, border_color=BORDER,
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12),
+        )
+        self._test_preview_entry.grid(row=4, column=1, padx=(0, 15), pady=4, sticky="ew")
+
+        # Bottone Invia + messaggio feedback
+        btn_row = ctk.CTkFrame(ctrl, fg_color="transparent")
+        btn_row.grid(row=5, column=0, columnspan=2, padx=15, pady=(10, 14), sticky="w")
+
+        self._test_send_btn = ctk.CTkButton(
+            btn_row, text="▶  Invia notifica fake",
+            width=180, height=36,
+            fg_color=BG_TERTIARY, hover_color=BG_TERTIARY,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            state="disabled",
+            command=self._on_test_send,
+        )
+        self._test_send_btn.pack(side="left", padx=(0, 12))
+
+        self._test_feedback_lbl = ctk.CTkLabel(
+            btn_row, text="Avvia il motore per abilitare l'invio.",
+            text_color=TEXT_DIM, font=ctk.CTkFont(size=11),
+        )
+        self._test_feedback_lbl.pack(side="left")
+
+        # ── Log invii test (bottom) ──
+        log_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        log_card.grid(row=1, column=0, sticky="nsew")
+        log_card.grid_columnconfigure(0, weight=1)
+        log_card.grid_rowconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            log_card, text="LOG INVII TEST",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=TEXT_DIM, anchor="w",
+        ).grid(row=0, column=0, sticky="ew", padx=15, pady=(10, 5))
+
+        self._test_log = ctk.CTkTextbox(
+            log_card,
+            fg_color=BG_PRIMARY, text_color=TEXT_PRIMARY,
+            font=ctk.CTkFont(family="Consolas", size=11),
+            wrap="none", corner_radius=6,
+            state="disabled",
+        )
+        self._test_log.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+
+    def _on_test_send(self) -> None:
+        if not self.engine or not self.engine.is_running():
+            self._test_feedback_lbl.configure(
+                text="⚠  Motore non in esecuzione.", text_color=WARNING
+            )
+            return
+
+        source_key   = self._test_sv_source.get()
+        category_key = self._test_sv_category.get()
+        priority_key = self._test_sv_priority.get()
+
+        source   = _TEST_SOURCE_MAP.get(source_key,   NotifSource.GENERIC)
+        category = _TEST_CATEGORY_MAP.get(category_key, NotifCategory.ROUTINE)
+        priority = _TEST_PRIORITY_MAP.get(priority_key, NotifPriority.NORMAL)
+
+        raw_preview = self._test_preview_entry.get().strip()
+        seed_text = raw_preview if raw_preview else f"[TEST] {source_key} — {category_key}"
+
+        pkt = NotifPacket(
+            source=source,
+            priority=priority,
+            category=category,
+            seed_hash=compute_seed_hash(seed_text),
+            seed_length=len(seed_text),
+            timestamp=int(time.time()),
+            seed_preview=seed_text,
+        )
+
+        self.engine.inject_notification(pkt)
+
+        ts = datetime.now().strftime("%H:%M:%S")
+        log_line = (
+            f"{ts}  [{priority_key.upper():6}]  "
+            f"{source_key:<10}  {category_key:<12}  \"{seed_text}\"\n"
+        )
+        self._test_log.configure(state="normal")
+        self._test_log.insert("end", log_line)
+        self._test_log.see("end")
+        self._test_log.configure(state="disabled")
+
+        self._test_feedback_lbl.configure(
+            text=f"✓  Inviato: {source_key} / {category_key} / {priority_key}",
+            text_color=SUCCESS,
+        )
+        self.after(4000, lambda: self._test_feedback_lbl.configure(
+            text="", text_color=TEXT_DIM
+        ) if self._test_feedback_lbl.winfo_exists() else None)
+
+    # ═══════════════════════════════════════════════════════════
     # Engine control
     # ═══════════════════════════════════════════════════════════
 
@@ -727,6 +925,9 @@ class CompanionGUI(ctk.CTk):
         self.status_dot.configure(text_color=SUCCESS)
         self.status_text.configure(text="Running", text_color=SUCCESS)
         self._update_running_banner()
+        if self._test_send_btn:
+            self._test_send_btn.configure(state="normal", fg_color=ACCENT,
+                                          hover_color=ACCENT_HOVER)
 
         self.after(500, self._update_status_periodic)
 
@@ -742,6 +943,9 @@ class CompanionGUI(ctk.CTk):
         self.status_dot.configure(text_color=TEXT_DIM)
         self.status_text.configure(text="Stopped", text_color=TEXT_DIM)
         self._update_running_banner()
+        if self._test_send_btn:
+            self._test_send_btn.configure(state="disabled", fg_color=BG_TERTIARY,
+                                          hover_color=BG_TERTIARY)
 
         for dot in self.plugin_labels.values():
             dot.configure(text_color=TEXT_DIM)
@@ -871,6 +1075,9 @@ class CompanionGUI(ctk.CTk):
                 self.status_dot.configure(text_color=ERROR)
                 self.status_text.configure(text="Crashed", text_color=ERROR)
                 self._update_running_banner()
+                if self._test_send_btn:
+                    self._test_send_btn.configure(state="disabled", fg_color=BG_TERTIARY,
+                                                  hover_color=BG_TERTIARY)
                 for dot in self.plugin_labels.values():
                     dot.configure(text_color=TEXT_DIM)
                 self.transport_dot.configure(text_color=TEXT_DIM)
