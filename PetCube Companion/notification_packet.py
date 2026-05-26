@@ -9,13 +9,16 @@ from enum import IntEnum
 
 
 class NotifSource(IntEnum):
-    DISCORD  = 0
-    GMAIL    = 1
-    CALENDAR = 2
-    SLACK    = 3
-    TRELLO   = 4
-    GITHUB   = 5
-    GENERIC  = 255
+    DISCORD   = 0
+    GMAIL     = 1
+    CALENDAR  = 2
+    SLACK     = 3
+    TRELLO    = 4
+    GITHUB    = 5
+    TELEGRAM  = 6   # ← nuovo; aggiornare anche PetCube.ino (case SRC_TELEGRAM)
+    WHATSAPP  = 7   # ← nuovo; aggiornare anche PetCube.ino (case SRC_WHATSAPP)
+    INSTAGRAM = 8   # ← nuovo; aggiornare anche PetCube.ino (case SRC_INSTAGRAM)
+    GENERIC   = 255
 
 
 class NotifPriority(IntEnum):
@@ -118,17 +121,25 @@ def compute_seed_hash(seed: str) -> int:
     return h
 
 
-def truncate_seed(text: str, max_len: int = 50) -> str:
+def truncate_seed(text: str, max_len: int = 50, max_words: int = 10) -> str:
     """
-    Tronca il seed alla prima frase (punto/?/!) o ai max_len caratteri.
-    Se la prima frase è < 10 caratteri (es. 'Aiuto!'), continua oltre
-    perché probabilmente è un'interiezione e il contesto utile viene dopo.
+    Tronca il seed alla prima frase (. / ? / !) oppure al limite di
+    parole/caratteri, secondo questo ordine:
+      1. Se il testo supera max_words parole, lo taglia alle prime max_words.
+      2. Applica il limite hard di max_len caratteri.
+      3. Cerca la fine della prima frase >= 10 char e la usa come punto di taglio.
     """
     if not text:
         return ""
+    # 1. Limite parole
+    words = text.split()
+    if len(words) > max_words:
+        text = " ".join(words[:max_words])
+    # 2. Limite caratteri
+    text = text[:max_len]
+    # 3. Taglia alla prima frase abbastanza lunga
     MIN_SENTENCE_LEN = 10
-    # Cerca la fine della prima frase abbastanza lunga
     for i, ch in enumerate(text):
-        if ch in ".!?" and i + 1 >= MIN_SENTENCE_LEN and i + 1 <= max_len:
+        if ch in ".!?" and i + 1 >= MIN_SENTENCE_LEN:
             return text[: i + 1]
-    return text[:max_len]
+    return text

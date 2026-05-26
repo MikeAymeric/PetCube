@@ -1206,6 +1206,9 @@ void drawMainScreen(unsigned long now) {
         case SRC_CALENDAR: iconBmp = ICON_CALENDAR;  break;
         case SRC_GMAIL:    iconBmp = ICON_GMAIL;     break;
         case SRC_TRELLO:   iconBmp = ICON_HACKNPLAN; break;  // HacknPlan riusa SRC_TRELLO
+        case SRC_TELEGRAM: iconBmp = ICON_TELEGRAM;  break;
+        case SRC_WHATSAPP: iconBmp = ICON_WHATSAPP;  break;
+        // SRC_INSTAGRAM (8) e SRC_GENERIC (255): nessuna icona → fallback lettera
         default: break;
       }
 

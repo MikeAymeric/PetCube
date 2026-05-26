@@ -15,6 +15,15 @@ google-api-python-client>=2.100.0
 # Discord
 discord.py>=2.3.0
 
+# Telegram (user client — autenticarsi con setup_telegram_session.py)
+telethon>=1.36.0
+
+# WhatsApp Web (richiede anche: playwright install chromium)
+playwright>=1.44.0
+
+# Instagram (API privata — usare account secondario se si vuole essere cauti)
+instagrapi>=2.0.0
+
 # Utility
 python-dateutil>=2.8.2
 
