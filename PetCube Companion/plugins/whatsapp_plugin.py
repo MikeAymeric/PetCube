@@ -16,8 +16,16 @@ Config (config.json > plugins > whatsapp):
     "enabled": true,
     "session_dir": "whatsapp_session",
     "poll_interval_sec": 30,
-    "headless": true
+    "headless": true,
+    "monitor_chats": []
   }
+
+Architettura threading:
+  Tutto il codice Playwright gira nel thread 'whatsapp-browser'.
+  Il DOM viene scansionato ogni poll_interval_sec secondi dal browser thread
+  stesso, che deposita i RawEvent in _event_queue.
+  poll() (chiamato dal plugin manager in un thread diverso) si limita a
+  drenare la coda — nessuna chiamata Playwright cross-thread.
 
 Limitazioni:
   - Usa selettori DOM di WhatsApp Web (data-testid) — potrebbero cambiare con
@@ -53,8 +61,9 @@ class WhatsAppPlugin(Plugin):
     """
     Plugin WhatsApp tramite Playwright (Chromium persistente).
 
-    Il browser gira in un thread daemon dedicato; poll() legge la queue
-    degli eventi rilevati durante l'ultima scansione DOM.
+    Il browser gira in un thread daemon dedicato che esegue sia la connessione
+    che la scansione periodica del DOM.  poll() si limita a drenare la coda
+    degli eventi — nessuna chiamata Playwright cross-thread.
     """
 
     @property
@@ -65,14 +74,16 @@ class WhatsAppPlugin(Plugin):
         super().__init__(config)
         self._session_dir: str = config.get("session_dir", "whatsapp_session")
         self._headless: bool = bool(config.get("headless", True))
-        # monitor_chats: lista di nomi (case-insensitive). Vuota = tutte le chat.
+        self._poll_interval: int = int(config.get("poll_interval_sec", 30))
+        # monitor_chats: lista di nomi (case-insensitive, sottostringa).
+        # Vuota = tutti i gruppi. I DM passano sempre.
         raw_chats = config.get("monitor_chats", [])
         self._monitor_chats: list[str] = [c.lower().strip() for c in raw_chats if c.strip()]
+
         self._event_queue: queue.Queue[RawEvent] = queue.Queue()
-        self._page = None
         self._connected = False
+        self._stop_event = threading.Event()
         self._browser_thread: Optional[threading.Thread] = None
-        self._lock = threading.Lock()
 
         if self._monitor_chats:
             logger.info(
@@ -97,6 +108,10 @@ class WhatsAppPlugin(Plugin):
         self._browser_thread.start()
 
     def _run_browser(self) -> None:
+        """
+        Gira interamente nel thread 'whatsapp-browser'.
+        Tutte le chiamate Playwright avvengono qui — mai cross-thread.
+        """
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
@@ -122,46 +137,34 @@ class WhatsAppPlugin(Plugin):
                     f"({'headless' if self._headless else 'visibile — scansiona QR'})"
                     "..."
                 )
-                # Attesa autenticazione: QR scan o caricamento sessione salvata
                 page.wait_for_selector(_SEL_APP_READY, timeout=180_000)
                 logger.info("✅ WhatsApp Web connesso.")
+                self._connected = True
 
-                with self._lock:
-                    self._page = page
-                    self._connected = True
-
-                # Mantieni il browser vivo finché il thread non viene terminato
-                while True:
-                    time.sleep(5)
+                # Loop di scansione — tutto dentro questo thread
+                while not self._stop_event.is_set():
                     if page.is_closed():
                         break
+                    self._scan_page(page)
+                    # Attendi poll_interval usando lo stop_event per uscire subito
+                    self._stop_event.wait(timeout=self._poll_interval)
 
             except Exception as e:
                 logger.error(f"WhatsApp browser errore: {e}")
             finally:
-                with self._lock:
-                    self._connected = False
-                    self._page = None
+                self._connected = False
 
-    # ------------------------------------------------------------------
-    # Plugin interface
-    # ------------------------------------------------------------------
-
-    def poll(self) -> list[RawEvent]:
-        with self._lock:
-            if not self._connected or self._page is None:
-                return []
-            page = self._page
-
-        events: list[RawEvent] = []
+    def _scan_page(self, page) -> None:
+        """
+        Scansiona il DOM alla ricerca di badge non letti.
+        Chiamato esclusivamente dal browser thread.
+        """
         try:
-            # Trova tutte le chat con badge non letto
             badges = page.query_selector_all(
                 f'{_SEL_CHAT_LIST} {_SEL_UNREAD_BADGE}'
             )
             for badge in badges:
                 try:
-                    # Risale al contenitore della chat
                     cell = badge.evaluate_handle(
                         "el => el.closest('[data-testid=\"cell-frame-container\"]')"
                     ).as_element()
@@ -199,7 +202,7 @@ class WhatsAppPlugin(Plugin):
                     self.seen_ids.add(msg_id)
                     preview = f"{chat_name}: {last_msg}" if last_msg else f"Messaggio da {chat_name}"
                     chat_type = "gruppo" if is_group else "DM"
-                    events.append(RawEvent(
+                    self._event_queue.put(RawEvent(
                         source=NotifSource.WHATSAPP,
                         priority=NotifPriority.NORMAL,
                         text=preview,
@@ -212,11 +215,22 @@ class WhatsAppPlugin(Plugin):
                     continue
 
         except Exception as e:
-            logger.warning(f"WhatsApp poll error: {e}")
+            logger.warning(f"WhatsApp scan error: {e}")
 
+    # ------------------------------------------------------------------
+    # Plugin interface
+    # ------------------------------------------------------------------
+
+    def poll(self) -> list[RawEvent]:
+        """Drena la coda eventi prodotta dal browser thread. Nessuna chiamata Playwright."""
+        events: list[RawEvent] = []
+        try:
+            while True:
+                events.append(self._event_queue.get_nowait())
+        except queue.Empty:
+            pass
         return events
 
     def shutdown(self) -> None:
-        with self._lock:
-            self._connected = False
+        self._stop_event.set()
         super().shutdown()
