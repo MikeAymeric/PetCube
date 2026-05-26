@@ -39,6 +39,46 @@ from notification_packet import NotifSource, NotifPriority
 logger = logging.getLogger(__name__)
 
 
+def _patch_instagrapi_loose_urls() -> None:
+    """
+    Instagram restituisce a volte URL con schema 'instagram://' (deep-link)
+    nel campo video_url di MediaXma (reel/storie condivise nei DM).
+    Pydantic v2 rifiuta URL non-http/https con url_scheme ValidationError.
+
+    Soluzione: ricompila i modelli instagrapi interessati sostituendo
+    i campi URL-validated con Optional[str], prima di creare il Client.
+    """
+    _models_to_patch = {
+        "MediaXma": ["video_url", "image_url"],
+    }
+    try:
+        import instagrapi.types as _ig
+        from pydantic.fields import FieldInfo
+        from typing import Optional
+
+        for model_name, fields in _models_to_patch.items():
+            model = getattr(_ig, model_name, None)
+            if model is None:
+                continue
+            model_fields = getattr(model, "model_fields", {})
+            patched = []
+            for field_name in fields:
+                if field_name in model_fields:
+                    model_fields[field_name] = FieldInfo(
+                        default=None, annotation=Optional[str]
+                    )
+                    model.__annotations__[field_name] = Optional[str]
+                    patched.append(field_name)
+            if patched:
+                model.model_rebuild(force=True)
+                logger.debug(
+                    f"Instagram: {model_name}.{{{', '.join(patched)}}} "
+                    "patched → Optional[str] (accetta qualsiasi URL scheme)"
+                )
+    except Exception as e:
+        logger.debug(f"Instagram: model patch saltato ({e})")
+
+
 class InstagramPlugin(Plugin):
     """
     Plugin Instagram con polling regolare (no thread separato — instagrapi è sincrono).
@@ -78,6 +118,9 @@ class InstagramPlugin(Plugin):
             )
             return
 
+        # Patch modelli Pydantic prima di creare il client
+        _patch_instagrapi_loose_urls()
+
         cl = Client()
         cl.delay_range = [2, 5]   # ritardo casuale tra request (anti-ban)
 
@@ -116,7 +159,18 @@ class InstagramPlugin(Plugin):
         if self._monitor_dms:
             try:
                 threads = self._client.direct_threads(amount=20)
-                for thread in threads:
+            except Exception as e:
+                if "url_scheme" in str(e) or "ValidationError" in type(e).__name__:
+                    logger.warning(
+                        "Instagram: ValidationError URL scheme in direct_threads "
+                        f"— modello non ancora patchato ({type(e).__name__}). "
+                        "Segnala il campo incriminato aprendo un issue sul repo."
+                    )
+                else:
+                    logger.warning(f"Instagram poll DM error: {e}")
+                threads = []
+            for thread in threads:
+                try:
                     if not getattr(thread, "unread_count", 0):
                         continue
                     thread_id = str(thread.id)
@@ -148,9 +202,8 @@ class InstagramPlugin(Plugin):
                         external_id=thread_id,
                     ))
                     logger.info(f"📸 Instagram DM: {preview!r}")
-
-            except Exception as e:
-                logger.warning(f"Instagram poll DM error: {e}")
+                except Exception as e:
+                    logger.debug(f"Instagram: errore parsing thread {getattr(thread, 'id', '?')}: {e}")
 
         # ── Menzioni ──────────────────────────────────────────────────
         if self._monitor_mentions:
