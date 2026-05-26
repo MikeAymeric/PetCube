@@ -30,7 +30,6 @@ Note:
 import logging
 import os
 import time
-from datetime import datetime, timezone
 from typing import Optional
 
 from plugins.base import Plugin, RawEvent
@@ -98,11 +97,6 @@ class InstagramPlugin(Plugin):
         self._monitor_dms: bool = bool(config.get("monitor_dms", True))
         self._monitor_mentions: bool = bool(config.get("monitor_mentions", True))
         self._client = None
-        # Ultimo item_id visto per thread: rileva nuovi messaggi senza dipendere
-        # da unread_count (che si azzera quando si apre l'app sul telefono).
-        self._last_msg_id: dict[str, str] = {}
-        # Timestamp avvio: usato per skippare messaggi vecchi alla prima osservazione
-        self._startup_ts: datetime = datetime.now(tz=timezone.utc)
 
         if not self._username or not self._password:
             logger.error("Instagram: 'username' o 'password' mancanti in config.json.")
@@ -152,62 +146,6 @@ class InstagramPlugin(Plugin):
             )
 
     # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    def _fetch_threads_all(self, limit: int = 20) -> list:
-        """
-        Recupera i thread DM senza il filtro 'unseen' hardcodato in
-        instagrapi.direct_threads(). Necessario per rilevare messaggi
-        già letti su altri device prima che il plugin facesse il poll.
-
-        Usa private_request() direttamente con visual_message_return_type=all;
-        in caso di errore fa fallback su direct_threads() standard.
-        """
-        try:
-            result = self._client.private_request(
-                "direct_v2/inbox/",
-                params={
-                    "visual_message_return_type": "all",
-                    "thread_message_limit": 1,
-                    "persistentBadging": True,
-                    "limit": limit,
-                    "is_prefetching": False,
-                    "fetch_reason": "initial_snapshot",
-                    "include_old_mrs": False,
-                    "no_pending_badge": True,
-                    "push_disabled": True,
-                }
-            )
-            raw_threads = result.get("inbox", {}).get("threads", [])
-            logger.info(f"Instagram: {len(raw_threads)} thread raw ricevuti dall'API")
-            parsed = []
-            for t in raw_threads:
-                # Prova extract_direct_thread (instagrapi extractor ufficiale)
-                try:
-                    from instagrapi.extractors import extract_direct_thread
-                    parsed.append(extract_direct_thread(t))
-                    continue
-                except Exception as e1:
-                    logger.debug(f"Instagram: extract_direct_thread fallito: {e1}")
-                # Fallback: Pydantic model_validate diretto
-                try:
-                    from instagrapi.types import DirectThread
-                    parsed.append(DirectThread.model_validate(t))
-                except Exception as e2:
-                    logger.warning(
-                        f"Instagram: impossibile parsare thread "
-                        f"(id={t.get('thread_id', '?')}): {e2}"
-                    )
-            logger.info(
-                f"Instagram: {len(parsed)}/{len(raw_threads)} thread DM parsati con successo"
-            )
-            return parsed
-        except Exception as e:
-            logger.warning(f"Instagram: _fetch_threads_all fallback → direct_threads(): {e}")
-            return self._client.direct_threads(amount=limit)
-
-    # ------------------------------------------------------------------
     # Plugin interface
     # ------------------------------------------------------------------
 
@@ -218,14 +156,22 @@ class InstagramPlugin(Plugin):
         events: list[RawEvent] = []
 
         # ── DM ────────────────────────────────────────────────────────
-        # Usiamo _fetch_threads_all() (visual_message_return_type=all) per
-        # ricevere TUTTI i thread, inclusi quelli già letti su altri device.
-        # Il rilevamento si basa su last_permanent_item.item_id (non unread_count).
+        # direct_threads() usa visual_message_return_type=unseen, che è l'unico
+        # modo per ricevere last_permanent_item popolato dalla API Instagram.
+        # La deduplicazione avviene tramite seen_ids con chiave thread_id+item_id,
+        # così lo stesso messaggio non notifica due volte ma i messaggi futuri
+        # della stessa chat notificano correttamente.
         if self._monitor_dms:
             try:
-                threads = self._fetch_threads_all(limit=20)
+                threads = self._client.direct_threads(amount=20)
             except Exception as e:
-                logger.warning(f"Instagram poll DM error: {e}")
+                if "url_scheme" in str(e) or "ValidationError" in type(e).__name__:
+                    logger.warning(
+                        f"Instagram: ValidationError URL scheme in direct_threads "
+                        f"({type(e).__name__}) — verifica il patch Pydantic."
+                    )
+                else:
+                    logger.warning(f"Instagram poll DM error: {e}")
                 threads = []
 
             my_id = str(getattr(self._client, "user_id", "") or "")
@@ -235,58 +181,27 @@ class InstagramPlugin(Plugin):
                     thread_id = str(thread.id)
                     last_item = getattr(thread, "last_permanent_item", None)
                     if last_item is None:
-                        logger.info(f"Instagram: thread {thread_id} senza last_permanent_item, skip")
                         continue
 
                     msg_id = str(getattr(last_item, "item_id", "") or "")
                     if not msg_id:
-                        logger.info(f"Instagram: thread {thread_id} senza item_id, skip")
                         continue
 
                     # Salta messaggi inviati da noi stessi
                     sender_id = str(getattr(last_item, "user_id", "") or "")
                     if my_id and sender_id == my_id:
-                        self._last_msg_id[thread_id] = msg_id
                         continue
 
-                    is_first_observation = thread_id not in self._last_msg_id
-
-                    if is_first_observation:
-                        self._last_msg_id[thread_id] = msg_id
-                        # Prima osservazione: notifica solo se il messaggio è
-                        # arrivato dopo l'avvio del plugin (evita flood di vecchi DM)
-                        msg_ts = getattr(last_item, "timestamp", None)
-                        if msg_ts is not None:
-                            if not msg_ts.tzinfo:
-                                msg_ts = msg_ts.replace(tzinfo=timezone.utc)
-                            logger.info(
-                                f"Instagram: prima obs thread {thread_id} — "
-                                f"msg_ts={msg_ts.isoformat()}, startup_ts={self._startup_ts.isoformat()}, "
-                                f"is_new={msg_ts > self._startup_ts}"
-                            )
-                            if msg_ts <= self._startup_ts:
-                                continue  # messaggio precedente all'avvio → skip
-                        # Se timestamp assente, skip per sicurezza
-                        else:
-                            logger.info(f"Instagram: thread {thread_id} senza timestamp, skip")
-                            continue
-                    else:
-                        # Osservazione successiva: notifica solo se item_id è cambiato
-                        if self._last_msg_id[thread_id] == msg_id:
-                            continue
-                        self._last_msg_id[thread_id] = msg_id
-
-                    # Evita duplicati cross-poll (es. poll molto ravvicinati)
+                    # Deduplicazione: thread + messaggio specifico
                     event_id = f"ig_{thread_id}_{msg_id}"
                     if event_id in self.seen_ids:
                         continue
                     self.seen_ids.add(event_id)
 
-                    # Identifica mittente
+                    # Identifica mittente e costruisci preview
                     users = getattr(thread, "users", [])
                     sender_name = users[0].username if users else "?"
 
-                    # Preview in base al tipo di messaggio
                     raw_text = getattr(last_item, "text", None) or ""
                     item_type = str(getattr(last_item, "item_type", "") or "")
                     _type_labels = {
