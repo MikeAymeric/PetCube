@@ -671,7 +671,8 @@ class CompanionGUI(ctk.CTk):
         if field_type == "list_str":
             if not raw:
                 return []
-            return [part.strip() for part in raw.split(",") if part.strip()]
+            return [part.strip().strip("\"'") for part in raw.split(",")
+                    if part.strip().strip("\"'")]
         # text / password
         return raw
 

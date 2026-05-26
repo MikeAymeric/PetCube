@@ -53,8 +53,35 @@ _SEL_UNREAD_BADGE = '[data-testid="icon-unread-count"]'
 _SEL_CHAT_CELL    = '[data-testid="cell-frame-container"]'
 _SEL_CHAT_TITLE   = '[data-testid="cell-frame-title"]'
 _SEL_LAST_MSG     = '[data-testid="last-msg-status"] ~ span, [data-testid="last-msg-status"]'
-# Avatar gruppo vs DM: i gruppi/canali usano "default-group", i DM "default-user"
-_SEL_GROUP_AVATAR = '[data-testid="default-group"]'
+
+# JavaScript per rilevare se una cella è un gruppo o un DM.
+# WhatsApp Web usa data-icon (SVG inline) — non data-testid — per le icone
+# avatar di default. I gruppi CON foto custom non hanno icone, ma nel preview
+# mostrano "Mittente: testo" (span vuoto con testo che termina con ':').
+_JS_IS_GROUP = """el => {
+    // 1. Icone avatar default (gruppi/canali senza foto custom)
+    const iconSels = [
+        '[data-icon="default-group"]',
+        '[data-icon="channel"]',
+        '[data-icon="community"]',
+        '[data-testid="default-group"]',   // fallback versioni future
+        '[data-testid="icon-channel"]',
+    ];
+    if (iconSels.some(s => !!el.querySelector(s))) return true;
+    // 2. Gruppi CON foto: l'anteprima mostra uno span leaf col solo mittente
+    //    seguito da ':' (es. "Mario:", "You:"). I DM non hanno questo span.
+    const secondary = el.querySelector('[data-testid="cell-frame-secondary"]');
+    if (secondary) {
+        const spans = secondary.querySelectorAll('span');
+        for (const s of spans) {
+            if (s.childElementCount === 0) {
+                const t = s.textContent.trim();
+                if (t && t.endsWith(':')) return true;
+            }
+        }
+    }
+    return false;
+}"""
 
 
 class WhatsAppPlugin(Plugin):
@@ -77,8 +104,13 @@ class WhatsAppPlugin(Plugin):
         self._poll_interval: int = int(config.get("poll_interval_sec", 30))
         # monitor_chats: lista di nomi (case-insensitive, sottostringa).
         # Vuota = tutti i gruppi. I DM passano sempre.
+        # strip('"\'') rimuove virgolette accidentali inserite dalla GUI.
         raw_chats = config.get("monitor_chats", [])
-        self._monitor_chats: list[str] = [c.lower().strip() for c in raw_chats if c.strip()]
+        self._monitor_chats: list[str] = [
+            c.strip().strip("\"'").lower()
+            for c in raw_chats
+            if c.strip().strip("\"'")
+        ]
 
         self._event_queue: queue.Queue[RawEvent] = queue.Queue()
         self._connected = False
@@ -176,14 +208,22 @@ class WhatsAppPlugin(Plugin):
                         continue
                     chat_name = (title_el.inner_text() or "?").strip()
 
-                    # Distingui gruppo/canale (avatar "default-group") da DM
-                    is_group = cell.query_selector(_SEL_GROUP_AVATAR) is not None
+                    # Distingui gruppo/canale da DM tramite JS evaluate
+                    is_group: bool = cell.evaluate(_JS_IS_GROUP)
+                    logger.debug(
+                        f"WhatsApp chat rilevata: {chat_name!r} "
+                        f"tipo={'gruppo' if is_group else 'DM'}"
+                    )
 
                     # Filtra per monitor_chats solo su gruppi/canali;
                     # i DM passano sempre indipendentemente dal filtro
                     if self._monitor_chats and is_group:
                         name_lower = chat_name.lower()
                         if not any(f in name_lower for f in self._monitor_chats):
+                            logger.debug(
+                                f"WhatsApp: gruppo {chat_name!r} escluso dal filtro "
+                                f"monitor_chats={self._monitor_chats}"
+                            )
                             continue
 
                     # Tenta di leggere l'ultimo messaggio visibile nel preview
