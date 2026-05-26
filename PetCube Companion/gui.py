@@ -49,13 +49,16 @@ BORDER        = "#3e3e42"
 CONFIG_PATH = Path("config.json")
 
 SOURCE_LABEL = {
-    NotifSource.DISCORD:  "💬 Discord",
-    NotifSource.GMAIL:    "📧 Gmail",
-    NotifSource.CALENDAR: "📅 Calendar",
-    NotifSource.SLACK:    "💼 Slack",
-    NotifSource.TRELLO:   "📋 HacknPlan",
-    NotifSource.GITHUB:   "🐙 GitHub",
-    NotifSource.GENERIC:  "❔ Other",
+    NotifSource.DISCORD:   "💬 Discord",
+    NotifSource.GMAIL:     "📧 Gmail",
+    NotifSource.CALENDAR:  "📅 Calendar",
+    NotifSource.SLACK:     "💼 Slack",
+    NotifSource.TRELLO:    "📋 HacknPlan",
+    NotifSource.GITHUB:    "🐙 GitHub",
+    NotifSource.TELEGRAM:  "✈ Telegram",
+    NotifSource.WHATSAPP:  "📱 WhatsApp",
+    NotifSource.INSTAGRAM: "📸 Instagram",
+    NotifSource.GENERIC:   "❔ Other",
 }
 
 CATEGORY_LABEL = {
@@ -94,13 +97,32 @@ _PLUGIN_FIELDS: dict[str, list[tuple[str, str, str]]] = {
         ("api_key",            "API Key",              "password"),
         ("target_user_id",     "Target User ID (o vuoto)", "int_nullable"),
     ],
+    "telegram": [
+        ("api_id",            "API ID (my.telegram.org)",  "int"),
+        ("api_hash",          "API Hash",                  "password"),
+        ("phone_number",      "Numero di telefono",        "text"),
+        ("session_file",      "File sessione",             "text"),
+        ("poll_interval_sec", "Polling (sec)",             "int"),
+        ("monitor_chat_ids",  "Chat IDs extra (virgola)",  "list_int"),
+    ],
+    "whatsapp": [
+        ("session_dir",       "Dir sessione browser",      "text"),
+        ("poll_interval_sec", "Polling (sec)",             "int"),
+    ],
+    "instagram": [
+        ("username",          "Username",                  "text"),
+        ("password",          "Password",                  "password"),
+        ("session_file",      "File sessione",             "text"),
+        ("poll_interval_sec", "Polling (sec)",             "int"),
+    ],
     "slack":   [],
     "github":  [],
     "trello":  [],
 }
 
 # ── Test console mappings ──────────────────────────────────────
-_TEST_SOURCES = ["Discord", "Gmail", "Calendar", "Slack", "HacknPlan", "GitHub", "Generic"]
+_TEST_SOURCES = ["Discord", "Gmail", "Calendar", "Slack", "HacknPlan", "GitHub",
+                 "Telegram", "WhatsApp", "Instagram", "Generic"]
 _TEST_SOURCE_MAP: dict[str, NotifSource] = {
     "Discord":   NotifSource.DISCORD,
     "Gmail":     NotifSource.GMAIL,
@@ -108,6 +130,9 @@ _TEST_SOURCE_MAP: dict[str, NotifSource] = {
     "Slack":     NotifSource.SLACK,
     "HacknPlan": NotifSource.TRELLO,
     "GitHub":    NotifSource.GITHUB,
+    "Telegram":  NotifSource.TELEGRAM,
+    "WhatsApp":  NotifSource.WHATSAPP,
+    "Instagram": NotifSource.INSTAGRAM,
     "Generic":   NotifSource.GENERIC,
 }
 
@@ -138,6 +163,9 @@ _PLUGIN_DISPLAY_NAME = {
     "slack":     "Slack",
     "github":    "GitHub",
     "trello":    "Trello",
+    "telegram":  "Telegram",
+    "whatsapp":  "WhatsApp",
+    "instagram": "Instagram",
 }
 
 
@@ -428,7 +456,11 @@ class CompanionGUI(ctk.CTk):
         # Sezione Plugin
         self._build_section_header(scroll, "PLUGIN")
         plugins_cfg = self.config_data.get("plugins", {})
-        plugin_order = ["calendar", "discord", "gmail", "hacknplan", "slack", "github", "trello"]
+        plugin_order = [
+            "calendar", "discord", "gmail", "hacknplan",
+            "telegram", "whatsapp", "instagram",
+            "slack", "github", "trello",
+        ]
         for plugin_name in plugin_order:
             pcfg = plugins_cfg.get(plugin_name, {})
             self._build_plugin_card(scroll, plugin_name, pcfg)

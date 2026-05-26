@@ -9,13 +9,16 @@ from enum import IntEnum
 
 
 class NotifSource(IntEnum):
-    DISCORD  = 0
-    GMAIL    = 1
-    CALENDAR = 2
-    SLACK    = 3
-    TRELLO   = 4
-    GITHUB   = 5
-    GENERIC  = 255
+    DISCORD   = 0
+    GMAIL     = 1
+    CALENDAR  = 2
+    SLACK     = 3
+    TRELLO    = 4
+    GITHUB    = 5
+    TELEGRAM  = 6   # ← nuovo; aggiornare anche PetCube.ino (case SRC_TELEGRAM)
+    WHATSAPP  = 7   # ← nuovo; aggiornare anche PetCube.ino (case SRC_WHATSAPP)
+    INSTAGRAM = 8   # ← nuovo; aggiornare anche PetCube.ino (case SRC_INSTAGRAM)
+    GENERIC   = 255
 
 
 class NotifPriority(IntEnum):
