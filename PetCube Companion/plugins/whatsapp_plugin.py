@@ -45,6 +45,8 @@ _SEL_UNREAD_BADGE = '[data-testid="icon-unread-count"]'
 _SEL_CHAT_CELL    = '[data-testid="cell-frame-container"]'
 _SEL_CHAT_TITLE   = '[data-testid="cell-frame-title"]'
 _SEL_LAST_MSG     = '[data-testid="last-msg-status"] ~ span, [data-testid="last-msg-status"]'
+# Avatar gruppo vs DM: i gruppi/canali usano "default-group", i DM "default-user"
+_SEL_GROUP_AVATAR = '[data-testid="default-group"]'
 
 
 class WhatsAppPlugin(Plugin):
@@ -74,8 +76,8 @@ class WhatsAppPlugin(Plugin):
 
         if self._monitor_chats:
             logger.info(
-                f"WhatsApp: filtro attivo su {len(self._monitor_chats)} chat: "
-                f"{self._monitor_chats}"
+                f"WhatsApp: filtro gruppi/canali attivo su {len(self._monitor_chats)} nomi: "
+                f"{self._monitor_chats} (i DM passano sempre)"
             )
         else:
             logger.info("WhatsApp: nessun filtro — notifica tutte le chat con messaggi non letti.")
@@ -171,8 +173,12 @@ class WhatsAppPlugin(Plugin):
                         continue
                     chat_name = (title_el.inner_text() or "?").strip()
 
-                    # Filtra per monitor_chats (se configurato)
-                    if self._monitor_chats:
+                    # Distingui gruppo/canale (avatar "default-group") da DM
+                    is_group = cell.query_selector(_SEL_GROUP_AVATAR) is not None
+
+                    # Filtra per monitor_chats solo su gruppi/canali;
+                    # i DM passano sempre indipendentemente dal filtro
+                    if self._monitor_chats and is_group:
                         name_lower = chat_name.lower()
                         if not any(f in name_lower for f in self._monitor_chats):
                             continue
@@ -192,13 +198,14 @@ class WhatsAppPlugin(Plugin):
 
                     self.seen_ids.add(msg_id)
                     preview = f"{chat_name}: {last_msg}" if last_msg else f"Messaggio da {chat_name}"
+                    chat_type = "gruppo" if is_group else "DM"
                     events.append(RawEvent(
                         source=NotifSource.WHATSAPP,
                         priority=NotifPriority.NORMAL,
                         text=preview,
                         external_id=msg_id,
                     ))
-                    logger.info(f"💬 WhatsApp nuovo messaggio: {preview!r}")
+                    logger.info(f"💬 WhatsApp [{chat_type}] nuovo messaggio: {preview!r}")
 
                 except Exception as e:
                     logger.debug(f"WhatsApp: errore parsing chat badge: {e}")
