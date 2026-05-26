@@ -8,6 +8,7 @@ Lancia con:
 Per avvio CLI (no GUI), continua a usare:
     python main.py
 """
+import json
 import logging
 import queue
 import sys
@@ -30,10 +31,10 @@ from notification_packet import NotifPacket, NotifSource, NotifCategory, NotifPr
 
 
 # ── Dark theme palette (Discord/VS Code style) ─────────────────
-BG_PRIMARY    = "#1e1e1e"   # editor background
-BG_SECONDARY  = "#252526"   # sidebar
-BG_TERTIARY   = "#2d2d30"   # cards
-ACCENT        = "#0e639c"   # blue accent
+BG_PRIMARY    = "#1e1e1e"
+BG_SECONDARY  = "#252526"
+BG_TERTIARY   = "#2d2d30"
+ACCENT        = "#0e639c"
 ACCENT_HOVER  = "#1177bb"
 SUCCESS       = "#4ec9b0"
 WARNING       = "#dcdcaa"
@@ -42,8 +43,8 @@ TEXT_PRIMARY  = "#cccccc"
 TEXT_DIM      = "#858585"
 BORDER        = "#3e3e42"
 
+CONFIG_PATH = Path("config.json")
 
-# Mapping source enum → emoji/etichetta UI
 SOURCE_LABEL = {
     NotifSource.DISCORD:  "💬 Discord",
     NotifSource.GMAIL:    "📧 Gmail",
@@ -65,45 +66,81 @@ CATEGORY_LABEL = {
     NotifCategory.CRISI:       "Crisi",
 }
 
+# (key, label, field_type)
+# field_type: "text" | "password" | "int" | "int_nullable" | "list_int"
+_PLUGIN_FIELDS: dict[str, list[tuple[str, str, str]]] = {
+    "calendar": [
+        ("poll_interval_sec",  "Polling (sec)",       "int"),
+        ("lookahead_minutes",  "Preavviso (min)",      "int"),
+        ("credentials_file",   "File credenziali",    "text"),
+    ],
+    "discord": [
+        ("bot_token",          "Bot Token",            "password"),
+        ("user_id",            "User ID (o vuoto)",    "int_nullable"),
+        ("poll_interval_sec",  "Polling (sec)",        "int"),
+        ("monitor_channel_ids","Channel IDs (virgola)","list_int"),
+    ],
+    "gmail": [
+        ("poll_interval_sec",  "Polling (sec)",        "int"),
+        ("credentials_file",   "File credenziali",    "text"),
+        ("login_hint",         "Login hint (email)",  "text"),
+    ],
+    "hacknplan": [
+        ("poll_interval_sec",  "Polling (sec)",        "int"),
+        ("lookahead_hours",    "Preavviso (ore)",      "int"),
+        ("api_key",            "API Key",              "password"),
+        ("target_user_id",     "Target User ID (o vuoto)", "int_nullable"),
+    ],
+    "slack":   [],
+    "github":  [],
+    "trello":  [],
+}
+
+_PLUGIN_DISPLAY_NAME = {
+    "calendar":  "Calendar",
+    "discord":   "Discord",
+    "gmail":     "Gmail",
+    "hacknplan": "HacknPlan",
+    "slack":     "Slack",
+    "github":    "GitHub",
+    "trello":    "Trello",
+}
+
 
 class CompanionGUI(ctk.CTk):
     def __init__(self, config: dict):
         super().__init__()
         self.config_data = config
 
-        # Window setup
         self.title("PetCube Companion")
         self.geometry("1100x700")
         self.minsize(900, 600)
         self.configure(fg_color=BG_PRIMARY)
 
-        # Set CustomTkinter appearance
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
 
-        # Engine
         self.engine: Optional[CompanionEngine] = None
-
-        # Queue per eventi cross-thread (engine → GUI main thread)
         self.event_queue: queue.Queue = queue.Queue()
-
-        # Storico notifiche locale (max 100)
         self.recent_notifications: list[dict] = []
-
-        # Tray icon (opzionale)
         self.tray_icon = None
         self._tray_visible = False
 
-        # Costruisci UI
+        # Settings widget state
+        self._sv_device: dict[str, ctk.StringVar] = {}
+        self._sv_plugins: dict[str, dict[str, ctk.Variable]] = {}
+        self._sv_transport_prefer = ctk.StringVar(value="ble")
+        self._sv_transport_timeout = ctk.StringVar(value="10")
+        self._sv_log_level = ctk.StringVar(value="INFO")
+        self._plugin_detail_frames: dict[str, ctk.CTkFrame] = {}
+        self._settings_msg_label: Optional[ctk.CTkLabel] = None
+        self._running_banner: Optional[ctk.CTkLabel] = None
+
         self._build_ui()
-
-        # Gestione close window: minimizza in tray invece di chiudere
+        self.attributes("-topmost", True)
         self.protocol("WM_DELETE_WINDOW", self._on_close_window)
-
-        # Avvia poller della queue per propagare eventi dal thread engine
         self.after(100, self._poll_event_queue)
 
-        # Avvia tray se disponibile
         if HAS_TRAY:
             self._setup_tray()
 
@@ -112,10 +149,8 @@ class CompanionGUI(ctk.CTk):
     # ═══════════════════════════════════════════════════════════
 
     def _build_ui(self) -> None:
-        # Grid principale: header (row 0) + body (row 1)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
-
         self._build_header()
         self._build_body()
 
@@ -124,43 +159,35 @@ class CompanionGUI(ctk.CTk):
         header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(2, weight=1)
 
-        # Indicatore stato (pallino colorato)
         self.status_dot = ctk.CTkLabel(
             header, text="●", text_color=TEXT_DIM, font=("Arial", 28)
         )
         self.status_dot.grid(row=0, column=0, padx=(15, 5), pady=10)
 
-        # Titolo
-        title = ctk.CTkLabel(
+        ctk.CTkLabel(
             header,
             text="PetCube Companion",
             font=ctk.CTkFont(size=16, weight="bold"),
             text_color=TEXT_PRIMARY,
-        )
-        title.grid(row=0, column=1, padx=(0, 20), pady=10, sticky="w")
+        ).grid(row=0, column=1, padx=(0, 20), pady=10, sticky="w")
 
-        # Status testuale (centrale)
         self.status_text = ctk.CTkLabel(
-            header,
-            text="Stopped",
-            font=ctk.CTkFont(size=12),
-            text_color=TEXT_DIM,
+            header, text="Stopped",
+            font=ctk.CTkFont(size=12), text_color=TEXT_DIM,
         )
         self.status_text.grid(row=0, column=2, pady=10, sticky="w")
 
-        # Bottoni Start/Stop
         self.start_btn = ctk.CTkButton(
-            header, text="▶ Start",
-            width=100, fg_color=ACCENT, hover_color=ACCENT_HOVER,
+            header, text="▶ Start", width=100,
+            fg_color=ACCENT, hover_color=ACCENT_HOVER,
             command=self._on_start,
         )
         self.start_btn.grid(row=0, column=3, padx=5, pady=10)
 
         self.stop_btn = ctk.CTkButton(
-            header, text="■ Stop",
-            width=100, fg_color=BG_TERTIARY, hover_color="#444",
-            command=self._on_stop,
-            state="disabled",
+            header, text="■ Stop", width=100,
+            fg_color=BG_TERTIARY, hover_color="#444",
+            command=self._on_stop, state="disabled",
         )
         self.stop_btn.grid(row=0, column=4, padx=(5, 15), pady=10)
 
@@ -170,9 +197,7 @@ class CompanionGUI(ctk.CTk):
         body.grid_columnconfigure(1, weight=1)
         body.grid_rowconfigure(0, weight=1)
 
-        # Sidebar left
         self._build_sidebar(body)
-        # Main area right
         self._build_main_area(body)
 
     def _build_sidebar(self, parent) -> None:
@@ -180,7 +205,6 @@ class CompanionGUI(ctk.CTk):
         sidebar.grid(row=0, column=0, sticky="nsw", padx=(0, 10))
         sidebar.grid_propagate(False)
 
-        # Section: PLUGINS
         ctk.CTkLabel(
             sidebar, text="PLUGINS",
             font=ctk.CTkFont(size=11, weight="bold"),
@@ -190,7 +214,7 @@ class CompanionGUI(ctk.CTk):
         self.plugin_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
         self.plugin_frame.pack(fill="x", padx=10)
         self.plugin_labels: dict[str, ctk.CTkLabel] = {}
-        # Popola con i plugin configurati come potenzialmente attivi
+
         plugins_cfg = self.config_data.get("plugins", {})
         for name, cfg in plugins_cfg.items():
             if isinstance(cfg, dict) and cfg.get("enabled"):
@@ -199,13 +223,11 @@ class CompanionGUI(ctk.CTk):
                 dot = ctk.CTkLabel(row, text="●", text_color=TEXT_DIM,
                                    font=("Arial", 14), width=20)
                 dot.pack(side="left")
-                lbl = ctk.CTkLabel(row, text=name, anchor="w",
-                                   text_color=TEXT_PRIMARY,
-                                   font=ctk.CTkFont(size=12))
-                lbl.pack(side="left", fill="x", expand=True)
+                ctk.CTkLabel(row, text=name, anchor="w",
+                             text_color=TEXT_PRIMARY,
+                             font=ctk.CTkFont(size=12)).pack(side="left", fill="x", expand=True)
                 self.plugin_labels[name] = dot
 
-        # Section: TRANSPORT
         ctk.CTkLabel(
             sidebar, text="TRANSPORT",
             font=ctk.CTkFont(size=11, weight="bold"),
@@ -216,8 +238,7 @@ class CompanionGUI(ctk.CTk):
         transport_frame.pack(fill="x", padx=10)
 
         self.transport_dot = ctk.CTkLabel(transport_frame, text="●",
-                                          text_color=TEXT_DIM,
-                                          font=("Arial", 14), width=20)
+                                          text_color=TEXT_DIM, font=("Arial", 14), width=20)
         self.transport_dot.pack(side="left")
         self.transport_label = ctk.CTkLabel(
             transport_frame, text="—", anchor="w",
@@ -225,7 +246,6 @@ class CompanionGUI(ctk.CTk):
         )
         self.transport_label.pack(side="left", fill="x", expand=True)
 
-        # Section: STATS
         ctk.CTkLabel(
             sidebar, text="STATISTICHE",
             font=ctk.CTkFont(size=11, weight="bold"),
@@ -236,44 +256,53 @@ class CompanionGUI(ctk.CTk):
         stats_frame.pack(fill="x", padx=10, pady=5)
 
         self.stat_sent_label = ctk.CTkLabel(
-            stats_frame, text="Inviate:  0",
-            anchor="w", text_color=TEXT_PRIMARY,
-            font=ctk.CTkFont(size=12),
+            stats_frame, text="Inviate:  0", anchor="w",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12),
         )
         self.stat_sent_label.pack(fill="x", padx=10, pady=(8, 2))
 
         self.stat_failed_label = ctk.CTkLabel(
-            stats_frame, text="Fallite:  0",
-            anchor="w", text_color=TEXT_PRIMARY,
-            font=ctk.CTkFont(size=12),
+            stats_frame, text="Fallite:  0", anchor="w",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12),
         )
         self.stat_failed_label.pack(fill="x", padx=10, pady=2)
 
         self.stat_uptime_label = ctk.CTkLabel(
-            stats_frame, text="Uptime:   —",
-            anchor="w", text_color=TEXT_PRIMARY,
-            font=ctk.CTkFont(size=12),
+            stats_frame, text="Uptime:   —", anchor="w",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12),
         )
         self.stat_uptime_label.pack(fill="x", padx=10, pady=(2, 8))
 
-        # Section: ABOUT (in fondo)
-        about = ctk.CTkLabel(
-            sidebar,
-            text="v0.1 • Lemon Loop Studio",
-            text_color=TEXT_DIM,
-            font=ctk.CTkFont(size=10),
-        )
-        about.pack(side="bottom", pady=10)
+        ctk.CTkLabel(
+            sidebar, text="v0.1 • Lemon Loop Studio",
+            text_color=TEXT_DIM, font=ctk.CTkFont(size=10),
+        ).pack(side="bottom", pady=10)
 
     def _build_main_area(self, parent) -> None:
         main = ctk.CTkFrame(parent, fg_color=BG_PRIMARY, corner_radius=0)
         main.grid(row=0, column=1, sticky="nsew")
         main.grid_columnconfigure(0, weight=1)
-        main.grid_rowconfigure(0, weight=3)  # Log
-        main.grid_rowconfigure(1, weight=2)  # Notifiche
+        main.grid_rowconfigure(0, weight=1)
+
+        tabview = ctk.CTkTabview(main, fg_color=BG_SECONDARY, corner_radius=8)
+        tabview.grid(row=0, column=0, sticky="nsew")
+
+        dash_tab = tabview.add("Dashboard")
+        settings_tab = tabview.add("Impostazioni")
+
+        self._build_dashboard_tab(dash_tab)
+        self._build_settings_tab(settings_tab)
+
+        tabview.set("Dashboard")
+        self._tabview = tabview
+
+    def _build_dashboard_tab(self, parent) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(0, weight=3)
+        parent.grid_rowconfigure(1, weight=2)
 
         # ── LOG STREAM ──
-        log_card = ctk.CTkFrame(main, fg_color=BG_SECONDARY, corner_radius=8)
+        log_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
         log_card.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
         log_card.grid_columnconfigure(0, weight=1)
         log_card.grid_rowconfigure(1, weight=1)
@@ -285,18 +314,15 @@ class CompanionGUI(ctk.CTk):
         ).grid(row=0, column=0, sticky="ew", padx=15, pady=(10, 5))
 
         self.log_text = ctk.CTkTextbox(
-            log_card,
-            fg_color=BG_PRIMARY,
-            text_color=TEXT_PRIMARY,
+            log_card, fg_color=BG_PRIMARY, text_color=TEXT_PRIMARY,
             font=ctk.CTkFont(family="Consolas", size=11),
-            wrap="none",
-            corner_radius=6,
+            wrap="none", corner_radius=6,
         )
         self.log_text.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.log_text.configure(state="disabled")
 
         # ── NOTIFICHE RECENTI ──
-        notif_card = ctk.CTkFrame(main, fg_color=BG_SECONDARY, corner_radius=8)
+        notif_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
         notif_card.grid(row=1, column=0, sticky="nsew")
         notif_card.grid_columnconfigure(0, weight=1)
         notif_card.grid_rowconfigure(1, weight=1)
@@ -307,16 +333,12 @@ class CompanionGUI(ctk.CTk):
             text_color=TEXT_DIM, anchor="w",
         ).grid(row=0, column=0, sticky="ew", padx=15, pady=(10, 5))
 
-        # Scrollable frame per la lista
         self.notif_scroll = ctk.CTkScrollableFrame(
-            notif_card,
-            fg_color=BG_PRIMARY,
-            corner_radius=6,
+            notif_card, fg_color=BG_PRIMARY, corner_radius=6,
         )
         self.notif_scroll.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.notif_scroll.grid_columnconfigure(0, weight=1)
 
-        # Placeholder
         self._notif_placeholder = ctk.CTkLabel(
             self.notif_scroll,
             text="Nessuna notifica ancora. Avvia il motore con ▶ Start.",
@@ -325,13 +347,376 @@ class CompanionGUI(ctk.CTk):
         self._notif_placeholder.pack(pady=20)
 
     # ═══════════════════════════════════════════════════════════
+    # Settings Tab
+    # ═══════════════════════════════════════════════════════════
+
+    def _build_settings_tab(self, parent) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(0, weight=1)
+
+        scroll = ctk.CTkScrollableFrame(parent, fg_color=BG_PRIMARY, corner_radius=0)
+        scroll.grid(row=0, column=0, sticky="nsew")
+        scroll.grid_columnconfigure(0, weight=1)
+
+        # Banner "riavvio richiesto" (hidden by default)
+        self._running_banner = ctk.CTkLabel(
+            scroll,
+            text="⚠  Il motore è in esecuzione — riavvialo per applicare le modifiche.",
+            fg_color="#5a3000", text_color=WARNING,
+            font=ctk.CTkFont(size=12), corner_radius=6, anchor="w",
+        )
+
+        # Sezione Device
+        self._build_section_header(scroll, "DEVICE")
+        dev_frame = ctk.CTkFrame(scroll, fg_color=BG_TERTIARY, corner_radius=8)
+        dev_frame.pack(fill="x", padx=10, pady=(0, 10))
+        dev_frame.grid_columnconfigure(1, weight=1)
+
+        device_cfg = self.config_data.get("device", {})
+        device_fields = [
+            ("ble_name",          "Nome BLE",          "text"),
+            ("wifi_fallback_url", "WiFi Fallback URL",  "text"),
+        ]
+        for row_idx, (key, label, _) in enumerate(device_fields):
+            sv = ctk.StringVar(value=str(device_cfg.get(key, "")))
+            self._sv_device[key] = sv
+            self._build_field_row(dev_frame, row_idx, label, sv, "text")
+
+        # Sezione Plugin
+        self._build_section_header(scroll, "PLUGIN")
+        plugins_cfg = self.config_data.get("plugins", {})
+        plugin_order = ["calendar", "discord", "gmail", "hacknplan", "slack", "github", "trello"]
+        for plugin_name in plugin_order:
+            pcfg = plugins_cfg.get(plugin_name, {})
+            self._build_plugin_card(scroll, plugin_name, pcfg)
+
+        # Sezione Transport
+        self._build_section_header(scroll, "TRANSPORT")
+        transport_frame = ctk.CTkFrame(scroll, fg_color=BG_TERTIARY, corner_radius=8)
+        transport_frame.pack(fill="x", padx=10, pady=(0, 10))
+        transport_frame.grid_columnconfigure(1, weight=1)
+
+        transport_cfg = self.config_data.get("transport", {})
+        prefer_val = transport_cfg.get("prefer", "ble")
+        self._sv_transport_prefer.set(prefer_val)
+        ctk.CTkLabel(
+            transport_frame, text="Modalità preferita", anchor="w",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12), width=180,
+        ).grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
+        ctk.CTkOptionMenu(
+            transport_frame,
+            values=["ble", "wifi", "auto"],
+            variable=self._sv_transport_prefer,
+            fg_color=BG_PRIMARY, button_color=ACCENT,
+            button_hover_color=ACCENT_HOVER,
+            font=ctk.CTkFont(size=12),
+        ).grid(row=0, column=1, padx=(0, 12), pady=8, sticky="w")
+
+        timeout_val = str(transport_cfg.get("ble_scan_timeout_sec", 10))
+        self._sv_transport_timeout.set(timeout_val)
+        self._build_field_row(transport_frame, 1, "BLE scan timeout (sec)",
+                              self._sv_transport_timeout, "int")
+
+        # Sezione Logging
+        self._build_section_header(scroll, "LOGGING")
+        log_frame = ctk.CTkFrame(scroll, fg_color=BG_TERTIARY, corner_radius=8)
+        log_frame.pack(fill="x", padx=10, pady=(0, 10))
+        log_frame.grid_columnconfigure(1, weight=1)
+
+        log_cfg = self.config_data.get("logging", {})
+        self._sv_log_level.set(log_cfg.get("level", "INFO"))
+        ctk.CTkLabel(
+            log_frame, text="Livello log", anchor="w",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12), width=180,
+        ).grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
+        ctk.CTkOptionMenu(
+            log_frame,
+            values=["DEBUG", "INFO", "WARNING", "ERROR"],
+            variable=self._sv_log_level,
+            fg_color=BG_PRIMARY, button_color=ACCENT,
+            button_hover_color=ACCENT_HOVER,
+            font=ctk.CTkFont(size=12),
+        ).grid(row=0, column=1, padx=(0, 12), pady=8, sticky="w")
+
+        # Feedback message label
+        self._settings_msg_label = ctk.CTkLabel(
+            scroll, text="", text_color=SUCCESS,
+            font=ctk.CTkFont(size=12),
+        )
+        self._settings_msg_label.pack(padx=10, pady=(5, 0), anchor="w")
+
+        # Buttons
+        btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        btn_row.pack(fill="x", padx=10, pady=(5, 15))
+
+        ctk.CTkButton(
+            btn_row, text="💾  Salva", width=120,
+            fg_color=ACCENT, hover_color=ACCENT_HOVER,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=self._settings_save,
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            btn_row, text="↺  Ricarica", width=120,
+            fg_color=BG_TERTIARY, hover_color="#444",
+            font=ctk.CTkFont(size=13),
+            command=self._settings_reload,
+        ).pack(side="left")
+
+    def _build_section_header(self, parent, title: str) -> None:
+        ctk.CTkLabel(
+            parent, text=title,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=TEXT_DIM, anchor="w",
+        ).pack(fill="x", padx=15, pady=(15, 5))
+
+    def _build_field_row(self, parent, row_idx: int, label: str,
+                         sv: ctk.StringVar, field_type: str) -> ctk.CTkEntry:
+        ctk.CTkLabel(
+            parent, text=label, anchor="w",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12), width=180,
+        ).grid(row=row_idx, column=0, padx=(12, 8), pady=6, sticky="w")
+
+        show_char = "*" if field_type == "password" else ""
+        entry = ctk.CTkEntry(
+            parent, textvariable=sv,
+            fg_color=BG_PRIMARY, border_color=BORDER,
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12),
+            show=show_char,
+        )
+        entry.grid(row=row_idx, column=1, padx=(0, 12), pady=6, sticky="ew")
+        return entry
+
+    def _build_plugin_card(self, parent, plugin_name: str, pcfg: dict) -> None:
+        enabled_val = bool(pcfg.get("enabled", False))
+        bv = ctk.BooleanVar(value=enabled_val)
+        fields_specs = _PLUGIN_FIELDS.get(plugin_name, [])
+
+        plugin_vars: dict[str, ctk.Variable] = {"enabled": bv}
+        self._sv_plugins[plugin_name] = plugin_vars
+
+        card = ctk.CTkFrame(parent, fg_color=BG_TERTIARY, corner_radius=8)
+        card.pack(fill="x", padx=10, pady=(0, 6))
+        card.grid_columnconfigure(0, weight=1)
+
+        # Header row with switch
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", padx=12, pady=8)
+        header.grid_columnconfigure(0, weight=1)
+
+        display_name = _PLUGIN_DISPLAY_NAME.get(plugin_name, plugin_name.capitalize())
+        ctk.CTkLabel(
+            header, text=display_name, anchor="w",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=13, weight="bold"),
+        ).grid(row=0, column=0, sticky="w")
+
+        # Details frame (fields shown when enabled)
+        if fields_specs:
+            detail_frame = ctk.CTkFrame(card, fg_color="transparent")
+            detail_frame.grid_columnconfigure(1, weight=1)
+            self._plugin_detail_frames[plugin_name] = detail_frame
+
+            for row_idx, (key, label, field_type) in enumerate(fields_specs):
+                raw_val = pcfg.get(key)
+                sv = ctk.StringVar(value=self._value_to_str(raw_val, field_type))
+                plugin_vars[key] = sv
+                self._build_field_row(detail_frame, row_idx, label, sv, field_type)
+
+            def make_toggle(pname, dframe):
+                def toggle(val):
+                    if val:
+                        dframe.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 8))
+                    else:
+                        dframe.grid_remove()
+                return toggle
+
+            toggle_fn = make_toggle(plugin_name, detail_frame)
+            switch = ctk.CTkSwitch(
+                header, text="", variable=bv,
+                onvalue=True, offvalue=False,
+                command=lambda fn=toggle_fn, b=bv: fn(b.get()),
+                fg_color=BORDER, progress_color=ACCENT,
+            )
+            switch.grid(row=0, column=1, sticky="e")
+
+            # Set initial visibility
+            if enabled_val:
+                detail_frame.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 8))
+        else:
+            # Plugin with no fields — just a switch
+            switch = ctk.CTkSwitch(
+                header, text="", variable=bv,
+                onvalue=True, offvalue=False,
+                fg_color=BORDER, progress_color=ACCENT,
+            )
+            switch.grid(row=0, column=1, sticky="e")
+
+    # ═══════════════════════════════════════════════════════════
+    # Settings persistence helpers
+    # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _value_to_str(val, field_type: str) -> str:
+        if val is None:
+            return ""
+        if field_type == "list_int":
+            if isinstance(val, list):
+                return ", ".join(str(v) for v in val)
+            return str(val)
+        return str(val)
+
+    @staticmethod
+    def _parse_field_value(raw: str, field_type: str):
+        raw = raw.strip()
+        if field_type == "int":
+            try:
+                return int(raw)
+            except ValueError:
+                return 0
+        if field_type == "int_nullable":
+            if not raw:
+                return None
+            try:
+                return int(raw)
+            except ValueError:
+                return None
+        if field_type == "list_int":
+            if not raw:
+                return []
+            result = []
+            for part in raw.split(","):
+                part = part.strip()
+                if part:
+                    try:
+                        result.append(int(part))
+                    except ValueError:
+                        pass
+            return result
+        # text / password
+        return raw
+
+    def _settings_save(self) -> None:
+        try:
+            with open(CONFIG_PATH, encoding="utf-8") as f:
+                raw = json.load(f)
+        except Exception as e:
+            self._show_settings_message(f"✗ Errore lettura config: {e}", ERROR)
+            return
+
+        # Device
+        dev = raw.setdefault("device", {})
+        for key, sv in self._sv_device.items():
+            dev[key] = sv.get()
+
+        # Plugins
+        plugins_raw = raw.setdefault("plugins", {})
+        for plugin_name, vars_dict in self._sv_plugins.items():
+            pcfg = plugins_raw.setdefault(plugin_name, {})
+            pcfg["enabled"] = vars_dict["enabled"].get()
+            for key, var in vars_dict.items():
+                if key == "enabled":
+                    continue
+                specs = _PLUGIN_FIELDS.get(plugin_name, [])
+                field_spec = next((f for f in specs if f[0] == key), None)
+                if field_spec:
+                    pcfg[key] = self._parse_field_value(var.get(), field_spec[2])
+
+        # Transport
+        raw.setdefault("transport", {})["prefer"] = self._sv_transport_prefer.get()
+        try:
+            raw["transport"]["ble_scan_timeout_sec"] = int(self._sv_transport_timeout.get())
+        except ValueError:
+            pass
+
+        # Logging
+        raw.setdefault("logging", {})["level"] = self._sv_log_level.get()
+
+        try:
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(raw, f, indent=2, ensure_ascii=False)
+            self.config_data = raw
+        except Exception as e:
+            self._show_settings_message(f"✗ Errore scrittura: {e}", ERROR)
+            return
+
+        if self.engine and self.engine.is_running():
+            self._show_settings_message(
+                "✓ Salvato. Riavvia il motore per applicare le modifiche.", WARNING
+            )
+        else:
+            self._show_settings_message("✓ Salvato con successo.", SUCCESS)
+
+    def _settings_reload(self) -> None:
+        try:
+            with open(CONFIG_PATH, encoding="utf-8") as f:
+                raw = json.load(f)
+            self.config_data = raw
+        except Exception as e:
+            self._show_settings_message(f"✗ Errore lettura config: {e}", ERROR)
+            return
+
+        # Device
+        device_cfg = raw.get("device", {})
+        for key, sv in self._sv_device.items():
+            sv.set(str(device_cfg.get(key, "")))
+
+        # Plugins
+        plugins_cfg = raw.get("plugins", {})
+        for plugin_name, vars_dict in self._sv_plugins.items():
+            pcfg = plugins_cfg.get(plugin_name, {})
+            enabled = bool(pcfg.get("enabled", False))
+            vars_dict["enabled"].set(enabled)
+
+            # Update detail frame visibility
+            dframe = self._plugin_detail_frames.get(plugin_name)
+            if dframe:
+                if enabled:
+                    dframe.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 8))
+                else:
+                    dframe.grid_remove()
+
+            for key, var in vars_dict.items():
+                if key == "enabled":
+                    continue
+                specs = _PLUGIN_FIELDS.get(plugin_name, [])
+                field_spec = next((f for f in specs if f[0] == key), None)
+                if field_spec:
+                    var.set(self._value_to_str(pcfg.get(key), field_spec[2]))
+
+        # Transport
+        transport_cfg = raw.get("transport", {})
+        self._sv_transport_prefer.set(transport_cfg.get("prefer", "ble"))
+        self._sv_transport_timeout.set(str(transport_cfg.get("ble_scan_timeout_sec", 10)))
+
+        # Logging
+        self._sv_log_level.set(raw.get("logging", {}).get("level", "INFO"))
+
+        self._show_settings_message("↺ Configurazione ricaricata.", TEXT_PRIMARY)
+
+    def _show_settings_message(self, msg: str, color: str) -> None:
+        if self._settings_msg_label:
+            self._settings_msg_label.configure(text=msg, text_color=color)
+            self.after(5000, lambda: self._settings_msg_label.configure(text="")
+                       if self._settings_msg_label else None)
+
+    def _update_running_banner(self) -> None:
+        if not self._running_banner:
+            return
+        if self.engine and self.engine.is_running():
+            self._running_banner.pack(fill="x", padx=10, pady=(10, 0), before=None)
+        else:
+            try:
+                self._running_banner.pack_forget()
+            except Exception:
+                pass
+
+    # ═══════════════════════════════════════════════════════════
     # Engine control
     # ═══════════════════════════════════════════════════════════
 
     def _on_start(self) -> None:
         if self.engine and self.engine.is_running():
             return
-        # Crea nuovo engine (un'istanza viene "consumata" dopo stop, meglio rifare)
         self.engine = CompanionEngine(self.config_data)
         self.engine.add_log_listener(self._on_log_record)
         self.engine.add_event_listener(self._on_event)
@@ -341,8 +726,8 @@ class CompanionGUI(ctk.CTk):
         self.stop_btn.configure(state="normal", fg_color="#a1260d", hover_color="#c14a3a")
         self.status_dot.configure(text_color=SUCCESS)
         self.status_text.configure(text="Running", text_color=SUCCESS)
+        self._update_running_banner()
 
-        # Schedule update status periodico
         self.after(500, self._update_status_periodic)
 
     def _on_stop(self) -> None:
@@ -356,8 +741,8 @@ class CompanionGUI(ctk.CTk):
         self.stop_btn.configure(state="disabled", fg_color=BG_TERTIARY)
         self.status_dot.configure(text_color=TEXT_DIM)
         self.status_text.configure(text="Stopped", text_color=TEXT_DIM)
+        self._update_running_banner()
 
-        # Reset pallini plugin
         for dot in self.plugin_labels.values():
             dot.configure(text_color=TEXT_DIM)
         self.transport_dot.configure(text_color=TEXT_DIM)
@@ -368,7 +753,6 @@ class CompanionGUI(ctk.CTk):
     # ═══════════════════════════════════════════════════════════
 
     def _on_log_record(self, record: logging.LogRecord) -> None:
-        """Chiamato dal thread engine. Marshall verso main thread via queue."""
         try:
             formatted = self._log_broadcaster_format(record)
             color = self._color_for_log_level(record.levelno)
@@ -377,12 +761,10 @@ class CompanionGUI(ctk.CTk):
             pass
 
     def _on_event(self, pkt: NotifPacket, send_ok: bool) -> None:
-        """Chiamato dal thread engine. Marshall verso main thread via queue."""
         self.event_queue.put(("notif", pkt, send_ok))
 
     @staticmethod
     def _log_broadcaster_format(record: logging.LogRecord) -> str:
-        # Format coerente col CLI: 12:34:56 [LEVEL] name — message
         ts = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
         return f"{ts} [{record.levelname}] {record.name} — {record.getMessage()}"
 
@@ -401,7 +783,6 @@ class CompanionGUI(ctk.CTk):
     # ═══════════════════════════════════════════════════════════
 
     def _poll_event_queue(self) -> None:
-        """Svuota la queue degli eventi cross-thread. Ri-schedulato ogni 100ms."""
         try:
             while True:
                 item = self.event_queue.get_nowait()
@@ -417,89 +798,70 @@ class CompanionGUI(ctk.CTk):
 
     def _append_log_line(self, text: str, color: str = TEXT_PRIMARY) -> None:
         self.log_text.configure(state="normal")
-        # Inserisci con tag colore
         tag_name = f"col_{color.lstrip('#')}"
         try:
             self.log_text.tag_config(tag_name, foreground=color)
         except Exception:
             pass
         self.log_text.insert("end", text + "\n", tag_name)
-        # Auto-scroll
         self.log_text.see("end")
-        # Limit a 1000 righe per evitare growth infinito
         line_count = int(self.log_text.index("end-1c").split(".")[0])
         if line_count > 1000:
             self.log_text.delete("1.0", "200.0")
         self.log_text.configure(state="disabled")
 
     def _append_notification(self, pkt: NotifPacket, send_ok: bool) -> None:
-        # Rimuovi placeholder se primo elemento
         if self._notif_placeholder and self._notif_placeholder.winfo_exists():
             self._notif_placeholder.destroy()
             self._notif_placeholder = None
 
-        # Crea riga
         row = ctk.CTkFrame(self.notif_scroll, fg_color=BG_TERTIARY, corner_radius=4)
-        # Pack al top (newest first)
         row.pack(fill="x", pady=2, padx=2, side="top", anchor="n")
         row.grid_columnconfigure(3, weight=1)
 
-        # Status icon
         status_color = SUCCESS if send_ok else ERROR
-        status_char = "✓" if send_ok else "✗"
         ctk.CTkLabel(
-            row, text=status_char, text_color=status_color,
+            row, text="✓" if send_ok else "✗", text_color=status_color,
             font=ctk.CTkFont(size=14, weight="bold"), width=25,
         ).grid(row=0, column=0, padx=(8, 4), pady=6)
 
-        # Timestamp
         ts = datetime.fromtimestamp(pkt.timestamp).strftime("%H:%M:%S")
         ctk.CTkLabel(
             row, text=ts, text_color=TEXT_DIM,
             font=ctk.CTkFont(family="Consolas", size=11), width=70,
         ).grid(row=0, column=1, padx=4)
 
-        # Source
         source_label = SOURCE_LABEL.get(pkt.source, "?")
         ctk.CTkLabel(
             row, text=source_label, text_color=TEXT_PRIMARY,
             font=ctk.CTkFont(size=11, weight="bold"), width=110, anchor="w",
         ).grid(row=0, column=2, padx=4, sticky="w")
 
-        # Preview
         preview_text = pkt.seed_preview[:60] + ("..." if len(pkt.seed_preview) > 60 else "")
         ctk.CTkLabel(
             row, text=preview_text, text_color=TEXT_PRIMARY,
             font=ctk.CTkFont(size=11), anchor="w",
         ).grid(row=0, column=3, padx=4, sticky="ew")
 
-        # Category + priority pill
         cat_label = CATEGORY_LABEL.get(pkt.category, "?")
         pri_color = ERROR if pkt.priority == NotifPriority.HIGH else (
             WARNING if pkt.priority == NotifPriority.NORMAL else TEXT_DIM
         )
-        pill = ctk.CTkLabel(
+        ctk.CTkLabel(
             row, text=f" {cat_label} ", text_color=pri_color,
             font=ctk.CTkFont(size=10, weight="bold"),
             fg_color=BG_PRIMARY, corner_radius=4, width=90,
-        )
-        pill.grid(row=0, column=4, padx=(4, 8))
+        ).grid(row=0, column=4, padx=(4, 8))
 
-        # Mantieni storia + cap 100
         self.recent_notifications.append({"pkt": pkt, "ok": send_ok, "ts": pkt.timestamp})
         if len(self.recent_notifications) > 100:
             self.recent_notifications.pop(0)
-            # Con pack(side="top") i widget sono in ordine di creazione:
-            # children[0] = più vecchio (visivamente in alto) → è quello da rimuovere.
             children = self.notif_scroll.winfo_children()
             if children:
                 children[0].destroy()
 
     def _update_status_periodic(self) -> None:
-        """Aggiorna pannello status ogni 500ms se engine running."""
         if not self.engine or not self.engine.is_running():
-            # Se l'engine era partito ma è morto inaspettatamente (crash del thread),
-            # ripristina la UI come se l'utente avesse premuto Stop.
             if self.engine is not None:
                 self._append_log_line("⚠️  Engine terminato inaspettatamente.", color=ERROR)
                 self.engine = None
@@ -508,22 +870,19 @@ class CompanionGUI(ctk.CTk):
                 self.stop_btn.configure(state="disabled", fg_color=BG_TERTIARY)
                 self.status_dot.configure(text_color=ERROR)
                 self.status_text.configure(text="Crashed", text_color=ERROR)
+                self._update_running_banner()
                 for dot in self.plugin_labels.values():
                     dot.configure(text_color=TEXT_DIM)
                 self.transport_dot.configure(text_color=TEXT_DIM)
                 self.transport_label.configure(text="—")
             return
+
         status = self.engine.get_status()
 
-        # Plugin dots
         active_set = set(status.plugins_active)
         for name, dot in self.plugin_labels.items():
-            if name in active_set:
-                dot.configure(text_color=SUCCESS)
-            else:
-                dot.configure(text_color=WARNING)
+            dot.configure(text_color=SUCCESS if name in active_set else WARNING)
 
-        # Transport
         mode = status.sender_mode
         if mode == "ble":
             self.transport_dot.configure(text_color=SUCCESS)
@@ -538,7 +897,6 @@ class CompanionGUI(ctk.CTk):
             self.transport_dot.configure(text_color=TEXT_DIM)
             self.transport_label.configure(text=mode)
 
-        # Stats
         self.stat_sent_label.configure(text=f"Inviate:  {status.notifications_sent}")
         self.stat_failed_label.configure(text=f"Fallite:  {status.notifications_failed}")
         if status.started_at:
@@ -547,7 +905,6 @@ class CompanionGUI(ctk.CTk):
             m, s = divmod(rem, 60)
             self.stat_uptime_label.configure(text=f"Uptime:   {h:02d}:{m:02d}:{s:02d}")
 
-        # Ri-schedule
         self.after(500, self._update_status_periodic)
 
     # ═══════════════════════════════════════════════════════════
@@ -555,7 +912,6 @@ class CompanionGUI(ctk.CTk):
     # ═══════════════════════════════════════════════════════════
 
     def _on_close_window(self) -> None:
-        """X cliccato: minimizza in tray invece di chiudere (se tray disponibile)."""
         if HAS_TRAY and self.tray_icon:
             self.withdraw()
             self._tray_visible = False
@@ -573,8 +929,6 @@ class CompanionGUI(ctk.CTk):
         self.destroy()
 
     def _setup_tray(self) -> None:
-        """Inizializza tray icon con pystray."""
-        # Crea un'icona semplice 64x64
         img = Image.new("RGB", (64, 64), color=(30, 30, 30))
         d = ImageDraw.Draw(img)
         d.ellipse([10, 10, 54, 54], fill=(78, 201, 176))
@@ -594,19 +948,16 @@ class CompanionGUI(ctk.CTk):
             pystray.MenuItem("Quit", on_quit),
         )
         self.tray_icon = pystray.Icon("PetCubeCompanion", img, "PetCube Companion", menu)
-        # Run in thread separato (pystray blocca)
         import threading as _th
         _th.Thread(target=self.tray_icon.run, daemon=True).start()
 
 
 def main() -> None:
-    # Force UTF-8 stdout (per emoji in log)
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
 
-    # Logging base (così se l'utente lancia da console vede qualcosa)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
