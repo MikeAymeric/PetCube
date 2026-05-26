@@ -73,7 +73,7 @@ CATEGORY_LABEL = {
 }
 
 # (key, label, field_type)
-# field_type: "text" | "password" | "int" | "int_nullable" | "list_int"
+# field_type: "text" | "password" | "int" | "int_nullable" | "list_int" | "list_str"
 _PLUGIN_FIELDS: dict[str, list[tuple[str, str, str]]] = {
     "calendar": [
         ("poll_interval_sec",  "Polling (sec)",       "int"),
@@ -106,8 +106,9 @@ _PLUGIN_FIELDS: dict[str, list[tuple[str, str, str]]] = {
         ("monitor_chat_ids",  "Chat IDs extra (virgola)",  "list_int"),
     ],
     "whatsapp": [
-        ("session_dir",       "Dir sessione browser",      "text"),
-        ("poll_interval_sec", "Polling (sec)",             "int"),
+        ("session_dir",       "Dir sessione browser",                     "text"),
+        ("poll_interval_sec", "Polling (sec)",                            "int"),
+        ("monitor_chats",     "Chat da monitorare (virgola, vuoto=tutte)", "list_str"),
     ],
     "instagram": [
         ("username",          "Username",                  "text"),
@@ -634,7 +635,7 @@ class CompanionGUI(ctk.CTk):
     def _value_to_str(val, field_type: str) -> str:
         if val is None:
             return ""
-        if field_type == "list_int":
+        if field_type in ("list_int", "list_str"):
             if isinstance(val, list):
                 return ", ".join(str(v) for v in val)
             return str(val)
@@ -667,6 +668,10 @@ class CompanionGUI(ctk.CTk):
                     except ValueError:
                         pass
             return result
+        if field_type == "list_str":
+            if not raw:
+                return []
+            return [part.strip() for part in raw.split(",") if part.strip()]
         # text / password
         return raw
 
