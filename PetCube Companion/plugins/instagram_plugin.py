@@ -97,6 +97,9 @@ class InstagramPlugin(Plugin):
         self._monitor_dms: bool = bool(config.get("monitor_dms", True))
         self._monitor_mentions: bool = bool(config.get("monitor_mentions", True))
         self._client = None
+        # Ultimo item_id visto per thread: rileva nuovi messaggi senza dipendere
+        # da unread_count (che si azzera quando si apre l'app sul telefono).
+        self._last_msg_id: dict[str, str] = {}
 
         if not self._username or not self._password:
             logger.error("Instagram: 'username' o 'password' mancanti in config.json.")
@@ -155,7 +158,11 @@ class InstagramPlugin(Plugin):
 
         events: list[RawEvent] = []
 
-        # ── DM non letti ──────────────────────────────────────────────
+        # ── DM ────────────────────────────────────────────────────────
+        # Non usiamo unread_count: si azzera quando l'utente apre l'app sul
+        # telefono, rendendo invisibili i messaggi già letti altrove.
+        # Strategia: confrontiamo last_permanent_item.item_id col valore
+        # salvato dall'ultimo poll — se è cambiato c'è un nuovo messaggio.
         if self._monitor_dms:
             try:
                 threads = self._client.direct_threads(amount=20)
@@ -163,47 +170,83 @@ class InstagramPlugin(Plugin):
                 if "url_scheme" in str(e) or "ValidationError" in type(e).__name__:
                     logger.warning(
                         "Instagram: ValidationError URL scheme in direct_threads "
-                        f"— modello non ancora patchato ({type(e).__name__}). "
-                        "Segnala il campo incriminato aprendo un issue sul repo."
+                        f"— modello non ancora patchato ({type(e).__name__})."
                     )
                 else:
                     logger.warning(f"Instagram poll DM error: {e}")
                 threads = []
+
+            my_id = str(getattr(self._client, "user_id", "") or "")
+
             for thread in threads:
                 try:
-                    if not getattr(thread, "unread_count", 0):
-                        continue
                     thread_id = str(thread.id)
-                    if thread_id in self.seen_ids:
+                    last_item = getattr(thread, "last_permanent_item", None)
+                    if last_item is None:
                         continue
 
-                    # Recupera il primo messaggio non visto
-                    try:
-                        msgs = self._client.direct_messages(thread_id, amount=1)
-                        last_msg = msgs[0] if msgs else None
-                    except Exception:
-                        last_msg = None
+                    msg_id = str(getattr(last_item, "item_id", "") or "")
+                    if not msg_id:
+                        continue
+
+                    # Prima osservazione del thread: memorizza senza notificare
+                    if thread_id not in self._last_msg_id:
+                        self._last_msg_id[thread_id] = msg_id
+                        continue
+
+                    # Nessun nuovo messaggio dall'ultimo poll
+                    if self._last_msg_id[thread_id] == msg_id:
+                        continue
+
+                    # Aggiorna subito per non ri-notificare al prossimo poll
+                    self._last_msg_id[thread_id] = msg_id
+
+                    # Salta messaggi inviati da noi stessi
+                    sender_id = str(getattr(last_item, "user_id", "") or "")
+                    if my_id and sender_id == my_id:
+                        continue
+
+                    # Evita duplicati cross-poll
+                    event_id = f"ig_{thread_id}_{msg_id}"
+                    if event_id in self.seen_ids:
+                        continue
+                    self.seen_ids.add(event_id)
 
                     # Identifica mittente
                     users = getattr(thread, "users", [])
                     sender_name = users[0].username if users else "?"
 
-                    if last_msg:
-                        raw_text = getattr(last_msg, "text", None) or ""
-                        preview = f"{sender_name}: {raw_text[:60]}" if raw_text else f"DM da {sender_name}"
+                    # Preview in base al tipo di messaggio
+                    raw_text = getattr(last_item, "text", None) or ""
+                    item_type = str(getattr(last_item, "item_type", "") or "")
+                    _type_labels = {
+                        "media_share":  "🖼 ha condiviso un media",
+                        "reel_share":   "🎬 ha condiviso un reel",
+                        "story_share":  "📖 ha condiviso una storia",
+                        "like":         "❤ ha inviato un like",
+                        "voice_media":  "🎤 ha inviato un vocale",
+                        "animated_media": "✨ ha inviato una GIF",
+                    }
+                    if raw_text:
+                        preview = f"{sender_name}: {raw_text[:60]}"
+                    elif item_type in _type_labels:
+                        preview = f"{sender_name} {_type_labels[item_type]}"
                     else:
                         preview = f"DM da {sender_name}"
 
-                    self.seen_ids.add(thread_id)
                     events.append(RawEvent(
                         source=NotifSource.INSTAGRAM,
                         priority=NotifPriority.NORMAL,
                         text=preview,
-                        external_id=thread_id,
+                        external_id=event_id,
                     ))
                     logger.info(f"📸 Instagram DM: {preview!r}")
+
                 except Exception as e:
-                    logger.debug(f"Instagram: errore parsing thread {getattr(thread, 'id', '?')}: {e}")
+                    logger.debug(
+                        f"Instagram: errore parsing thread "
+                        f"{getattr(thread, 'id', '?')}: {e}"
+                    )
 
         # ── Menzioni ──────────────────────────────────────────────────
         if self._monitor_mentions:
