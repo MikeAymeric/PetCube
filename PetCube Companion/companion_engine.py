@@ -166,6 +166,13 @@ class CompanionEngine:
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
 
+    def inject_notification(self, pkt: NotifPacket) -> None:
+        """Inietta una notifica fake direttamente nella coda (per test dalla GUI)."""
+        if not self.is_running():
+            logger.warning("inject_notification: engine non in esecuzione, notifica ignorata.")
+            return
+        self._on_notification(pkt)
+
     # ── INTERNAL ───────────────────────────────────────────────────
 
     def _run_thread(self) -> None:

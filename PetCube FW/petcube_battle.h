@@ -157,13 +157,16 @@ inline uint8_t illnessChanceAfterDefeat(int poopCount, bool poopMega) {
 // ── PACCHETTO NOTIFICA (BLE/WiFi) ─────────────────────────────
 // 64 byte max, allineato a struttura fissa per evitare ambiguità endianness.
 enum NotifSource : uint8_t {
-  SRC_DISCORD  = 0,
-  SRC_GMAIL    = 1,
-  SRC_CALENDAR = 2,
-  SRC_SLACK    = 3,
-  SRC_TRELLO   = 4,
-  SRC_GITHUB   = 5,
-  SRC_GENERIC  = 255
+  SRC_DISCORD   = 0,
+  SRC_GMAIL     = 1,
+  SRC_CALENDAR  = 2,
+  SRC_SLACK     = 3,
+  SRC_TRELLO    = 4,
+  SRC_GITHUB    = 5,
+  SRC_TELEGRAM  = 6,
+  SRC_WHATSAPP  = 7,
+  SRC_INSTAGRAM = 8,  // non più usato (plugin rimosso), mantenuto per compatibilità wire
+  SRC_GENERIC   = 255
 };
 
 enum NotifPriority : uint8_t { PRIO_LOW = 0, PRIO_NORMAL = 1, PRIO_HIGH = 2 };
@@ -212,6 +215,8 @@ inline BattleElement sourceToElement(NotifSource src, uint8_t dayOfWeek, BattleE
     case SRC_GMAIL:
     case SRC_TRELLO:
     case SRC_GITHUB:
+    case SRC_TELEGRAM:
+    case SRC_WHATSAPP:
       out = BE_WATER;
       break;
     case SRC_CALENDAR:
