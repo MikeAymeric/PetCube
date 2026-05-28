@@ -63,10 +63,10 @@ Adafruit_MPU6050 mpu;
 Preferences prefs;
 
 // ── PIN ───────────────────────────────────────────────────────
-#define BTN_A  D1   // apri menu / cursore menu / cicla uovo setup
-#define BTN_B  D2   // avvia sessione / conferma menu / orologio idle / seleziona uovo
+#define BTN_A  D9   // apri menu / cursore menu / cicla uovo setup
+#define BTN_B  D7   // avvia sessione / conferma menu / orologio idle / seleziona uovo
 #define BTN_C  D3   // annulla sessione / chiudi menu / chiudi orologio
-#define BUZZER D0
+#define BUZZER D6
 #define LED    LED_BUILTIN
 
 // ── COSTANTI ──────────────────────────────────────────────────
