@@ -18,10 +18,9 @@
 #define TFT_MOSI  9    // D10 / GPIO9
 #define TFT_SCLK  7    // D8  / GPIO7
 
-// !! SOSTITUISCI CON I PIN REALI DEL TUO PCB !!
-#define TFT_CS   44    // D7 / GPIO44  ← placeholder
-#define TFT_DC   43    // D6 / GPIO43  ← placeholder
-#define TFT_RST  -1    // non collegato (RST del display a 3.3 V)
+#define TFT_CS    2    // D1 / GPIO2
+#define TFT_DC    1    // D0 / GPIO1
+#define TFT_RST   3    // D2 / GPIO3
 // #define TFT_BL  xx  // decommentare se backlight è su un GPIO
 
 // ── SPI frequency ─────────────────────────────────────────────
