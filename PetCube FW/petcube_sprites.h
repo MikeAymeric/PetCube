@@ -1,12 +1,12 @@
-// ══════════════════════════════════════════════════════
+﻿// ══════════════════════════════════════════════════════
 //  PetCube — Sprite bitmap XBM 16x16
 //  Sprite monocromatici — soglia 128
 //  Layout: spr_NomeDig_StateName — 2 byte per riga, 32 byte tot
-//  Totale: 32 Digimon × 12 stati = 384 sprite
+//  Totale: 32 creature × 12 stati = 384 sprite
 // ══════════════════════════════════════════════════════
 
-// ── Agumon ──────────────────────────────────────────
-static const unsigned char spr_agumon_idle1[] PROGMEM = {
+// ── Pyruff ──────────────────────────────────────────
+static const unsigned char spr_pyruff_idle1[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0x07,
   0x20, 0x08,
@@ -25,7 +25,7 @@ static const unsigned char spr_agumon_idle1[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_agumon_idle2[] PROGMEM = {
+static const unsigned char spr_pyruff_idle2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0x07,
@@ -44,7 +44,7 @@ static const unsigned char spr_agumon_idle2[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_agumon_idle3[] PROGMEM = {
+static const unsigned char spr_pyruff_idle3[] PROGMEM = {
   0xC0, 0x07,
   0x3C, 0x08,
   0x82, 0x11,
@@ -63,7 +63,7 @@ static const unsigned char spr_agumon_idle3[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_agumon_happy1[] PROGMEM = {
+static const unsigned char spr_pyruff_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0x07,
@@ -82,7 +82,7 @@ static const unsigned char spr_agumon_happy1[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_agumon_sleep1[] PROGMEM = {
+static const unsigned char spr_pyruff_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -101,7 +101,7 @@ static const unsigned char spr_agumon_sleep1[] PROGMEM = {
   0xF8, 0x7F
 };
 
-static const unsigned char spr_agumon_sleep2[] PROGMEM = {
+static const unsigned char spr_pyruff_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0x07,
@@ -120,7 +120,7 @@ static const unsigned char spr_agumon_sleep2[] PROGMEM = {
   0xF8, 0x7F
 };
 
-static const unsigned char spr_agumon_atk1[] PROGMEM = {
+static const unsigned char spr_pyruff_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0x07,
@@ -139,7 +139,7 @@ static const unsigned char spr_agumon_atk1[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_agumon_happy2[] PROGMEM = {
+static const unsigned char spr_pyruff_happy2[] PROGMEM = {
   0xC0, 0x07,
   0x3C, 0x08,
   0x02, 0x13,
@@ -158,7 +158,7 @@ static const unsigned char spr_agumon_happy2[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_agumon_angry1[] PROGMEM = {
+static const unsigned char spr_pyruff_angry1[] PROGMEM = {
   0xC0, 0x07,
   0x3C, 0x08,
   0x02, 0x11,
@@ -177,7 +177,7 @@ static const unsigned char spr_agumon_angry1[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_agumon_sick1[] PROGMEM = {
+static const unsigned char spr_pyruff_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0x07,
@@ -196,7 +196,7 @@ static const unsigned char spr_agumon_sick1[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_agumon_sick2[] PROGMEM = {
+static const unsigned char spr_pyruff_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -215,7 +215,7 @@ static const unsigned char spr_agumon_sick2[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_agumon_atk2[] PROGMEM = {
+static const unsigned char spr_pyruff_atk2[] PROGMEM = {
   0xC0, 0x07,
   0x3C, 0x08,
   0x02, 0x13,
@@ -234,8 +234,8 @@ static const unsigned char spr_agumon_atk2[] PROGMEM = {
   0xFC, 0xFE
 };
 
-// ── Botamon ──────────────────────────────────────────
-static const unsigned char spr_botamon_idle1[] PROGMEM = {
+// ── Kindlekin ──────────────────────────────────────────
+static const unsigned char spr_kindlekin_idle1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -254,7 +254,7 @@ static const unsigned char spr_botamon_idle1[] PROGMEM = {
   0xF0, 0x0F
 };
 
-static const unsigned char spr_botamon_idle2[] PROGMEM = {
+static const unsigned char spr_kindlekin_idle2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -273,7 +273,7 @@ static const unsigned char spr_botamon_idle2[] PROGMEM = {
   0xF0, 0x0F
 };
 
-static const unsigned char spr_botamon_idle3[] PROGMEM = {
+static const unsigned char spr_kindlekin_idle3[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -292,7 +292,7 @@ static const unsigned char spr_botamon_idle3[] PROGMEM = {
   0xF0, 0x0F
 };
 
-static const unsigned char spr_botamon_happy1[] PROGMEM = {
+static const unsigned char spr_kindlekin_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -311,7 +311,7 @@ static const unsigned char spr_botamon_happy1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_botamon_sleep1[] PROGMEM = {
+static const unsigned char spr_kindlekin_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -330,7 +330,7 @@ static const unsigned char spr_botamon_sleep1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_botamon_sleep2[] PROGMEM = {
+static const unsigned char spr_kindlekin_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -349,7 +349,7 @@ static const unsigned char spr_botamon_sleep2[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_botamon_atk1[] PROGMEM = {
+static const unsigned char spr_kindlekin_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -368,7 +368,7 @@ static const unsigned char spr_botamon_atk1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_botamon_happy2[] PROGMEM = {
+static const unsigned char spr_kindlekin_happy2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x20, 0x04,
@@ -387,7 +387,7 @@ static const unsigned char spr_botamon_happy2[] PROGMEM = {
   0xE0, 0x07
 };
 
-static const unsigned char spr_botamon_angry1[] PROGMEM = {
+static const unsigned char spr_kindlekin_angry1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -406,7 +406,7 @@ static const unsigned char spr_botamon_angry1[] PROGMEM = {
   0xE0, 0x07
 };
 
-static const unsigned char spr_botamon_sick1[] PROGMEM = {
+static const unsigned char spr_kindlekin_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -425,7 +425,7 @@ static const unsigned char spr_botamon_sick1[] PROGMEM = {
   0xF8, 0x1F
 };
 
-static const unsigned char spr_botamon_sick2[] PROGMEM = {
+static const unsigned char spr_kindlekin_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -444,7 +444,7 @@ static const unsigned char spr_botamon_sick2[] PROGMEM = {
   0xF8, 0x1F
 };
 
-static const unsigned char spr_botamon_atk2[] PROGMEM = {
+static const unsigned char spr_kindlekin_atk2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x80, 0x18,
@@ -463,8 +463,8 @@ static const unsigned char spr_botamon_atk2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-// ── CresGarurumon ──────────────────────────────────────────
-static const unsigned char spr_cresgarurumon_idle1[] PROGMEM = {
+// ── Lightfin ──────────────────────────────────────────
+static const unsigned char spr_lightfin_idle1[] PROGMEM = {
   0x00, 0x3F,
   0xC0, 0x20,
   0x20, 0x18,
@@ -483,7 +483,7 @@ static const unsigned char spr_cresgarurumon_idle1[] PROGMEM = {
   0x3C, 0x3E
 };
 
-static const unsigned char spr_cresgarurumon_idle2[] PROGMEM = {
+static const unsigned char spr_lightfin_idle2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x3F,
   0xC0, 0x20,
@@ -502,7 +502,7 @@ static const unsigned char spr_cresgarurumon_idle2[] PROGMEM = {
   0x1E, 0x7C
 };
 
-static const unsigned char spr_cresgarurumon_idle3[] PROGMEM = {
+static const unsigned char spr_lightfin_idle3[] PROGMEM = {
   0x00, 0x3F,
   0xC0, 0x20,
   0x20, 0x18,
@@ -521,7 +521,7 @@ static const unsigned char spr_cresgarurumon_idle3[] PROGMEM = {
   0x3C, 0x3E
 };
 
-static const unsigned char spr_cresgarurumon_happy1[] PROGMEM = {
+static const unsigned char spr_lightfin_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x3F,
   0xC0, 0x20,
@@ -540,7 +540,7 @@ static const unsigned char spr_cresgarurumon_happy1[] PROGMEM = {
   0x3C, 0x3E
 };
 
-static const unsigned char spr_cresgarurumon_sleep1[] PROGMEM = {
+static const unsigned char spr_lightfin_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x3F,
@@ -559,7 +559,7 @@ static const unsigned char spr_cresgarurumon_sleep1[] PROGMEM = {
   0x3C, 0x3E
 };
 
-static const unsigned char spr_cresgarurumon_sleep2[] PROGMEM = {
+static const unsigned char spr_lightfin_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x3F,
   0xC0, 0x20,
@@ -578,7 +578,7 @@ static const unsigned char spr_cresgarurumon_sleep2[] PROGMEM = {
   0x3C, 0x3E
 };
 
-static const unsigned char spr_cresgarurumon_atk1[] PROGMEM = {
+static const unsigned char spr_lightfin_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x3F,
   0xC0, 0x20,
@@ -597,7 +597,7 @@ static const unsigned char spr_cresgarurumon_atk1[] PROGMEM = {
   0x3C, 0x3E
 };
 
-static const unsigned char spr_cresgarurumon_happy2[] PROGMEM = {
+static const unsigned char spr_lightfin_happy2[] PROGMEM = {
   0x00, 0x3F,
   0xC0, 0x20,
   0x20, 0x18,
@@ -616,7 +616,7 @@ static const unsigned char spr_cresgarurumon_happy2[] PROGMEM = {
   0x3E, 0x1E
 };
 
-static const unsigned char spr_cresgarurumon_angry1[] PROGMEM = {
+static const unsigned char spr_lightfin_angry1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x3F,
   0xC0, 0x20,
@@ -635,7 +635,7 @@ static const unsigned char spr_cresgarurumon_angry1[] PROGMEM = {
   0x3C, 0x3E
 };
 
-static const unsigned char spr_cresgarurumon_sick1[] PROGMEM = {
+static const unsigned char spr_lightfin_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x3F,
   0xC0, 0x20,
@@ -654,7 +654,7 @@ static const unsigned char spr_cresgarurumon_sick1[] PROGMEM = {
   0x3C, 0x3E
 };
 
-static const unsigned char spr_cresgarurumon_sick2[] PROGMEM = {
+static const unsigned char spr_lightfin_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x3F,
@@ -673,7 +673,7 @@ static const unsigned char spr_cresgarurumon_sick2[] PROGMEM = {
   0x3C, 0x3E
 };
 
-static const unsigned char spr_cresgarurumon_atk2[] PROGMEM = {
+static const unsigned char spr_lightfin_atk2[] PROGMEM = {
   0x00, 0x7E,
   0x80, 0x41,
   0x40, 0x30,
@@ -692,8 +692,8 @@ static const unsigned char spr_cresgarurumon_atk2[] PROGMEM = {
   0xF8, 0x7F
 };
 
-// ── Gabumon ──────────────────────────────────────────
-static const unsigned char spr_gabumon_idle1[] PROGMEM = {
+// ── Fanglure ──────────────────────────────────────────
+static const unsigned char spr_fanglure_idle1[] PROGMEM = {
   0x0C, 0x00,
   0xD4, 0x07,
   0x28, 0x18,
@@ -712,7 +712,7 @@ static const unsigned char spr_gabumon_idle1[] PROGMEM = {
   0x7C, 0x7E
 };
 
-static const unsigned char spr_gabumon_idle2[] PROGMEM = {
+static const unsigned char spr_fanglure_idle2[] PROGMEM = {
   0x00, 0x00,
   0x0C, 0x00,
   0xD4, 0x07,
@@ -731,7 +731,7 @@ static const unsigned char spr_gabumon_idle2[] PROGMEM = {
   0xFC, 0x7F
 };
 
-static const unsigned char spr_gabumon_idle3[] PROGMEM = {
+static const unsigned char spr_fanglure_idle3[] PROGMEM = {
   0x06, 0x00,
   0xEA, 0x03,
   0x14, 0x0C,
@@ -750,7 +750,7 @@ static const unsigned char spr_gabumon_idle3[] PROGMEM = {
   0x3E, 0xFC
 };
 
-static const unsigned char spr_gabumon_happy1[] PROGMEM = {
+static const unsigned char spr_fanglure_happy1[] PROGMEM = {
   0x00, 0x00,
   0x0C, 0x00,
   0xD4, 0x07,
@@ -769,7 +769,7 @@ static const unsigned char spr_gabumon_happy1[] PROGMEM = {
   0xFC, 0x7F
 };
 
-static const unsigned char spr_gabumon_sleep1[] PROGMEM = {
+static const unsigned char spr_fanglure_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x0C, 0x00,
   0xD4, 0x07,
@@ -788,7 +788,7 @@ static const unsigned char spr_gabumon_sleep1[] PROGMEM = {
   0xFC, 0xFF
 };
 
-static const unsigned char spr_gabumon_sleep2[] PROGMEM = {
+static const unsigned char spr_fanglure_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x0C, 0x00,
@@ -807,7 +807,7 @@ static const unsigned char spr_gabumon_sleep2[] PROGMEM = {
   0xFC, 0xFF
 };
 
-static const unsigned char spr_gabumon_atk1[] PROGMEM = {
+static const unsigned char spr_fanglure_atk1[] PROGMEM = {
   0x00, 0x00,
   0x0C, 0x00,
   0xD4, 0x07,
@@ -826,7 +826,7 @@ static const unsigned char spr_gabumon_atk1[] PROGMEM = {
   0xFC, 0x7F
 };
 
-static const unsigned char spr_gabumon_happy2[] PROGMEM = {
+static const unsigned char spr_fanglure_happy2[] PROGMEM = {
   0x06, 0x00,
   0xEA, 0x03,
   0x14, 0x0C,
@@ -845,7 +845,7 @@ static const unsigned char spr_gabumon_happy2[] PROGMEM = {
   0x3E, 0xFC
 };
 
-static const unsigned char spr_gabumon_angry1[] PROGMEM = {
+static const unsigned char spr_fanglure_angry1[] PROGMEM = {
   0x06, 0x00,
   0xEA, 0x03,
   0x14, 0x0C,
@@ -864,7 +864,7 @@ static const unsigned char spr_gabumon_angry1[] PROGMEM = {
   0x3E, 0xFC
 };
 
-static const unsigned char spr_gabumon_sick1[] PROGMEM = {
+static const unsigned char spr_fanglure_sick1[] PROGMEM = {
   0x00, 0x00,
   0x0C, 0x00,
   0xD4, 0x07,
@@ -883,7 +883,7 @@ static const unsigned char spr_gabumon_sick1[] PROGMEM = {
   0xFC, 0x7F
 };
 
-static const unsigned char spr_gabumon_sick2[] PROGMEM = {
+static const unsigned char spr_fanglure_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x0C, 0x00,
@@ -902,7 +902,7 @@ static const unsigned char spr_gabumon_sick2[] PROGMEM = {
   0xF8, 0xFF
 };
 
-static const unsigned char spr_gabumon_atk2[] PROGMEM = {
+static const unsigned char spr_fanglure_atk2[] PROGMEM = {
   0x06, 0x78,
   0xEA, 0x47,
   0x14, 0x30,
@@ -921,8 +921,8 @@ static const unsigned char spr_gabumon_atk2[] PROGMEM = {
   0x3E, 0xFC
 };
 
-// ── Garurumon ──────────────────────────────────────────
-static const unsigned char spr_garurumon_idle1[] PROGMEM = {
+// ── Riptalon ──────────────────────────────────────────
+static const unsigned char spr_riptalon_idle1[] PROGMEM = {
   0x00, 0x00,
   0x18, 0x0C,
   0xF4, 0x0A,
@@ -941,7 +941,7 @@ static const unsigned char spr_garurumon_idle1[] PROGMEM = {
   0xFC, 0xF9
 };
 
-static const unsigned char spr_garurumon_idle2[] PROGMEM = {
+static const unsigned char spr_riptalon_idle2[] PROGMEM = {
   0x18, 0x0C,
   0xF4, 0x0A,
   0x0C, 0x09,
@@ -960,7 +960,7 @@ static const unsigned char spr_garurumon_idle2[] PROGMEM = {
   0x00, 0x00
 };
 
-static const unsigned char spr_garurumon_idle3[] PROGMEM = {
+static const unsigned char spr_riptalon_idle3[] PROGMEM = {
   0x00, 0x00,
   0x30, 0x06,
   0x28, 0x05,
@@ -979,7 +979,7 @@ static const unsigned char spr_garurumon_idle3[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_garurumon_happy1[] PROGMEM = {
+static const unsigned char spr_riptalon_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -998,7 +998,7 @@ static const unsigned char spr_garurumon_happy1[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_garurumon_sleep1[] PROGMEM = {
+static const unsigned char spr_riptalon_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1017,7 +1017,7 @@ static const unsigned char spr_garurumon_sleep1[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_garurumon_sleep2[] PROGMEM = {
+static const unsigned char spr_riptalon_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1036,7 +1036,7 @@ static const unsigned char spr_garurumon_sleep2[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_garurumon_atk1[] PROGMEM = {
+static const unsigned char spr_riptalon_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xF6, 0x0E,
@@ -1055,7 +1055,7 @@ static const unsigned char spr_garurumon_atk1[] PROGMEM = {
   0xFC, 0x7F
 };
 
-static const unsigned char spr_garurumon_happy2[] PROGMEM = {
+static const unsigned char spr_riptalon_happy2[] PROGMEM = {
   0x30, 0x18,
   0xE8, 0x15,
   0x18, 0x12,
@@ -1074,7 +1074,7 @@ static const unsigned char spr_garurumon_happy2[] PROGMEM = {
   0xFE, 0x7F
 };
 
-static const unsigned char spr_garurumon_angry1[] PROGMEM = {
+static const unsigned char spr_riptalon_angry1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1093,7 +1093,7 @@ static const unsigned char spr_garurumon_angry1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_garurumon_sick1[] PROGMEM = {
+static const unsigned char spr_riptalon_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1112,7 +1112,7 @@ static const unsigned char spr_garurumon_sick1[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_garurumon_sick2[] PROGMEM = {
+static const unsigned char spr_riptalon_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1131,7 +1131,7 @@ static const unsigned char spr_garurumon_sick2[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_garurumon_atk2[] PROGMEM = {
+static const unsigned char spr_riptalon_atk2[] PROGMEM = {
   0x20, 0x44,
   0x30, 0xA6,
   0x28, 0xA5,
@@ -1150,8 +1150,8 @@ static const unsigned char spr_garurumon_atk2[] PROGMEM = {
   0xFF, 0x79
 };
 
-// ── Greymon ──────────────────────────────────────────
-static const unsigned char spr_greymon_idle1[] PROGMEM = {
+// ── Blazebrand ──────────────────────────────────────────
+static const unsigned char spr_blazebrand_idle1[] PROGMEM = {
   0xE0, 0x73,
   0x13, 0x4C,
   0x8D, 0x21,
@@ -1170,7 +1170,7 @@ static const unsigned char spr_greymon_idle1[] PROGMEM = {
   0x3F, 0xFC
 };
 
-static const unsigned char spr_greymon_idle2[] PROGMEM = {
+static const unsigned char spr_blazebrand_idle2[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x73,
   0x13, 0x4C,
@@ -1189,7 +1189,7 @@ static const unsigned char spr_greymon_idle2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_greymon_idle3[] PROGMEM = {
+static const unsigned char spr_blazebrand_idle3[] PROGMEM = {
   0xE3, 0x73,
   0x15, 0x4C,
   0xCF, 0x20,
@@ -1208,7 +1208,7 @@ static const unsigned char spr_greymon_idle3[] PROGMEM = {
   0x7F, 0xFC
 };
 
-static const unsigned char spr_greymon_happy1[] PROGMEM = {
+static const unsigned char spr_blazebrand_happy1[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x73,
   0x13, 0x4C,
@@ -1227,7 +1227,7 @@ static const unsigned char spr_greymon_happy1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_greymon_sleep1[] PROGMEM = {
+static const unsigned char spr_blazebrand_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xE0, 0x73,
@@ -1246,7 +1246,7 @@ static const unsigned char spr_greymon_sleep1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_greymon_sleep2[] PROGMEM = {
+static const unsigned char spr_blazebrand_sleep2[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0xE7,
   0x26, 0x98,
@@ -1265,7 +1265,7 @@ static const unsigned char spr_greymon_sleep2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_greymon_atk1[] PROGMEM = {
+static const unsigned char spr_blazebrand_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xE0, 0x73,
@@ -1284,7 +1284,7 @@ static const unsigned char spr_greymon_atk1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_greymon_happy2[] PROGMEM = {
+static const unsigned char spr_blazebrand_happy2[] PROGMEM = {
   0xE3, 0x73,
   0x15, 0x4C,
   0xCF, 0x20,
@@ -1303,7 +1303,7 @@ static const unsigned char spr_greymon_happy2[] PROGMEM = {
   0x7F, 0xFC
 };
 
-static const unsigned char spr_greymon_angry1[] PROGMEM = {
+static const unsigned char spr_blazebrand_angry1[] PROGMEM = {
   0xE3, 0x73,
   0x15, 0x4C,
   0x0F, 0x21,
@@ -1322,7 +1322,7 @@ static const unsigned char spr_greymon_angry1[] PROGMEM = {
   0x7F, 0xFC
 };
 
-static const unsigned char spr_greymon_sick1[] PROGMEM = {
+static const unsigned char spr_blazebrand_sick1[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x73,
   0x13, 0x4C,
@@ -1341,7 +1341,7 @@ static const unsigned char spr_greymon_sick1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_greymon_sick2[] PROGMEM = {
+static const unsigned char spr_blazebrand_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xE0, 0x73,
@@ -1360,7 +1360,7 @@ static const unsigned char spr_greymon_sick2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_greymon_atk2[] PROGMEM = {
+static const unsigned char spr_blazebrand_atk2[] PROGMEM = {
   0xE3, 0x73,
   0x15, 0x4C,
   0x8F, 0x21,
@@ -1379,8 +1379,8 @@ static const unsigned char spr_greymon_atk2[] PROGMEM = {
   0x3F, 0xFC
 };
 
-// ── Koromon ──────────────────────────────────────────
-static const unsigned char spr_koromon_idle1[] PROGMEM = {
+// ── Emberpaw ──────────────────────────────────────────
+static const unsigned char spr_emberpaw_idle1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1399,7 +1399,7 @@ static const unsigned char spr_koromon_idle1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_koromon_idle2[] PROGMEM = {
+static const unsigned char spr_emberpaw_idle2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1418,7 +1418,7 @@ static const unsigned char spr_koromon_idle2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_koromon_idle3[] PROGMEM = {
+static const unsigned char spr_emberpaw_idle3[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1437,7 +1437,7 @@ static const unsigned char spr_koromon_idle3[] PROGMEM = {
   0xF0, 0x0F
 };
 
-static const unsigned char spr_koromon_happy1[] PROGMEM = {
+static const unsigned char spr_emberpaw_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1456,7 +1456,7 @@ static const unsigned char spr_koromon_happy1[] PROGMEM = {
   0xF0, 0x0F
 };
 
-static const unsigned char spr_koromon_sleep1[] PROGMEM = {
+static const unsigned char spr_emberpaw_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1475,7 +1475,7 @@ static const unsigned char spr_koromon_sleep1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_koromon_sleep2[] PROGMEM = {
+static const unsigned char spr_emberpaw_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1494,7 +1494,7 @@ static const unsigned char spr_koromon_sleep2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_koromon_atk1[] PROGMEM = {
+static const unsigned char spr_emberpaw_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1513,7 +1513,7 @@ static const unsigned char spr_koromon_atk1[] PROGMEM = {
   0xF0, 0x0F
 };
 
-static const unsigned char spr_koromon_happy2[] PROGMEM = {
+static const unsigned char spr_emberpaw_happy2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1532,7 +1532,7 @@ static const unsigned char spr_koromon_happy2[] PROGMEM = {
   0xF0, 0x0F
 };
 
-static const unsigned char spr_koromon_angry1[] PROGMEM = {
+static const unsigned char spr_emberpaw_angry1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1551,7 +1551,7 @@ static const unsigned char spr_koromon_angry1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_koromon_sick1[] PROGMEM = {
+static const unsigned char spr_emberpaw_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1570,7 +1570,7 @@ static const unsigned char spr_koromon_sick1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_koromon_sick2[] PROGMEM = {
+static const unsigned char spr_emberpaw_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1589,7 +1589,7 @@ static const unsigned char spr_koromon_sick2[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_koromon_atk2[] PROGMEM = {
+static const unsigned char spr_emberpaw_atk2[] PROGMEM = {
   0x00, 0x00,
   0x40, 0x06,
   0xE0, 0x09,
@@ -1608,8 +1608,8 @@ static const unsigned char spr_koromon_atk2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-// ── MetalGarurumon ──────────────────────────────────────────
-static const unsigned char spr_metalgarurumon_idle1[] PROGMEM = {
+// ── Leviacrush ──────────────────────────────────────────
+static const unsigned char spr_leviacrush_idle1[] PROGMEM = {
   0x70, 0x1C,
   0x48, 0x12,
   0xF4, 0x09,
@@ -1628,7 +1628,7 @@ static const unsigned char spr_metalgarurumon_idle1[] PROGMEM = {
   0xFE, 0xF9
 };
 
-static const unsigned char spr_metalgarurumon_idle2[] PROGMEM = {
+static const unsigned char spr_leviacrush_idle2[] PROGMEM = {
   0x38, 0x38,
   0xF4, 0x27,
   0x0C, 0x11,
@@ -1647,7 +1647,7 @@ static const unsigned char spr_metalgarurumon_idle2[] PROGMEM = {
   0x00, 0x00
 };
 
-static const unsigned char spr_metalgarurumon_idle3[] PROGMEM = {
+static const unsigned char spr_leviacrush_idle3[] PROGMEM = {
   0x60, 0x0C,
   0x50, 0x0A,
   0x28, 0x09,
@@ -1666,7 +1666,7 @@ static const unsigned char spr_metalgarurumon_idle3[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_metalgarurumon_happy1[] PROGMEM = {
+static const unsigned char spr_leviacrush_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x30, 0x18,
@@ -1685,7 +1685,7 @@ static const unsigned char spr_metalgarurumon_happy1[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_metalgarurumon_sleep1[] PROGMEM = {
+static const unsigned char spr_leviacrush_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1704,7 +1704,7 @@ static const unsigned char spr_metalgarurumon_sleep1[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_metalgarurumon_sleep2[] PROGMEM = {
+static const unsigned char spr_leviacrush_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1723,7 +1723,7 @@ static const unsigned char spr_metalgarurumon_sleep2[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_metalgarurumon_atk1[] PROGMEM = {
+static const unsigned char spr_leviacrush_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xF6, 0x1E,
@@ -1742,7 +1742,7 @@ static const unsigned char spr_metalgarurumon_atk1[] PROGMEM = {
   0xFE, 0x7F
 };
 
-static const unsigned char spr_metalgarurumon_happy2[] PROGMEM = {
+static const unsigned char spr_leviacrush_happy2[] PROGMEM = {
   0x70, 0x38,
   0xE8, 0x25,
   0x18, 0x12,
@@ -1761,7 +1761,7 @@ static const unsigned char spr_metalgarurumon_happy2[] PROGMEM = {
   0xFE, 0x7F
 };
 
-static const unsigned char spr_metalgarurumon_angry1[] PROGMEM = {
+static const unsigned char spr_leviacrush_angry1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1780,7 +1780,7 @@ static const unsigned char spr_metalgarurumon_angry1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_metalgarurumon_sick1[] PROGMEM = {
+static const unsigned char spr_leviacrush_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1799,7 +1799,7 @@ static const unsigned char spr_metalgarurumon_sick1[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_metalgarurumon_sick2[] PROGMEM = {
+static const unsigned char spr_leviacrush_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1818,7 +1818,7 @@ static const unsigned char spr_metalgarurumon_sick2[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_metalgarurumon_atk2[] PROGMEM = {
+static const unsigned char spr_leviacrush_atk2[] PROGMEM = {
   0xC0, 0xD8,
   0xA0, 0xB4,
   0x50, 0xAA,
@@ -1837,8 +1837,8 @@ static const unsigned char spr_metalgarurumon_atk2[] PROGMEM = {
   0xFF, 0xF9
 };
 
-// ── MetalGreymon ──────────────────────────────────────────
-static const unsigned char spr_metalgreymon_idle1[] PROGMEM = {
+// ── Mightforge ──────────────────────────────────────────
+static const unsigned char spr_mightforge_idle1[] PROGMEM = {
   0xE0, 0x73,
   0x13, 0x4C,
   0xCD, 0x21,
@@ -1857,7 +1857,7 @@ static const unsigned char spr_metalgreymon_idle1[] PROGMEM = {
   0x7F, 0xFC
 };
 
-static const unsigned char spr_metalgreymon_idle2[] PROGMEM = {
+static const unsigned char spr_mightforge_idle2[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x73,
   0x13, 0x4C,
@@ -1876,7 +1876,7 @@ static const unsigned char spr_metalgreymon_idle2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_metalgreymon_idle3[] PROGMEM = {
+static const unsigned char spr_mightforge_idle3[] PROGMEM = {
   0xE3, 0x73,
   0x1D, 0x4C,
   0xC3, 0x21,
@@ -1895,7 +1895,7 @@ static const unsigned char spr_metalgreymon_idle3[] PROGMEM = {
   0x7F, 0xFC
 };
 
-static const unsigned char spr_metalgreymon_happy1[] PROGMEM = {
+static const unsigned char spr_mightforge_happy1[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x73,
   0x13, 0x4C,
@@ -1914,7 +1914,7 @@ static const unsigned char spr_metalgreymon_happy1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_metalgreymon_sleep1[] PROGMEM = {
+static const unsigned char spr_mightforge_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xE0, 0x73,
@@ -1933,7 +1933,7 @@ static const unsigned char spr_metalgreymon_sleep1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_metalgreymon_sleep2[] PROGMEM = {
+static const unsigned char spr_mightforge_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -1952,7 +1952,7 @@ static const unsigned char spr_metalgreymon_sleep2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_metalgreymon_atk1[] PROGMEM = {
+static const unsigned char spr_mightforge_atk1[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x73,
   0x13, 0x4C,
@@ -1971,7 +1971,7 @@ static const unsigned char spr_metalgreymon_atk1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_metalgreymon_happy2[] PROGMEM = {
+static const unsigned char spr_mightforge_happy2[] PROGMEM = {
   0xE3, 0x73,
   0x1D, 0x4C,
   0x83, 0x21,
@@ -1990,7 +1990,7 @@ static const unsigned char spr_metalgreymon_happy2[] PROGMEM = {
   0x7F, 0xFC
 };
 
-static const unsigned char spr_metalgreymon_angry1[] PROGMEM = {
+static const unsigned char spr_mightforge_angry1[] PROGMEM = {
   0xE3, 0x73,
   0x1D, 0x4C,
   0x83, 0x21,
@@ -2009,7 +2009,7 @@ static const unsigned char spr_metalgreymon_angry1[] PROGMEM = {
   0x7F, 0xFC
 };
 
-static const unsigned char spr_metalgreymon_sick1[] PROGMEM = {
+static const unsigned char spr_mightforge_sick1[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x73,
   0x13, 0x4C,
@@ -2028,7 +2028,7 @@ static const unsigned char spr_metalgreymon_sick1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_metalgreymon_sick2[] PROGMEM = {
+static const unsigned char spr_mightforge_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xE0, 0x73,
@@ -2047,7 +2047,7 @@ static const unsigned char spr_metalgreymon_sick2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_metalgreymon_atk2[] PROGMEM = {
+static const unsigned char spr_mightforge_atk2[] PROGMEM = {
   0xE3, 0x73,
   0x1D, 0x4C,
   0x83, 0x21,
@@ -2066,8 +2066,8 @@ static const unsigned char spr_metalgreymon_atk2[] PROGMEM = {
   0x7F, 0xFC
 };
 
-// ── Mugendramon ──────────────────────────────────────────
-static const unsigned char spr_mugendramon_idle1[] PROGMEM = {
+// ── Noxfortress ──────────────────────────────────────────
+static const unsigned char spr_noxfortress_idle1[] PROGMEM = {
   0xF8, 0xFF,
   0x04, 0x91,
   0x42, 0xFA,
@@ -2086,7 +2086,7 @@ static const unsigned char spr_mugendramon_idle1[] PROGMEM = {
   0xBF, 0x3F
 };
 
-static const unsigned char spr_mugendramon_idle2[] PROGMEM = {
+static const unsigned char spr_noxfortress_idle2[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0xFF,
   0xF8, 0x91,
@@ -2105,7 +2105,7 @@ static const unsigned char spr_mugendramon_idle2[] PROGMEM = {
   0x3F, 0x7F
 };
 
-static const unsigned char spr_mugendramon_idle3[] PROGMEM = {
+static const unsigned char spr_noxfortress_idle3[] PROGMEM = {
   0xF8, 0xFF,
   0x04, 0x91,
   0x42, 0xFA,
@@ -2124,7 +2124,7 @@ static const unsigned char spr_mugendramon_idle3[] PROGMEM = {
   0xBF, 0x3F
 };
 
-static const unsigned char spr_mugendramon_happy1[] PROGMEM = {
+static const unsigned char spr_noxfortress_happy1[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0xFF,
   0xF8, 0x91,
@@ -2143,7 +2143,7 @@ static const unsigned char spr_mugendramon_happy1[] PROGMEM = {
   0x3F, 0x7F
 };
 
-static const unsigned char spr_mugendramon_sleep1[] PROGMEM = {
+static const unsigned char spr_noxfortress_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0xFF,
@@ -2162,7 +2162,7 @@ static const unsigned char spr_mugendramon_sleep1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_mugendramon_sleep2[] PROGMEM = {
+static const unsigned char spr_noxfortress_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0xFF,
@@ -2181,7 +2181,7 @@ static const unsigned char spr_mugendramon_sleep2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_mugendramon_atk1[] PROGMEM = {
+static const unsigned char spr_noxfortress_atk1[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0xFF,
   0xF8, 0x91,
@@ -2200,7 +2200,7 @@ static const unsigned char spr_mugendramon_atk1[] PROGMEM = {
   0x3F, 0x7F
 };
 
-static const unsigned char spr_mugendramon_happy2[] PROGMEM = {
+static const unsigned char spr_noxfortress_happy2[] PROGMEM = {
   0xF8, 0x00,
   0x04, 0xFF,
   0x42, 0x92,
@@ -2219,7 +2219,7 @@ static const unsigned char spr_mugendramon_happy2[] PROGMEM = {
   0x3F, 0x7F
 };
 
-static const unsigned char spr_mugendramon_angry1[] PROGMEM = {
+static const unsigned char spr_noxfortress_angry1[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0xFF,
   0xF8, 0x91,
@@ -2238,7 +2238,7 @@ static const unsigned char spr_mugendramon_angry1[] PROGMEM = {
   0x3F, 0x7F
 };
 
-static const unsigned char spr_mugendramon_sick1[] PROGMEM = {
+static const unsigned char spr_noxfortress_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0xFF,
@@ -2257,7 +2257,7 @@ static const unsigned char spr_mugendramon_sick1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_mugendramon_sick2[] PROGMEM = {
+static const unsigned char spr_noxfortress_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0xFF,
@@ -2276,7 +2276,7 @@ static const unsigned char spr_mugendramon_sick2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_mugendramon_atk2[] PROGMEM = {
+static const unsigned char spr_noxfortress_atk2[] PROGMEM = {
   0xCF, 0x03,
   0x79, 0x7E,
   0xCB, 0x82,
@@ -2295,8 +2295,8 @@ static const unsigned char spr_mugendramon_atk2[] PROGMEM = {
   0x7F, 0xFE
 };
 
-// ── Phoenixmon ──────────────────────────────────────────
-static const unsigned char spr_phoenixmon_idle1[] PROGMEM = {
+// ── Seraphyre ──────────────────────────────────────────
+static const unsigned char spr_seraphyre_idle1[] PROGMEM = {
   0x6E, 0x1B,
   0xDA, 0x6A,
   0x52, 0xAA,
@@ -2315,7 +2315,7 @@ static const unsigned char spr_phoenixmon_idle1[] PROGMEM = {
   0x00, 0x3E
 };
 
-static const unsigned char spr_phoenixmon_idle2[] PROGMEM = {
+static const unsigned char spr_seraphyre_idle2[] PROGMEM = {
   0x00, 0x00,
   0x6E, 0x03,
   0xDA, 0x02,
@@ -2334,7 +2334,7 @@ static const unsigned char spr_phoenixmon_idle2[] PROGMEM = {
   0x00, 0x1F
 };
 
-static const unsigned char spr_phoenixmon_idle3[] PROGMEM = {
+static const unsigned char spr_seraphyre_idle3[] PROGMEM = {
   0x7E, 0x1C,
   0x84, 0x13,
   0x18, 0x1A,
@@ -2353,7 +2353,7 @@ static const unsigned char spr_phoenixmon_idle3[] PROGMEM = {
   0x98, 0x33
 };
 
-static const unsigned char spr_phoenixmon_happy1[] PROGMEM = {
+static const unsigned char spr_seraphyre_happy1[] PROGMEM = {
   0xB8, 0x0D,
   0x68, 0x0B,
   0x48, 0x09,
@@ -2372,7 +2372,7 @@ static const unsigned char spr_phoenixmon_happy1[] PROGMEM = {
   0xB0, 0x19
 };
 
-static const unsigned char spr_phoenixmon_sleep1[] PROGMEM = {
+static const unsigned char spr_seraphyre_sleep1[] PROGMEM = {
   0xB8, 0x0D,
   0x68, 0x0B,
   0x48, 0x09,
@@ -2391,7 +2391,7 @@ static const unsigned char spr_phoenixmon_sleep1[] PROGMEM = {
   0x98, 0x33
 };
 
-static const unsigned char spr_phoenixmon_sleep2[] PROGMEM = {
+static const unsigned char spr_seraphyre_sleep2[] PROGMEM = {
   0x00, 0x00,
   0xDC, 0x06,
   0xB4, 0x05,
@@ -2410,7 +2410,7 @@ static const unsigned char spr_phoenixmon_sleep2[] PROGMEM = {
   0x4C, 0x32
 };
 
-static const unsigned char spr_phoenixmon_atk1[] PROGMEM = {
+static const unsigned char spr_seraphyre_atk1[] PROGMEM = {
   0xB8, 0x0D,
   0x68, 0x0B,
   0x48, 0xE9,
@@ -2429,7 +2429,7 @@ static const unsigned char spr_phoenixmon_atk1[] PROGMEM = {
   0xCC, 0x66
 };
 
-static const unsigned char spr_phoenixmon_happy2[] PROGMEM = {
+static const unsigned char spr_seraphyre_happy2[] PROGMEM = {
   0xFC, 0x38,
   0x08, 0x27,
   0x30, 0x34,
@@ -2448,7 +2448,7 @@ static const unsigned char spr_phoenixmon_happy2[] PROGMEM = {
   0x4C, 0x32
 };
 
-static const unsigned char spr_phoenixmon_angry1[] PROGMEM = {
+static const unsigned char spr_seraphyre_angry1[] PROGMEM = {
   0xB8, 0x0D,
   0x68, 0x0B,
   0x4B, 0xE9,
@@ -2467,7 +2467,7 @@ static const unsigned char spr_phoenixmon_angry1[] PROGMEM = {
   0x66, 0x66
 };
 
-static const unsigned char spr_phoenixmon_sick1[] PROGMEM = {
+static const unsigned char spr_seraphyre_sick1[] PROGMEM = {
   0xB8, 0x0D,
   0x68, 0x0B,
   0x48, 0x09,
@@ -2486,7 +2486,7 @@ static const unsigned char spr_phoenixmon_sick1[] PROGMEM = {
   0x98, 0x1B
 };
 
-static const unsigned char spr_phoenixmon_sick2[] PROGMEM = {
+static const unsigned char spr_seraphyre_sick2[] PROGMEM = {
   0x80, 0x03,
   0x78, 0x0E,
   0x48, 0x09,
@@ -2505,7 +2505,7 @@ static const unsigned char spr_phoenixmon_sick2[] PROGMEM = {
   0x58, 0x3B
 };
 
-static const unsigned char spr_phoenixmon_atk2[] PROGMEM = {
+static const unsigned char spr_seraphyre_atk2[] PROGMEM = {
   0xF8, 0x38,
   0x10, 0x27,
   0x20, 0x14,
@@ -2524,8 +2524,8 @@ static const unsigned char spr_phoenixmon_atk2[] PROGMEM = {
   0x98, 0x64
 };
 
-// ── Punimon ──────────────────────────────────────────
-static const unsigned char spr_punimon_idle1[] PROGMEM = {
+// ── Drowsea ──────────────────────────────────────────
+static const unsigned char spr_drowsea_idle1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2544,7 +2544,7 @@ static const unsigned char spr_punimon_idle1[] PROGMEM = {
   0xC0, 0x07
 };
 
-static const unsigned char spr_punimon_idle2[] PROGMEM = {
+static const unsigned char spr_drowsea_idle2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2563,7 +2563,7 @@ static const unsigned char spr_punimon_idle2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_punimon_idle3[] PROGMEM = {
+static const unsigned char spr_drowsea_idle3[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2582,7 +2582,7 @@ static const unsigned char spr_punimon_idle3[] PROGMEM = {
   0xF0, 0x0F
 };
 
-static const unsigned char spr_punimon_happy1[] PROGMEM = {
+static const unsigned char spr_drowsea_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2601,7 +2601,7 @@ static const unsigned char spr_punimon_happy1[] PROGMEM = {
   0xC0, 0x07
 };
 
-static const unsigned char spr_punimon_sleep1[] PROGMEM = {
+static const unsigned char spr_drowsea_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2620,7 +2620,7 @@ static const unsigned char spr_punimon_sleep1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_punimon_sleep2[] PROGMEM = {
+static const unsigned char spr_drowsea_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2639,7 +2639,7 @@ static const unsigned char spr_punimon_sleep2[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_punimon_atk1[] PROGMEM = {
+static const unsigned char spr_drowsea_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2658,7 +2658,7 @@ static const unsigned char spr_punimon_atk1[] PROGMEM = {
   0xC0, 0x07
 };
 
-static const unsigned char spr_punimon_happy2[] PROGMEM = {
+static const unsigned char spr_drowsea_happy2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2677,7 +2677,7 @@ static const unsigned char spr_punimon_happy2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_punimon_angry1[] PROGMEM = {
+static const unsigned char spr_drowsea_angry1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2696,7 +2696,7 @@ static const unsigned char spr_punimon_angry1[] PROGMEM = {
   0xC0, 0x07
 };
 
-static const unsigned char spr_punimon_sick1[] PROGMEM = {
+static const unsigned char spr_drowsea_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2715,7 +2715,7 @@ static const unsigned char spr_punimon_sick1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_punimon_sick2[] PROGMEM = {
+static const unsigned char spr_drowsea_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -2734,7 +2734,7 @@ static const unsigned char spr_punimon_sick2[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_punimon_atk2[] PROGMEM = {
+static const unsigned char spr_drowsea_atk2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x80, 0x0A,
@@ -2753,8 +2753,8 @@ static const unsigned char spr_punimon_atk2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-// ── SkullMammon ──────────────────────────────────────────
-static const unsigned char spr_skullmammon_idle1[] PROGMEM = {
+// ── Nightmare ──────────────────────────────────────────
+static const unsigned char spr_nightmare_idle1[] PROGMEM = {
   0xC0, 0x0F,
   0xAE, 0x30,
   0x12, 0x50,
@@ -2773,7 +2773,7 @@ static const unsigned char spr_skullmammon_idle1[] PROGMEM = {
   0x3F, 0xFE
 };
 
-static const unsigned char spr_skullmammon_idle2[] PROGMEM = {
+static const unsigned char spr_nightmare_idle2[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0x0F,
   0xA0, 0x10,
@@ -2792,7 +2792,7 @@ static const unsigned char spr_skullmammon_idle2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_skullmammon_idle3[] PROGMEM = {
+static const unsigned char spr_nightmare_idle3[] PROGMEM = {
   0xDF, 0x1F,
   0x21, 0x60,
   0xAF, 0x81,
@@ -2811,7 +2811,7 @@ static const unsigned char spr_skullmammon_idle3[] PROGMEM = {
   0x3F, 0xFE
 };
 
-static const unsigned char spr_skullmammon_happy1[] PROGMEM = {
+static const unsigned char spr_nightmare_happy1[] PROGMEM = {
   0xC0, 0x0F,
   0xAE, 0x30,
   0x12, 0x50,
@@ -2830,7 +2830,7 @@ static const unsigned char spr_skullmammon_happy1[] PROGMEM = {
   0x7E, 0xFE
 };
 
-static const unsigned char spr_skullmammon_sleep1[] PROGMEM = {
+static const unsigned char spr_nightmare_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0x0F,
@@ -2849,7 +2849,7 @@ static const unsigned char spr_skullmammon_sleep1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_skullmammon_sleep2[] PROGMEM = {
+static const unsigned char spr_nightmare_sleep2[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0x0F,
   0xA0, 0x30,
@@ -2868,7 +2868,7 @@ static const unsigned char spr_skullmammon_sleep2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_skullmammon_atk1[] PROGMEM = {
+static const unsigned char spr_nightmare_atk1[] PROGMEM = {
   0xC6, 0x0F,
   0xAA, 0x30,
   0x12, 0x50,
@@ -2887,7 +2887,7 @@ static const unsigned char spr_skullmammon_atk1[] PROGMEM = {
   0x3F, 0xFE
 };
 
-static const unsigned char spr_skullmammon_happy2[] PROGMEM = {
+static const unsigned char spr_nightmare_happy2[] PROGMEM = {
   0xDF, 0x1F,
   0x21, 0x20,
   0xAF, 0x49,
@@ -2906,7 +2906,7 @@ static const unsigned char spr_skullmammon_happy2[] PROGMEM = {
   0x3F, 0xFE
 };
 
-static const unsigned char spr_skullmammon_angry1[] PROGMEM = {
+static const unsigned char spr_nightmare_angry1[] PROGMEM = {
   0xDF, 0x0F,
   0x21, 0xD0,
   0xAF, 0xA1,
@@ -2925,7 +2925,7 @@ static const unsigned char spr_skullmammon_angry1[] PROGMEM = {
   0x7E, 0xFE
 };
 
-static const unsigned char spr_skullmammon_sick1[] PROGMEM = {
+static const unsigned char spr_nightmare_sick1[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0x0F,
   0xA0, 0x30,
@@ -2944,7 +2944,7 @@ static const unsigned char spr_skullmammon_sick1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_skullmammon_sick2[] PROGMEM = {
+static const unsigned char spr_nightmare_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xE0, 0x07,
@@ -2963,7 +2963,7 @@ static const unsigned char spr_skullmammon_sick2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_skullmammon_atk2[] PROGMEM = {
+static const unsigned char spr_nightmare_atk2[] PROGMEM = {
   0xDF, 0x0F,
   0x21, 0x10,
   0xAF, 0x61,
@@ -2982,8 +2982,8 @@ static const unsigned char spr_skullmammon_atk2[] PROGMEM = {
   0x7E, 0xFE
 };
 
-// ── Tsunomon ──────────────────────────────────────────
-static const unsigned char spr_tsunomon_idle1[] PROGMEM = {
+// ── Gloomfin ──────────────────────────────────────────
+static const unsigned char spr_gloomfin_idle1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3002,7 +3002,7 @@ static const unsigned char spr_tsunomon_idle1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_idle2[] PROGMEM = {
+static const unsigned char spr_gloomfin_idle2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3021,7 +3021,7 @@ static const unsigned char spr_tsunomon_idle2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_idle3[] PROGMEM = {
+static const unsigned char spr_gloomfin_idle3[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x0C,
@@ -3040,7 +3040,7 @@ static const unsigned char spr_tsunomon_idle3[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_happy1[] PROGMEM = {
+static const unsigned char spr_gloomfin_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3059,7 +3059,7 @@ static const unsigned char spr_tsunomon_happy1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_sleep1[] PROGMEM = {
+static const unsigned char spr_gloomfin_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3078,7 +3078,7 @@ static const unsigned char spr_tsunomon_sleep1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_sleep2[] PROGMEM = {
+static const unsigned char spr_gloomfin_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x80, 0x00,
@@ -3097,7 +3097,7 @@ static const unsigned char spr_tsunomon_sleep2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_atk1[] PROGMEM = {
+static const unsigned char spr_gloomfin_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3116,7 +3116,7 @@ static const unsigned char spr_tsunomon_atk1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_happy2[] PROGMEM = {
+static const unsigned char spr_gloomfin_happy2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x80, 0x00,
@@ -3135,7 +3135,7 @@ static const unsigned char spr_tsunomon_happy2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_angry1[] PROGMEM = {
+static const unsigned char spr_gloomfin_angry1[] PROGMEM = {
   0x00, 0x00,
   0x80, 0x00,
   0x40, 0x01,
@@ -3154,7 +3154,7 @@ static const unsigned char spr_tsunomon_angry1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_sick1[] PROGMEM = {
+static const unsigned char spr_gloomfin_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3173,7 +3173,7 @@ static const unsigned char spr_tsunomon_sick1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_sick2[] PROGMEM = {
+static const unsigned char spr_gloomfin_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3192,7 +3192,7 @@ static const unsigned char spr_tsunomon_sick2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_tsunomon_atk2[] PROGMEM = {
+static const unsigned char spr_gloomfin_atk2[] PROGMEM = {
   0x00, 0x06,
   0x80, 0x05,
   0x60, 0x02,
@@ -3211,8 +3211,8 @@ static const unsigned char spr_tsunomon_atk2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-// ── WarGreymon ──────────────────────────────────────────
-static const unsigned char spr_wargreymon_idle1[] PROGMEM = {
+// ── Flameforge ──────────────────────────────────────────
+static const unsigned char spr_flameforge_idle1[] PROGMEM = {
   0x0C, 0x30,
   0xD4, 0x2F,
   0x34, 0x22,
@@ -3231,7 +3231,7 @@ static const unsigned char spr_wargreymon_idle1[] PROGMEM = {
   0xFC, 0x7E
 };
 
-static const unsigned char spr_wargreymon_idle2[] PROGMEM = {
+static const unsigned char spr_flameforge_idle2[] PROGMEM = {
   0x00, 0x00,
   0x0C, 0x30,
   0xD4, 0x2F,
@@ -3250,7 +3250,7 @@ static const unsigned char spr_wargreymon_idle2[] PROGMEM = {
   0xFE, 0xFF
 };
 
-static const unsigned char spr_wargreymon_idle3[] PROGMEM = {
+static const unsigned char spr_flameforge_idle3[] PROGMEM = {
   0x0C, 0x30,
   0xD4, 0x2F,
   0x34, 0x22,
@@ -3269,7 +3269,7 @@ static const unsigned char spr_wargreymon_idle3[] PROGMEM = {
   0xFC, 0x7E
 };
 
-static const unsigned char spr_wargreymon_happy1[] PROGMEM = {
+static const unsigned char spr_flameforge_happy1[] PROGMEM = {
   0x00, 0x00,
   0x0C, 0x30,
   0xD4, 0x2F,
@@ -3288,7 +3288,7 @@ static const unsigned char spr_wargreymon_happy1[] PROGMEM = {
   0xFE, 0xFF
 };
 
-static const unsigned char spr_wargreymon_sleep1[] PROGMEM = {
+static const unsigned char spr_flameforge_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x18, 0x60,
@@ -3307,7 +3307,7 @@ static const unsigned char spr_wargreymon_sleep1[] PROGMEM = {
   0xFE, 0xFF
 };
 
-static const unsigned char spr_wargreymon_sleep2[] PROGMEM = {
+static const unsigned char spr_flameforge_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3326,7 +3326,7 @@ static const unsigned char spr_wargreymon_sleep2[] PROGMEM = {
   0xFE, 0xFF
 };
 
-static const unsigned char spr_wargreymon_atk1[] PROGMEM = {
+static const unsigned char spr_flameforge_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x0C, 0x30,
@@ -3345,7 +3345,7 @@ static const unsigned char spr_wargreymon_atk1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_wargreymon_happy2[] PROGMEM = {
+static const unsigned char spr_flameforge_happy2[] PROGMEM = {
   0x0C, 0x30,
   0xD4, 0x2F,
   0xB4, 0x22,
@@ -3364,7 +3364,7 @@ static const unsigned char spr_wargreymon_happy2[] PROGMEM = {
   0x3E, 0xFC
 };
 
-static const unsigned char spr_wargreymon_angry1[] PROGMEM = {
+static const unsigned char spr_flameforge_angry1[] PROGMEM = {
   0x0C, 0x30,
   0xD4, 0x2F,
   0x34, 0x22,
@@ -3383,7 +3383,7 @@ static const unsigned char spr_wargreymon_angry1[] PROGMEM = {
   0x7E, 0xFC
 };
 
-static const unsigned char spr_wargreymon_sick1[] PROGMEM = {
+static const unsigned char spr_flameforge_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3402,7 +3402,7 @@ static const unsigned char spr_wargreymon_sick1[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_wargreymon_sick2[] PROGMEM = {
+static const unsigned char spr_flameforge_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3421,7 +3421,7 @@ static const unsigned char spr_wargreymon_sick2[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_wargreymon_atk2[] PROGMEM = {
+static const unsigned char spr_flameforge_atk2[] PROGMEM = {
   0x0C, 0x30,
   0xD4, 0x2F,
   0x34, 0x23,
@@ -3440,8 +3440,8 @@ static const unsigned char spr_wargreymon_atk2[] PROGMEM = {
   0x3E, 0xFC
 };
 
-// ── WereGarurumon ──────────────────────────────────────────
-static const unsigned char spr_weregarurumon_idle1[] PROGMEM = {
+// ── Maulstream ──────────────────────────────────────────
+static const unsigned char spr_maulstream_idle1[] PROGMEM = {
   0x60, 0x30,
   0xD0, 0x2B,
   0x30, 0x24,
@@ -3460,7 +3460,7 @@ static const unsigned char spr_weregarurumon_idle1[] PROGMEM = {
   0x7E, 0x7F
 };
 
-static const unsigned char spr_weregarurumon_idle2[] PROGMEM = {
+static const unsigned char spr_maulstream_idle2[] PROGMEM = {
   0x00, 0x00,
   0x60, 0x30,
   0xD0, 0x2B,
@@ -3479,7 +3479,7 @@ static const unsigned char spr_weregarurumon_idle2[] PROGMEM = {
   0x7E, 0x7F
 };
 
-static const unsigned char spr_weregarurumon_idle3[] PROGMEM = {
+static const unsigned char spr_maulstream_idle3[] PROGMEM = {
   0x60, 0x30,
   0xD0, 0x2B,
   0x30, 0x24,
@@ -3498,7 +3498,7 @@ static const unsigned char spr_weregarurumon_idle3[] PROGMEM = {
   0x7C, 0x7E
 };
 
-static const unsigned char spr_weregarurumon_happy1[] PROGMEM = {
+static const unsigned char spr_maulstream_happy1[] PROGMEM = {
   0x60, 0x30,
   0xD0, 0x2B,
   0x30, 0x24,
@@ -3517,7 +3517,7 @@ static const unsigned char spr_weregarurumon_happy1[] PROGMEM = {
   0x7E, 0x7E
 };
 
-static const unsigned char spr_weregarurumon_sleep1[] PROGMEM = {
+static const unsigned char spr_maulstream_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x30, 0x18,
@@ -3536,7 +3536,7 @@ static const unsigned char spr_weregarurumon_sleep1[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_weregarurumon_sleep2[] PROGMEM = {
+static const unsigned char spr_maulstream_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -3555,7 +3555,7 @@ static const unsigned char spr_weregarurumon_sleep2[] PROGMEM = {
   0xFF, 0x7F
 };
 
-static const unsigned char spr_weregarurumon_atk1[] PROGMEM = {
+static const unsigned char spr_maulstream_atk1[] PROGMEM = {
   0x60, 0x30,
   0xD0, 0x2B,
   0x30, 0x24,
@@ -3574,7 +3574,7 @@ static const unsigned char spr_weregarurumon_atk1[] PROGMEM = {
   0x7E, 0x7E
 };
 
-static const unsigned char spr_weregarurumon_happy2[] PROGMEM = {
+static const unsigned char spr_maulstream_happy2[] PROGMEM = {
   0x60, 0x30,
   0xD0, 0x2B,
   0x30, 0x24,
@@ -3593,7 +3593,7 @@ static const unsigned char spr_weregarurumon_happy2[] PROGMEM = {
   0x7C, 0x7C
 };
 
-static const unsigned char spr_weregarurumon_angry1[] PROGMEM = {
+static const unsigned char spr_maulstream_angry1[] PROGMEM = {
   0xD8, 0x7B,
   0x28, 0x44,
   0x9E, 0x21,
@@ -3612,7 +3612,7 @@ static const unsigned char spr_weregarurumon_angry1[] PROGMEM = {
   0x7E, 0x7E
 };
 
-static const unsigned char spr_weregarurumon_sick1[] PROGMEM = {
+static const unsigned char spr_maulstream_sick1[] PROGMEM = {
   0x00, 0x00,
   0x60, 0x30,
   0xD0, 0x2B,
@@ -3631,7 +3631,7 @@ static const unsigned char spr_weregarurumon_sick1[] PROGMEM = {
   0xFC, 0x7F
 };
 
-static const unsigned char spr_weregarurumon_sick2[] PROGMEM = {
+static const unsigned char spr_maulstream_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xD8, 0x3B,
@@ -3650,7 +3650,7 @@ static const unsigned char spr_weregarurumon_sick2[] PROGMEM = {
   0xFC, 0x7F
 };
 
-static const unsigned char spr_weregarurumon_atk2[] PROGMEM = {
+static const unsigned char spr_maulstream_atk2[] PROGMEM = {
   0x60, 0x30,
   0xD0, 0x2B,
   0x30, 0x24,
@@ -3669,9 +3669,9 @@ static const unsigned char spr_weregarurumon_atk2[] PROGMEM = {
   0x7C, 0x7E
 };
 
-// ── Tyrannomon ──────────────────────────────────
+// ── Shieldmane ──────────────────────────────────
 
-static const unsigned char spr_tyrannomon_idle1[] PROGMEM = {
+static const unsigned char spr_shieldmane_idle1[] PROGMEM = {
   0xE0, 0x1B,
   0x10, 0x14,
   0x98, 0x0B,
@@ -3690,7 +3690,7 @@ static const unsigned char spr_tyrannomon_idle1[] PROGMEM = {
   0x7F, 0xFE
 };
 
-static const unsigned char spr_tyrannomon_idle2[] PROGMEM = {
+static const unsigned char spr_shieldmane_idle2[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x1B,
   0x10, 0x14,
@@ -3709,7 +3709,7 @@ static const unsigned char spr_tyrannomon_idle2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_tyrannomon_idle3[] PROGMEM = {
+static const unsigned char spr_shieldmane_idle3[] PROGMEM = {
   0xE0, 0x1B,
   0x10, 0x14,
   0x8E, 0x0B,
@@ -3728,7 +3728,7 @@ static const unsigned char spr_tyrannomon_idle3[] PROGMEM = {
   0x7F, 0xFE
 };
 
-static const unsigned char spr_tyrannomon_happy1[] PROGMEM = {
+static const unsigned char spr_shieldmane_happy1[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x1B,
   0x10, 0x14,
@@ -3747,7 +3747,7 @@ static const unsigned char spr_tyrannomon_happy1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_tyrannomon_sleep1[] PROGMEM = {
+static const unsigned char spr_shieldmane_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xE0, 0x1B,
@@ -3766,7 +3766,7 @@ static const unsigned char spr_tyrannomon_sleep1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_tyrannomon_sleep2[] PROGMEM = {
+static const unsigned char spr_shieldmane_sleep2[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0x37,
   0x20, 0x28,
@@ -3785,7 +3785,7 @@ static const unsigned char spr_tyrannomon_sleep2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_tyrannomon_atk1[] PROGMEM = {
+static const unsigned char spr_shieldmane_atk1[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x1B,
   0x10, 0x14,
@@ -3804,7 +3804,7 @@ static const unsigned char spr_tyrannomon_atk1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_tyrannomon_happy2[] PROGMEM = {
+static const unsigned char spr_shieldmane_happy2[] PROGMEM = {
   0xE0, 0x1B,
   0x10, 0x14,
   0x8E, 0x09,
@@ -3823,7 +3823,7 @@ static const unsigned char spr_tyrannomon_happy2[] PROGMEM = {
   0x7F, 0xFE
 };
 
-static const unsigned char spr_tyrannomon_angry1[] PROGMEM = {
+static const unsigned char spr_shieldmane_angry1[] PROGMEM = {
   0xE0, 0x1B,
   0x10, 0x14,
   0x8E, 0x09,
@@ -3842,7 +3842,7 @@ static const unsigned char spr_tyrannomon_angry1[] PROGMEM = {
   0x7F, 0xFE
 };
 
-static const unsigned char spr_tyrannomon_sick1[] PROGMEM = {
+static const unsigned char spr_shieldmane_sick1[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x1B,
   0x10, 0x14,
@@ -3861,7 +3861,7 @@ static const unsigned char spr_tyrannomon_sick1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_tyrannomon_sick2[] PROGMEM = {
+static const unsigned char spr_shieldmane_sick2[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x1B,
   0x10, 0x14,
@@ -3880,7 +3880,7 @@ static const unsigned char spr_tyrannomon_sick2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_tyrannomon_atk2[] PROGMEM = {
+static const unsigned char spr_shieldmane_atk2[] PROGMEM = {
   0xC0, 0x37,
   0x3C, 0x28,
   0x02, 0x16,
@@ -3899,9 +3899,9 @@ static const unsigned char spr_tyrannomon_atk2[] PROGMEM = {
   0x7F, 0xFE
 };
 
-// ── Gigadramon ──────────────────────────────────
+// ── Fortifire ──────────────────────────────────
 
-static const unsigned char spr_gigadramon_idle1[] PROGMEM = {
+static const unsigned char spr_fortifire_idle1[] PROGMEM = {
   0xF0, 0x2F,
   0x0C, 0x68,
   0x42, 0x66,
@@ -3920,7 +3920,7 @@ static const unsigned char spr_gigadramon_idle1[] PROGMEM = {
   0xE0, 0x3F
 };
 
-static const unsigned char spr_gigadramon_idle2[] PROGMEM = {
+static const unsigned char spr_fortifire_idle2[] PROGMEM = {
   0x00, 0x00,
   0xF0, 0x2F,
   0x0C, 0x68,
@@ -3939,7 +3939,7 @@ static const unsigned char spr_gigadramon_idle2[] PROGMEM = {
   0xF0, 0x7F
 };
 
-static const unsigned char spr_gigadramon_idle3[] PROGMEM = {
+static const unsigned char spr_fortifire_idle3[] PROGMEM = {
   0xF8, 0x2F,
   0x46, 0x68,
   0x61, 0x66,
@@ -3958,7 +3958,7 @@ static const unsigned char spr_gigadramon_idle3[] PROGMEM = {
   0xC0, 0x3F
 };
 
-static const unsigned char spr_gigadramon_happy1[] PROGMEM = {
+static const unsigned char spr_fortifire_happy1[] PROGMEM = {
   0x00, 0x00,
   0xF0, 0x2F,
   0x0C, 0x68,
@@ -3977,7 +3977,7 @@ static const unsigned char spr_gigadramon_happy1[] PROGMEM = {
   0xF0, 0x7F
 };
 
-static const unsigned char spr_gigadramon_sleep1[] PROGMEM = {
+static const unsigned char spr_fortifire_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xF0, 0x2F,
@@ -3996,7 +3996,7 @@ static const unsigned char spr_gigadramon_sleep1[] PROGMEM = {
   0xF6, 0x7F
 };
 
-static const unsigned char spr_gigadramon_sleep2[] PROGMEM = {
+static const unsigned char spr_fortifire_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -4015,7 +4015,7 @@ static const unsigned char spr_gigadramon_sleep2[] PROGMEM = {
   0xF6, 0x7F
 };
 
-static const unsigned char spr_gigadramon_atk1[] PROGMEM = {
+static const unsigned char spr_fortifire_atk1[] PROGMEM = {
   0x00, 0x00,
   0xF0, 0x2F,
   0x0C, 0x68,
@@ -4034,7 +4034,7 @@ static const unsigned char spr_gigadramon_atk1[] PROGMEM = {
   0xF0, 0x7F
 };
 
-static const unsigned char spr_gigadramon_happy2[] PROGMEM = {
+static const unsigned char spr_fortifire_happy2[] PROGMEM = {
   0xF8, 0x2F,
   0x46, 0x68,
   0xA1, 0x66,
@@ -4053,7 +4053,7 @@ static const unsigned char spr_gigadramon_happy2[] PROGMEM = {
   0xC0, 0x3F
 };
 
-static const unsigned char spr_gigadramon_angry1[] PROGMEM = {
+static const unsigned char spr_fortifire_angry1[] PROGMEM = {
   0xF8, 0x2F,
   0x66, 0x68,
   0x31, 0x66,
@@ -4072,7 +4072,7 @@ static const unsigned char spr_gigadramon_angry1[] PROGMEM = {
   0xC0, 0x3F
 };
 
-static const unsigned char spr_gigadramon_sick1[] PROGMEM = {
+static const unsigned char spr_fortifire_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -4091,7 +4091,7 @@ static const unsigned char spr_gigadramon_sick1[] PROGMEM = {
   0xEE, 0x7F
 };
 
-static const unsigned char spr_gigadramon_sick2[] PROGMEM = {
+static const unsigned char spr_fortifire_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -4110,7 +4110,7 @@ static const unsigned char spr_gigadramon_sick2[] PROGMEM = {
   0xEE, 0x7F
 };
 
-static const unsigned char spr_gigadramon_atk2[] PROGMEM = {
+static const unsigned char spr_fortifire_atk2[] PROGMEM = {
   0xF8, 0x2F,
   0x46, 0x68,
   0x61, 0x66,
@@ -4129,9 +4129,9 @@ static const unsigned char spr_gigadramon_atk2[] PROGMEM = {
   0xC0, 0x3F
 };
 
-// ── Dukemon ──────────────────────────────────
+// ── Citadellion ──────────────────────────────────
 
-static const unsigned char spr_dukemon_idle1[] PROGMEM = {
+static const unsigned char spr_citadellion_idle1[] PROGMEM = {
   0x60, 0x07,
   0xD0, 0x04,
   0x38, 0x06,
@@ -4150,7 +4150,7 @@ static const unsigned char spr_dukemon_idle1[] PROGMEM = {
   0x7E, 0x1F
 };
 
-static const unsigned char spr_dukemon_idle2[] PROGMEM = {
+static const unsigned char spr_citadellion_idle2[] PROGMEM = {
   0x00, 0x00,
   0x60, 0x07,
   0xD0, 0x04,
@@ -4169,7 +4169,7 @@ static const unsigned char spr_dukemon_idle2[] PROGMEM = {
   0x1F, 0x9C
 };
 
-static const unsigned char spr_dukemon_idle3[] PROGMEM = {
+static const unsigned char spr_citadellion_idle3[] PROGMEM = {
   0xC0, 0x0E,
   0x78, 0x09,
   0x84, 0x04,
@@ -4188,7 +4188,7 @@ static const unsigned char spr_dukemon_idle3[] PROGMEM = {
   0xFE, 0x1F
 };
 
-static const unsigned char spr_dukemon_happy1[] PROGMEM = {
+static const unsigned char spr_citadellion_happy1[] PROGMEM = {
   0x00, 0x00,
   0x60, 0x07,
   0xD0, 0x04,
@@ -4207,7 +4207,7 @@ static const unsigned char spr_dukemon_happy1[] PROGMEM = {
   0xFE, 0x9F
 };
 
-static const unsigned char spr_dukemon_sleep1[] PROGMEM = {
+static const unsigned char spr_citadellion_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x60, 0x07,
   0xD0, 0x04,
@@ -4226,7 +4226,7 @@ static const unsigned char spr_dukemon_sleep1[] PROGMEM = {
   0xFC, 0x8F
 };
 
-static const unsigned char spr_dukemon_sleep2[] PROGMEM = {
+static const unsigned char spr_citadellion_sleep2[] PROGMEM = {
   0x60, 0x07,
   0xD0, 0x04,
   0x38, 0x06,
@@ -4245,7 +4245,7 @@ static const unsigned char spr_dukemon_sleep2[] PROGMEM = {
   0xFC, 0x0F
 };
 
-static const unsigned char spr_dukemon_atk1[] PROGMEM = {
+static const unsigned char spr_citadellion_atk1[] PROGMEM = {
   0x00, 0x00,
   0x60, 0x07,
   0xD0, 0x04,
@@ -4264,7 +4264,7 @@ static const unsigned char spr_dukemon_atk1[] PROGMEM = {
   0xFE, 0x9F
 };
 
-static const unsigned char spr_dukemon_happy2[] PROGMEM = {
+static const unsigned char spr_citadellion_happy2[] PROGMEM = {
   0x6C, 0x1F,
   0xB2, 0x24,
   0x5A, 0x26,
@@ -4283,7 +4283,7 @@ static const unsigned char spr_dukemon_happy2[] PROGMEM = {
   0xFE, 0x1F
 };
 
-static const unsigned char spr_dukemon_angry1[] PROGMEM = {
+static const unsigned char spr_citadellion_angry1[] PROGMEM = {
   0xC0, 0x0E,
   0x78, 0x09,
   0x84, 0x04,
@@ -4302,7 +4302,7 @@ static const unsigned char spr_dukemon_angry1[] PROGMEM = {
   0x3F, 0x1F
 };
 
-static const unsigned char spr_dukemon_sick1[] PROGMEM = {
+static const unsigned char spr_citadellion_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x60, 0x07,
@@ -4321,7 +4321,7 @@ static const unsigned char spr_dukemon_sick1[] PROGMEM = {
   0x3E, 0x9F
 };
 
-static const unsigned char spr_dukemon_sick2[] PROGMEM = {
+static const unsigned char spr_citadellion_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -4340,7 +4340,7 @@ static const unsigned char spr_dukemon_sick2[] PROGMEM = {
   0xBE, 0xDF
 };
 
-static const unsigned char spr_dukemon_atk2[] PROGMEM = {
+static const unsigned char spr_citadellion_atk2[] PROGMEM = {
   0xD8, 0xF8,
   0xB4, 0x47,
   0x4E, 0x39,
@@ -4589,9 +4589,9 @@ static const unsigned char spr_mitamamon_atk2[] PROGMEM = {
   0x00, 0x1C
 };
 
-// ── Meramon ──────────────────────────────────
+// ── Aurovulp ──────────────────────────────────
 
-static const unsigned char spr_meramon_idle1[] PROGMEM = {
+static const unsigned char spr_aurovulp_idle1[] PROGMEM = {
   0x40, 0x33,
   0xA0, 0x2A,
   0x50, 0x26,
@@ -4610,7 +4610,7 @@ static const unsigned char spr_meramon_idle1[] PROGMEM = {
   0x3E, 0x7C
 };
 
-static const unsigned char spr_meramon_idle2[] PROGMEM = {
+static const unsigned char spr_aurovulp_idle2[] PROGMEM = {
   0x00, 0x00,
   0x40, 0x33,
   0xA0, 0x2A,
@@ -4629,7 +4629,7 @@ static const unsigned char spr_meramon_idle2[] PROGMEM = {
   0x3E, 0x7C
 };
 
-static const unsigned char spr_meramon_idle3[] PROGMEM = {
+static const unsigned char spr_aurovulp_idle3[] PROGMEM = {
   0xC0, 0x1F,
   0x30, 0x70,
   0x08, 0xC9,
@@ -4648,7 +4648,7 @@ static const unsigned char spr_meramon_idle3[] PROGMEM = {
   0x1F, 0x1F
 };
 
-static const unsigned char spr_meramon_happy1[] PROGMEM = {
+static const unsigned char spr_aurovulp_happy1[] PROGMEM = {
   0x40, 0x33,
   0xA0, 0x2A,
   0x50, 0x26,
@@ -4667,7 +4667,7 @@ static const unsigned char spr_meramon_happy1[] PROGMEM = {
   0x3E, 0x7C
 };
 
-static const unsigned char spr_meramon_sleep1[] PROGMEM = {
+static const unsigned char spr_aurovulp_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x40, 0x33,
   0xA0, 0x2A,
@@ -4686,7 +4686,7 @@ static const unsigned char spr_meramon_sleep1[] PROGMEM = {
   0xFE, 0xFF
 };
 
-static const unsigned char spr_meramon_sleep2[] PROGMEM = {
+static const unsigned char spr_aurovulp_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xA0, 0x19,
@@ -4705,7 +4705,7 @@ static const unsigned char spr_meramon_sleep2[] PROGMEM = {
   0xFE, 0xFF
 };
 
-static const unsigned char spr_meramon_atk1[] PROGMEM = {
+static const unsigned char spr_aurovulp_atk1[] PROGMEM = {
   0x00, 0x00,
   0x40, 0x33,
   0xA0, 0x2A,
@@ -4724,7 +4724,7 @@ static const unsigned char spr_meramon_atk1[] PROGMEM = {
   0x3E, 0x7C
 };
 
-static const unsigned char spr_meramon_happy2[] PROGMEM = {
+static const unsigned char spr_aurovulp_happy2[] PROGMEM = {
   0xC0, 0x1F,
   0x31, 0x62,
   0x2B, 0x95,
@@ -4743,7 +4743,7 @@ static const unsigned char spr_meramon_happy2[] PROGMEM = {
   0x3E, 0x7C
 };
 
-static const unsigned char spr_meramon_angry1[] PROGMEM = {
+static const unsigned char spr_aurovulp_angry1[] PROGMEM = {
   0xC0, 0x1F,
   0x30, 0x70,
   0x08, 0xC9,
@@ -4762,7 +4762,7 @@ static const unsigned char spr_meramon_angry1[] PROGMEM = {
   0x1F, 0x1F
 };
 
-static const unsigned char spr_meramon_sick1[] PROGMEM = {
+static const unsigned char spr_aurovulp_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x40, 0x33,
@@ -4781,7 +4781,7 @@ static const unsigned char spr_meramon_sick1[] PROGMEM = {
   0xDE, 0xFF
 };
 
-static const unsigned char spr_meramon_sick2[] PROGMEM = {
+static const unsigned char spr_aurovulp_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -4800,7 +4800,7 @@ static const unsigned char spr_meramon_sick2[] PROGMEM = {
   0xEF, 0xF7
 };
 
-static const unsigned char spr_meramon_atk2[] PROGMEM = {
+static const unsigned char spr_aurovulp_atk2[] PROGMEM = {
   0xC0, 0x1F,
   0x30, 0x70,
   0x08, 0xCB,
@@ -4819,9 +4819,9 @@ static const unsigned char spr_meramon_atk2[] PROGMEM = {
   0x1F, 0x1F
 };
 
-// ── Deathmeramon ──────────────────────────────────
+// ── Vulpyre ──────────────────────────────────
 
-static const unsigned char spr_deathmeramon_idle1[] PROGMEM = {
+static const unsigned char spr_vulpyre_idle1[] PROGMEM = {
   0x90, 0x22,
   0xF0, 0x6F,
   0xF8, 0x7F,
@@ -4840,7 +4840,7 @@ static const unsigned char spr_deathmeramon_idle1[] PROGMEM = {
   0x3E, 0xFE
 };
 
-static const unsigned char spr_deathmeramon_idle2[] PROGMEM = {
+static const unsigned char spr_vulpyre_idle2[] PROGMEM = {
   0x20, 0x45,
   0xE0, 0x6F,
   0xF0, 0x7F,
@@ -4859,7 +4859,7 @@ static const unsigned char spr_deathmeramon_idle2[] PROGMEM = {
   0x3E, 0xFE
 };
 
-static const unsigned char spr_deathmeramon_idle3[] PROGMEM = {
+static const unsigned char spr_vulpyre_idle3[] PROGMEM = {
   0x80, 0x7F,
   0xE0, 0x3F,
   0x10, 0xF0,
@@ -4878,7 +4878,7 @@ static const unsigned char spr_deathmeramon_idle3[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_deathmeramon_happy1[] PROGMEM = {
+static const unsigned char spr_vulpyre_happy1[] PROGMEM = {
   0x00, 0xCD,
   0xE0, 0xFF,
   0xF0, 0xFF,
@@ -4897,7 +4897,7 @@ static const unsigned char spr_deathmeramon_happy1[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_deathmeramon_sleep1[] PROGMEM = {
+static const unsigned char spr_vulpyre_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x90, 0x22,
   0xF0, 0x37,
@@ -4916,7 +4916,7 @@ static const unsigned char spr_deathmeramon_sleep1[] PROGMEM = {
   0xFC, 0x3F
 };
 
-static const unsigned char spr_deathmeramon_sleep2[] PROGMEM = {
+static const unsigned char spr_vulpyre_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x80, 0x00,
   0xD0, 0x11,
@@ -4935,7 +4935,7 @@ static const unsigned char spr_deathmeramon_sleep2[] PROGMEM = {
   0xFC, 0x3F
 };
 
-static const unsigned char spr_deathmeramon_atk1[] PROGMEM = {
+static const unsigned char spr_vulpyre_atk1[] PROGMEM = {
   0x80, 0xFF,
   0xE0, 0x7F,
   0xF0, 0x3F,
@@ -4954,7 +4954,7 @@ static const unsigned char spr_deathmeramon_atk1[] PROGMEM = {
   0x7C, 0x7C
 };
 
-static const unsigned char spr_deathmeramon_happy2[] PROGMEM = {
+static const unsigned char spr_vulpyre_happy2[] PROGMEM = {
   0xA2, 0x45,
   0xF6, 0x6F,
   0xFA, 0x5F,
@@ -4973,7 +4973,7 @@ static const unsigned char spr_deathmeramon_happy2[] PROGMEM = {
   0x7C, 0x3E
 };
 
-static const unsigned char spr_deathmeramon_angry1[] PROGMEM = {
+static const unsigned char spr_vulpyre_angry1[] PROGMEM = {
   0x02, 0xB5,
   0xC4, 0xFF,
   0xE0, 0xFF,
@@ -4992,7 +4992,7 @@ static const unsigned char spr_deathmeramon_angry1[] PROGMEM = {
   0xFC, 0xFE
 };
 
-static const unsigned char spr_deathmeramon_sick1[] PROGMEM = {
+static const unsigned char spr_vulpyre_sick1[] PROGMEM = {
   0x00, 0x00,
   0x40, 0x65,
   0xE0, 0x7F,
@@ -5011,7 +5011,7 @@ static const unsigned char spr_deathmeramon_sick1[] PROGMEM = {
   0xFC, 0xFF
 };
 
-static const unsigned char spr_deathmeramon_sick2[] PROGMEM = {
+static const unsigned char spr_vulpyre_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x04,
   0x90, 0x01,
@@ -5030,7 +5030,7 @@ static const unsigned char spr_deathmeramon_sick2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_deathmeramon_atk2[] PROGMEM = {
+static const unsigned char spr_vulpyre_atk2[] PROGMEM = {
   0x80, 0xFF,
   0xE0, 0x7F,
   0x70, 0xF0,
@@ -5049,9 +5049,9 @@ static const unsigned char spr_deathmeramon_atk2[] PROGMEM = {
   0xFC, 0xFE
 };
 
-// ── Beelzemon ──────────────────────────────────
+// ── Eldervulp ──────────────────────────────────
 
-static const unsigned char spr_beelzemon_idle1[] PROGMEM = {
+static const unsigned char spr_eldervulp_idle1[] PROGMEM = {
   0xF0, 0x0F,
   0x48, 0x14,
   0x18, 0x3A,
@@ -5070,7 +5070,7 @@ static const unsigned char spr_beelzemon_idle1[] PROGMEM = {
   0x7C, 0x3E
 };
 
-static const unsigned char spr_beelzemon_idle2[] PROGMEM = {
+static const unsigned char spr_eldervulp_idle2[] PROGMEM = {
   0x00, 0x00,
   0xF0, 0x0F,
   0x48, 0x14,
@@ -5089,7 +5089,7 @@ static const unsigned char spr_beelzemon_idle2[] PROGMEM = {
   0x3E, 0x7C
 };
 
-static const unsigned char spr_beelzemon_idle3[] PROGMEM = {
+static const unsigned char spr_eldervulp_idle3[] PROGMEM = {
   0xF0, 0x0F,
   0x38, 0x17,
   0xE8, 0x39,
@@ -5108,7 +5108,7 @@ static const unsigned char spr_beelzemon_idle3[] PROGMEM = {
   0x7C, 0x3E
 };
 
-static const unsigned char spr_beelzemon_happy1[] PROGMEM = {
+static const unsigned char spr_eldervulp_happy1[] PROGMEM = {
   0x00, 0x00,
   0xF0, 0x1F,
   0x08, 0x14,
@@ -5127,7 +5127,7 @@ static const unsigned char spr_beelzemon_happy1[] PROGMEM = {
   0x7C, 0x3E
 };
 
-static const unsigned char spr_beelzemon_sleep1[] PROGMEM = {
+static const unsigned char spr_eldervulp_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -5146,7 +5146,7 @@ static const unsigned char spr_beelzemon_sleep1[] PROGMEM = {
   0xBE, 0x6F
 };
 
-static const unsigned char spr_beelzemon_sleep2[] PROGMEM = {
+static const unsigned char spr_eldervulp_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xF0, 0x0F,
@@ -5165,7 +5165,7 @@ static const unsigned char spr_beelzemon_sleep2[] PROGMEM = {
   0xBE, 0x6F
 };
 
-static const unsigned char spr_beelzemon_atk1[] PROGMEM = {
+static const unsigned char spr_eldervulp_atk1[] PROGMEM = {
   0x00, 0x00,
   0xF0, 0x1F,
   0x08, 0x14,
@@ -5184,7 +5184,7 @@ static const unsigned char spr_beelzemon_atk1[] PROGMEM = {
   0x7C, 0x3E
 };
 
-static const unsigned char spr_beelzemon_happy2[] PROGMEM = {
+static const unsigned char spr_eldervulp_happy2[] PROGMEM = {
   0xF0, 0x0F,
   0x4E, 0x74,
   0x15, 0x99,
@@ -5203,7 +5203,7 @@ static const unsigned char spr_beelzemon_happy2[] PROGMEM = {
   0x7C, 0x3E
 };
 
-static const unsigned char spr_beelzemon_angry1[] PROGMEM = {
+static const unsigned char spr_eldervulp_angry1[] PROGMEM = {
   0xE0, 0x3F,
   0xB0, 0x2C,
   0x70, 0x56,
@@ -5222,7 +5222,7 @@ static const unsigned char spr_beelzemon_angry1[] PROGMEM = {
   0x3E, 0x7C
 };
 
-static const unsigned char spr_beelzemon_sick1[] PROGMEM = {
+static const unsigned char spr_eldervulp_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xF8, 0x07,
@@ -5241,7 +5241,7 @@ static const unsigned char spr_beelzemon_sick1[] PROGMEM = {
   0x78, 0x3F
 };
 
-static const unsigned char spr_beelzemon_sick2[] PROGMEM = {
+static const unsigned char spr_eldervulp_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -5260,7 +5260,7 @@ static const unsigned char spr_beelzemon_sick2[] PROGMEM = {
   0x78, 0x3F
 };
 
-static const unsigned char spr_beelzemon_atk2[] PROGMEM = {
+static const unsigned char spr_eldervulp_atk2[] PROGMEM = {
   0xC0, 0x7F,
   0x20, 0xD0,
   0x60, 0xA2,
@@ -5509,9 +5509,9 @@ static const unsigned char spr_lucemon_atk2[] PROGMEM = {
   0x78, 0x0F
 };
 
-// ── Seadramon ──────────────────────────────────
+// ── Baleguard ──────────────────────────────────
 
-static const unsigned char spr_seadramon_idle1[] PROGMEM = {
+static const unsigned char spr_baleguard_idle1[] PROGMEM = {
   0xE0, 0x03,
   0x18, 0x7C,
   0xC4, 0x20,
@@ -5530,7 +5530,7 @@ static const unsigned char spr_seadramon_idle1[] PROGMEM = {
   0xC0, 0x3F
 };
 
-static const unsigned char spr_seadramon_idle2[] PROGMEM = {
+static const unsigned char spr_baleguard_idle2[] PROGMEM = {
   0x00, 0x00,
   0xE0, 0x03,
   0x18, 0x7C,
@@ -5549,7 +5549,7 @@ static const unsigned char spr_seadramon_idle2[] PROGMEM = {
   0xE0, 0x7F
 };
 
-static const unsigned char spr_seadramon_idle3[] PROGMEM = {
+static const unsigned char spr_baleguard_idle3[] PROGMEM = {
   0xE0, 0x07,
   0x18, 0x78,
   0xC4, 0x20,
@@ -5568,7 +5568,7 @@ static const unsigned char spr_seadramon_idle3[] PROGMEM = {
   0xC0, 0x3F
 };
 
-static const unsigned char spr_seadramon_happy1[] PROGMEM = {
+static const unsigned char spr_baleguard_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xE0, 0x03,
@@ -5587,7 +5587,7 @@ static const unsigned char spr_seadramon_happy1[] PROGMEM = {
   0xF0, 0x7F
 };
 
-static const unsigned char spr_seadramon_sleep1[] PROGMEM = {
+static const unsigned char spr_baleguard_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -5606,7 +5606,7 @@ static const unsigned char spr_seadramon_sleep1[] PROGMEM = {
   0xFC, 0x3F
 };
 
-static const unsigned char spr_seadramon_sleep2[] PROGMEM = {
+static const unsigned char spr_baleguard_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -5625,7 +5625,7 @@ static const unsigned char spr_seadramon_sleep2[] PROGMEM = {
   0xFC, 0x7F
 };
 
-static const unsigned char spr_seadramon_atk1[] PROGMEM = {
+static const unsigned char spr_baleguard_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xE0, 0x03,
@@ -5644,7 +5644,7 @@ static const unsigned char spr_seadramon_atk1[] PROGMEM = {
   0xE0, 0x7F
 };
 
-static const unsigned char spr_seadramon_happy2[] PROGMEM = {
+static const unsigned char spr_baleguard_happy2[] PROGMEM = {
   0xE0, 0x07,
   0x18, 0x78,
   0x84, 0x20,
@@ -5663,7 +5663,7 @@ static const unsigned char spr_seadramon_happy2[] PROGMEM = {
   0xC0, 0x3F
 };
 
-static const unsigned char spr_seadramon_angry1[] PROGMEM = {
+static const unsigned char spr_baleguard_angry1[] PROGMEM = {
   0xF0, 0x07,
   0x0C, 0x78,
   0x82, 0x21,
@@ -5682,7 +5682,7 @@ static const unsigned char spr_seadramon_angry1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_seadramon_sick1[] PROGMEM = {
+static const unsigned char spr_baleguard_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -5701,7 +5701,7 @@ static const unsigned char spr_seadramon_sick1[] PROGMEM = {
   0xFC, 0x3F
 };
 
-static const unsigned char spr_seadramon_sick2[] PROGMEM = {
+static const unsigned char spr_baleguard_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -5720,7 +5720,7 @@ static const unsigned char spr_seadramon_sick2[] PROGMEM = {
   0xFC, 0x7F
 };
 
-static const unsigned char spr_seadramon_atk2[] PROGMEM = {
+static const unsigned char spr_baleguard_atk2[] PROGMEM = {
   0xE0, 0x0F,
   0x18, 0xF0,
   0x04, 0x43,
@@ -5739,9 +5739,9 @@ static const unsigned char spr_seadramon_atk2[] PROGMEM = {
   0xC0, 0x3F
 };
 
-// ── Mermaimon ──────────────────────────────────
+// ── Bulwhark ──────────────────────────────────
 
-static const unsigned char spr_mermaimon_idle1[] PROGMEM = {
+static const unsigned char spr_bulwhark_idle1[] PROGMEM = {
   0x00, 0x00,
   0xD8, 0x01,
   0x24, 0x06,
@@ -5760,7 +5760,7 @@ static const unsigned char spr_mermaimon_idle1[] PROGMEM = {
   0xE0, 0x1F
 };
 
-static const unsigned char spr_mermaimon_idle2[] PROGMEM = {
+static const unsigned char spr_bulwhark_idle2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xD8, 0x01,
@@ -5779,7 +5779,7 @@ static const unsigned char spr_mermaimon_idle2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_mermaimon_idle3[] PROGMEM = {
+static const unsigned char spr_bulwhark_idle3[] PROGMEM = {
   0xD8, 0x01,
   0x24, 0x06,
   0x24, 0x08,
@@ -5798,7 +5798,7 @@ static const unsigned char spr_mermaimon_idle3[] PROGMEM = {
   0xE0, 0x1F
 };
 
-static const unsigned char spr_mermaimon_happy1[] PROGMEM = {
+static const unsigned char spr_bulwhark_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xD8, 0x01,
@@ -5817,7 +5817,7 @@ static const unsigned char spr_mermaimon_happy1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_mermaimon_sleep1[] PROGMEM = {
+static const unsigned char spr_bulwhark_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xD8, 0x01,
@@ -5836,7 +5836,7 @@ static const unsigned char spr_mermaimon_sleep1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_mermaimon_sleep2[] PROGMEM = {
+static const unsigned char spr_bulwhark_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -5855,7 +5855,7 @@ static const unsigned char spr_mermaimon_sleep2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_mermaimon_atk1[] PROGMEM = {
+static const unsigned char spr_bulwhark_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xD8, 0x01,
@@ -5874,7 +5874,7 @@ static const unsigned char spr_mermaimon_atk1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_mermaimon_happy2[] PROGMEM = {
+static const unsigned char spr_bulwhark_happy2[] PROGMEM = {
   0xD8, 0x01,
   0x24, 0x06,
   0x22, 0x08,
@@ -5893,7 +5893,7 @@ static const unsigned char spr_mermaimon_happy2[] PROGMEM = {
   0xE0, 0x1F
 };
 
-static const unsigned char spr_mermaimon_angry1[] PROGMEM = {
+static const unsigned char spr_bulwhark_angry1[] PROGMEM = {
   0xD8, 0x01,
   0x24, 0x06,
   0x24, 0x18,
@@ -5912,7 +5912,7 @@ static const unsigned char spr_mermaimon_angry1[] PROGMEM = {
   0xE0, 0x1F
 };
 
-static const unsigned char spr_mermaimon_sick1[] PROGMEM = {
+static const unsigned char spr_bulwhark_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -5931,7 +5931,7 @@ static const unsigned char spr_mermaimon_sick1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_mermaimon_sick2[] PROGMEM = {
+static const unsigned char spr_bulwhark_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -5950,7 +5950,7 @@ static const unsigned char spr_mermaimon_sick2[] PROGMEM = {
   0xEC, 0x0F
 };
 
-static const unsigned char spr_mermaimon_atk2[] PROGMEM = {
+static const unsigned char spr_bulwhark_atk2[] PROGMEM = {
   0xEC, 0x00,
   0x1A, 0x03,
   0x12, 0x04,
@@ -5971,7 +5971,7 @@ static const unsigned char spr_mermaimon_atk2[] PROGMEM = {
 
 // ── Ancientmermaimon ──────────────────────────────────
 
-static const unsigned char spr_ancientmermaimon_idle1[] PROGMEM = {
+static const unsigned char spr_tidenaught_idle1[] PROGMEM = {
   0xC0, 0x00,
   0xA0, 0x00,
   0x18, 0x03,
@@ -5990,7 +5990,7 @@ static const unsigned char spr_ancientmermaimon_idle1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_ancientmermaimon_idle2[] PROGMEM = {
+static const unsigned char spr_tidenaught_idle2[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0x00,
   0xA0, 0x00,
@@ -6009,7 +6009,7 @@ static const unsigned char spr_ancientmermaimon_idle2[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_ancientmermaimon_idle3[] PROGMEM = {
+static const unsigned char spr_tidenaught_idle3[] PROGMEM = {
   0xC0, 0x00,
   0xA0, 0x00,
   0x18, 0x03,
@@ -6028,7 +6028,7 @@ static const unsigned char spr_ancientmermaimon_idle3[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_ancientmermaimon_happy1[] PROGMEM = {
+static const unsigned char spr_tidenaught_happy1[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0x00,
   0xA0, 0x00,
@@ -6047,7 +6047,7 @@ static const unsigned char spr_ancientmermaimon_happy1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_ancientmermaimon_sleep1[] PROGMEM = {
+static const unsigned char spr_tidenaught_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -6066,7 +6066,7 @@ static const unsigned char spr_ancientmermaimon_sleep1[] PROGMEM = {
   0xFC, 0x3F
 };
 
-static const unsigned char spr_ancientmermaimon_sleep2[] PROGMEM = {
+static const unsigned char spr_tidenaught_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0x00,
@@ -6085,7 +6085,7 @@ static const unsigned char spr_ancientmermaimon_sleep2[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_ancientmermaimon_atk1[] PROGMEM = {
+static const unsigned char spr_tidenaught_atk1[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0x00,
   0xA0, 0x00,
@@ -6104,7 +6104,7 @@ static const unsigned char spr_ancientmermaimon_atk1[] PROGMEM = {
   0xF0, 0x1F
 };
 
-static const unsigned char spr_ancientmermaimon_happy2[] PROGMEM = {
+static const unsigned char spr_tidenaught_happy2[] PROGMEM = {
   0xC0, 0x00,
   0xA0, 0x00,
   0x18, 0x03,
@@ -6123,7 +6123,7 @@ static const unsigned char spr_ancientmermaimon_happy2[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_ancientmermaimon_angry1[] PROGMEM = {
+static const unsigned char spr_tidenaught_angry1[] PROGMEM = {
   0xC0, 0x00,
   0xA0, 0x00,
   0x18, 0x03,
@@ -6142,7 +6142,7 @@ static const unsigned char spr_ancientmermaimon_angry1[] PROGMEM = {
   0xE0, 0x0F
 };
 
-static const unsigned char spr_ancientmermaimon_sick1[] PROGMEM = {
+static const unsigned char spr_tidenaught_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -6161,7 +6161,7 @@ static const unsigned char spr_ancientmermaimon_sick1[] PROGMEM = {
   0xFC, 0x3F
 };
 
-static const unsigned char spr_ancientmermaimon_sick2[] PROGMEM = {
+static const unsigned char spr_tidenaught_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -6180,7 +6180,7 @@ static const unsigned char spr_ancientmermaimon_sick2[] PROGMEM = {
   0xFE, 0x7F
 };
 
-static const unsigned char spr_ancientmermaimon_atk2[] PROGMEM = {
+static const unsigned char spr_tidenaught_atk2[] PROGMEM = {
   0xC0, 0x00,
   0xA0, 0x00,
   0x18, 0x03,
@@ -6429,9 +6429,9 @@ static const unsigned char spr_vikemon_atk2[] PROGMEM = {
   0xFF, 0x3F
 };
 
-// ── Gesomon ──────────────────────────────────
+// ── Sirenlure ──────────────────────────────────
 
-static const unsigned char spr_gesomon_idle1[] PROGMEM = {
+static const unsigned char spr_sirenlure_idle1[] PROGMEM = {
   0x80, 0x01,
   0x40, 0x02,
   0x20, 0x04,
@@ -6450,7 +6450,7 @@ static const unsigned char spr_gesomon_idle1[] PROGMEM = {
   0xBC, 0x3D
 };
 
-static const unsigned char spr_gesomon_idle2[] PROGMEM = {
+static const unsigned char spr_sirenlure_idle2[] PROGMEM = {
   0x00, 0x00,
   0x80, 0x01,
   0x40, 0x02,
@@ -6469,7 +6469,7 @@ static const unsigned char spr_gesomon_idle2[] PROGMEM = {
   0xFE, 0x7F
 };
 
-static const unsigned char spr_gesomon_idle3[] PROGMEM = {
+static const unsigned char spr_sirenlure_idle3[] PROGMEM = {
   0x00, 0x7C,
   0x80, 0x43,
   0x70, 0x40,
@@ -6488,7 +6488,7 @@ static const unsigned char spr_gesomon_idle3[] PROGMEM = {
   0xB8, 0x7D
 };
 
-static const unsigned char spr_gesomon_happy1[] PROGMEM = {
+static const unsigned char spr_sirenlure_happy1[] PROGMEM = {
   0x00, 0x03,
   0x80, 0x04,
   0x40, 0x08,
@@ -6507,7 +6507,7 @@ static const unsigned char spr_gesomon_happy1[] PROGMEM = {
   0xBC, 0x7D
 };
 
-static const unsigned char spr_gesomon_sleep1[] PROGMEM = {
+static const unsigned char spr_sirenlure_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x80, 0x01,
@@ -6526,7 +6526,7 @@ static const unsigned char spr_gesomon_sleep1[] PROGMEM = {
   0xFE, 0x7F
 };
 
-static const unsigned char spr_gesomon_sleep2[] PROGMEM = {
+static const unsigned char spr_sirenlure_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x80, 0x01,
   0x40, 0x02,
@@ -6545,7 +6545,7 @@ static const unsigned char spr_gesomon_sleep2[] PROGMEM = {
   0xFC, 0x3F
 };
 
-static const unsigned char spr_gesomon_atk1[] PROGMEM = {
+static const unsigned char spr_sirenlure_atk1[] PROGMEM = {
   0x00, 0x03,
   0x80, 0x04,
   0x40, 0x08,
@@ -6564,7 +6564,7 @@ static const unsigned char spr_gesomon_atk1[] PROGMEM = {
   0xB8, 0x7B
 };
 
-static const unsigned char spr_gesomon_happy2[] PROGMEM = {
+static const unsigned char spr_sirenlure_happy2[] PROGMEM = {
   0xC0, 0x01,
   0x20, 0x02,
   0xB0, 0x06,
@@ -6583,7 +6583,7 @@ static const unsigned char spr_gesomon_happy2[] PROGMEM = {
   0xFE, 0x7F
 };
 
-static const unsigned char spr_gesomon_angry1[] PROGMEM = {
+static const unsigned char spr_sirenlure_angry1[] PROGMEM = {
   0xC0, 0x01,
   0x20, 0x02,
   0x90, 0x04,
@@ -6602,7 +6602,7 @@ static const unsigned char spr_gesomon_angry1[] PROGMEM = {
   0x6E, 0x77
 };
 
-static const unsigned char spr_gesomon_sick1[] PROGMEM = {
+static const unsigned char spr_sirenlure_sick1[] PROGMEM = {
   0x80, 0x01,
   0x40, 0x02,
   0x20, 0x04,
@@ -6621,7 +6621,7 @@ static const unsigned char spr_gesomon_sick1[] PROGMEM = {
   0xFE, 0x7F
 };
 
-static const unsigned char spr_gesomon_sick2[] PROGMEM = {
+static const unsigned char spr_sirenlure_sick2[] PROGMEM = {
   0x00, 0x00,
   0x80, 0x01,
   0x40, 0x02,
@@ -6640,7 +6640,7 @@ static const unsigned char spr_gesomon_sick2[] PROGMEM = {
   0xFE, 0x7F
 };
 
-static const unsigned char spr_gesomon_atk2[] PROGMEM = {
+static const unsigned char spr_sirenlure_atk2[] PROGMEM = {
   0x20, 0x00,
   0xD0, 0x7F,
   0x10, 0x40,
@@ -6659,9 +6659,9 @@ static const unsigned char spr_gesomon_atk2[] PROGMEM = {
   0xDE, 0x3E
 };
 
-// ── Whamon ──────────────────────────────────
+// ── Abyssibyl ──────────────────────────────────
 
-static const unsigned char spr_whamon_idle1[] PROGMEM = {
+static const unsigned char spr_abyssibyl_idle1[] PROGMEM = {
   0x80, 0x3B,
   0x40, 0x44,
   0x80, 0x31,
@@ -6680,7 +6680,7 @@ static const unsigned char spr_whamon_idle1[] PROGMEM = {
   0xFC, 0x03
 };
 
-static const unsigned char spr_whamon_idle2[] PROGMEM = {
+static const unsigned char spr_abyssibyl_idle2[] PROGMEM = {
   0x00, 0x00,
   0xC0, 0x18,
   0x20, 0x27,
@@ -6699,7 +6699,7 @@ static const unsigned char spr_whamon_idle2[] PROGMEM = {
   0xFC, 0x07
 };
 
-static const unsigned char spr_whamon_idle3[] PROGMEM = {
+static const unsigned char spr_abyssibyl_idle3[] PROGMEM = {
   0x00, 0x77,
   0x80, 0x88,
   0x00, 0x63,
@@ -6718,7 +6718,7 @@ static const unsigned char spr_whamon_idle3[] PROGMEM = {
   0xFC, 0xF9
 };
 
-static const unsigned char spr_whamon_happy1[] PROGMEM = {
+static const unsigned char spr_abyssibyl_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x63,
   0x80, 0x94,
@@ -6737,7 +6737,7 @@ static const unsigned char spr_whamon_happy1[] PROGMEM = {
   0xFC, 0x07
 };
 
-static const unsigned char spr_whamon_sleep1[] PROGMEM = {
+static const unsigned char spr_abyssibyl_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -6756,7 +6756,7 @@ static const unsigned char spr_whamon_sleep1[] PROGMEM = {
   0xFC, 0x07
 };
 
-static const unsigned char spr_whamon_sleep2[] PROGMEM = {
+static const unsigned char spr_abyssibyl_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -6775,7 +6775,7 @@ static const unsigned char spr_whamon_sleep2[] PROGMEM = {
   0xFC, 0xFF
 };
 
-static const unsigned char spr_whamon_atk1[] PROGMEM = {
+static const unsigned char spr_abyssibyl_atk1[] PROGMEM = {
   0x00, 0x22,
   0x00, 0x63,
   0x00, 0x55,
@@ -6794,7 +6794,7 @@ static const unsigned char spr_whamon_atk1[] PROGMEM = {
   0xFC, 0x07
 };
 
-static const unsigned char spr_whamon_happy2[] PROGMEM = {
+static const unsigned char spr_abyssibyl_happy2[] PROGMEM = {
   0x00, 0x77,
   0x80, 0x88,
   0x00, 0x63,
@@ -6813,7 +6813,7 @@ static const unsigned char spr_whamon_happy2[] PROGMEM = {
   0xFC, 0xE1
 };
 
-static const unsigned char spr_whamon_angry1[] PROGMEM = {
+static const unsigned char spr_abyssibyl_angry1[] PROGMEM = {
   0x00, 0x77,
   0x80, 0x88,
   0x00, 0x63,
@@ -6832,7 +6832,7 @@ static const unsigned char spr_whamon_angry1[] PROGMEM = {
   0xFC, 0x01
 };
 
-static const unsigned char spr_whamon_sick1[] PROGMEM = {
+static const unsigned char spr_abyssibyl_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -6851,7 +6851,7 @@ static const unsigned char spr_whamon_sick1[] PROGMEM = {
   0xFC, 0x07
 };
 
-static const unsigned char spr_whamon_sick2[] PROGMEM = {
+static const unsigned char spr_abyssibyl_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -6870,7 +6870,7 @@ static const unsigned char spr_whamon_sick2[] PROGMEM = {
   0xFE, 0xF7
 };
 
-static const unsigned char spr_whamon_atk2[] PROGMEM = {
+static const unsigned char spr_abyssibyl_atk2[] PROGMEM = {
   0x00, 0x77,
   0x80, 0xC8,
   0x00, 0x63,
@@ -6889,9 +6889,9 @@ static const unsigned char spr_whamon_atk2[] PROGMEM = {
   0xFC, 0x01
 };
 
-// ── Plesiomon ──────────────────────────────────
+// ── Thalassibyl ──────────────────────────────────
 
-static const unsigned char spr_plesiomon_idle1[] PROGMEM = {
+static const unsigned char spr_thalassibyl_idle1[] PROGMEM = {
   0xC0, 0x04,
   0xF0, 0x0B,
   0x88, 0x08,
@@ -6910,7 +6910,7 @@ static const unsigned char spr_plesiomon_idle1[] PROGMEM = {
   0xDF, 0xFF
 };
 
-static const unsigned char spr_plesiomon_idle2[] PROGMEM = {
+static const unsigned char spr_thalassibyl_idle2[] PROGMEM = {
   0xF0, 0x1B,
   0x08, 0x17,
   0x66, 0x11,
@@ -6929,7 +6929,7 @@ static const unsigned char spr_plesiomon_idle2[] PROGMEM = {
   0xCF, 0x7F
 };
 
-static const unsigned char spr_plesiomon_idle3[] PROGMEM = {
+static const unsigned char spr_thalassibyl_idle3[] PROGMEM = {
   0xF0, 0x1F,
   0x0E, 0x11,
   0x41, 0x09,
@@ -6948,7 +6948,7 @@ static const unsigned char spr_plesiomon_idle3[] PROGMEM = {
   0xDF, 0xFF
 };
 
-static const unsigned char spr_plesiomon_happy1[] PROGMEM = {
+static const unsigned char spr_thalassibyl_happy1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0x04,
@@ -6967,7 +6967,7 @@ static const unsigned char spr_plesiomon_happy1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_plesiomon_sleep1[] PROGMEM = {
+static const unsigned char spr_thalassibyl_sleep1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -6986,7 +6986,7 @@ static const unsigned char spr_plesiomon_sleep1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_plesiomon_sleep2[] PROGMEM = {
+static const unsigned char spr_thalassibyl_sleep2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -7005,7 +7005,7 @@ static const unsigned char spr_plesiomon_sleep2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_plesiomon_atk1[] PROGMEM = {
+static const unsigned char spr_thalassibyl_atk1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0xC0, 0x04,
@@ -7024,7 +7024,7 @@ static const unsigned char spr_plesiomon_atk1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_plesiomon_happy2[] PROGMEM = {
+static const unsigned char spr_thalassibyl_happy2[] PROGMEM = {
   0xF0, 0x1F,
   0x0E, 0x11,
   0x41, 0x09,
@@ -7043,7 +7043,7 @@ static const unsigned char spr_plesiomon_happy2[] PROGMEM = {
   0x3F, 0xF7
 };
 
-static const unsigned char spr_plesiomon_angry1[] PROGMEM = {
+static const unsigned char spr_thalassibyl_angry1[] PROGMEM = {
   0xF0, 0x1F,
   0x0E, 0x11,
   0x81, 0x0A,
@@ -7062,7 +7062,7 @@ static const unsigned char spr_plesiomon_angry1[] PROGMEM = {
   0xDF, 0xFF
 };
 
-static const unsigned char spr_plesiomon_sick1[] PROGMEM = {
+static const unsigned char spr_thalassibyl_sick1[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -7081,7 +7081,7 @@ static const unsigned char spr_plesiomon_sick1[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_plesiomon_sick2[] PROGMEM = {
+static const unsigned char spr_thalassibyl_sick2[] PROGMEM = {
   0x00, 0x00,
   0x00, 0x00,
   0x00, 0x00,
@@ -7100,7 +7100,7 @@ static const unsigned char spr_plesiomon_sick2[] PROGMEM = {
   0xFF, 0xFF
 };
 
-static const unsigned char spr_plesiomon_atk2[] PROGMEM = {
+static const unsigned char spr_thalassibyl_atk2[] PROGMEM = {
   0xF0, 0x1F,
   0x0E, 0x11,
   0xC1, 0x0D,

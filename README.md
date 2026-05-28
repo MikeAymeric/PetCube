@@ -1,8 +1,8 @@
-# PetCube
+﻿# PetCube
 
 > A Tamagotchi-meets-Pomodoro virtual pet cube. Train, study, and work — your cube knows which, because it can feel which way it's facing.
 
-PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise a Digimon-inspired creature by completing real-life pomodoro sessions: tilt the cube **left to train**, **right to study**, **upside down to work**. A companion desktop app turns your real notifications (calendar events, emails, project deadlines) into in-game battles the pet must fight.
+PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise an original creature by completing real-life pomodoro sessions: tilt the cube **left to train**, **right to study**, **upside down to work**. A companion desktop app turns your real notifications (calendar events, emails, project deadlines) into in-game battles the pet must fight.
 
 **Status**: work in progress. Battle system, companion plugins (Calendar / Gmail / HacknPlan / Discord) and BLE transport are operational. Portable LiPo power and GUI Steps 2-3 are in progress.
 
@@ -82,7 +82,7 @@ External sources (Google Calendar, Gmail, HacknPlan REST) → companion polls th
 petcube/
 ├── firmware/
 │   ├── PetCube.ino                 # Main firmware sketch
-│   ├── petcube_sprites.h           # 32 Digimon × 12 frames + UI icons (XBM)
+│   ├── petcube_sprites.h           # 32 creatures × 12 frames + UI icons (XBM)
 │   └── ...
 ├── companion/
 │   ├── main.py                     # CLI entry point
@@ -281,9 +281,9 @@ All plugins persist their seen-IDs to `history/<plugin>.json` (FIFO cap 5000) so
 2. **BLE write**: the companion writes the packet to the cube's GATT characteristic.
 3. **Idle screen icon**: the cube shows a 12×12 pixel icon for the source (📅 Calendar, 📧 Gmail, 📋 HacknPlan).
 4. **Player triggers battle**: long-pressing **B** for 5 seconds starts the encounter.
-5. **Enemy generation**: deterministic hash of `seed + source + category` selects a Digimon from the bestiary and assigns its stats. Element (Fire / Water) derives from the source; morale alignment (Light / Dark) derives from the sentiment category.
+5. **Enemy generation**: deterministic hash of `seed + source + category` selects a creature from the bestiary and assigns its stats. Element (Fire / Water) derives from the source; morale alignment (Light / Dark) derives from the sentiment category.
 6. **Battle**: best-of-3 *clashes*. Each clash is a real-time timing minigame where the player presses **B** when a moving cursor enters a critical window (its width depends on `seed` length).
-7. **Outcome**: win → +HAP and the enemy is added to the registry as a battle-only entry (silhouette + name only, no stats unless the player has also evolved that Digimon themselves). Lose → -HAP and a stat penalty.
+7. **Outcome**: win → +HAP and the enemy is added to the registry as a battle-only entry (silhouette + name only, no stats unless the player has also evolved that creature themselves). Lose → -HAP and a stat penalty.
 
 See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formulas, element/morale type bonuses, tie-breaker rules, etc.).
 
@@ -292,7 +292,7 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 ## Roadmap
 
 ### Done (May 2026)
-- 32 Digimon with sprites, 12 frames each, full evolution tree
+- 32 original creatures with sprites, 12 frames each, full evolution tree
 - Pomodoro session loop with orientation-based input
 - Battle system (firmware + GATT BLE transport)
 - Companion app with Calendar, Gmail, HacknPlan, and Discord plugins
@@ -310,19 +310,18 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 - WiFi transport fallback for when BLE is unavailable
 - PCB instead of breadboard
 - Additional plugins: Slack, GitHub
-- Optional: asynchronous PvP — trade battle-ready Digimon between cubes via cloud
+- Optional: asynchronous PvP — trade battle-ready creatures between cubes via cloud
 
 ---
 
 ## Credits
 
 - **Concept, design, firmware, companion app**: Michael Maneia
-- **Inspiration**: Tamagotchi, Digimon (Bandai), pomodoro technique (Francesco Cirillo)
+- **Inspiration**: Tamagotchi (Bandai), pomodoro technique (Francesco Cirillo)
 - **Libraries used**:
   - Firmware: [U8g2](https://github.com/olikraus/u8g2), [Adafruit MPU6050](https://github.com/adafruit/Adafruit_MPU6050), ESP32 Arduino core
   - Companion: [bleak](https://github.com/hbldh/bleak), [spaCy](https://spacy.io/), [Google API Python Client](https://github.com/googleapis/google-api-python-client), [discord.py](https://github.com/Rapptz/discord.py), [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter), [pystray](https://github.com/moses-palmer/pystray)
 
-This is a personal hardware/software project. Digimon names and references are used as design inspiration only — no original Bandai assets are included or distributed.
 
 ---
 

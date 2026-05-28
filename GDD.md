@@ -1,4 +1,4 @@
-# PetCube — Game Design Document
+﻿# PetCube — Game Design Document
 
 **Versione firmware:** 0.14  
 **Versione GDD:** 1.0  
@@ -8,7 +8,7 @@
 
 ## 1. Concept
 
-PetCube è un virtual pet tascabile ispirato ai Tamagotchi / Digimon, contenuto in un cubo fisico.  
+PetCube è un virtual pet tascabile ispirato ai Tamagotchi, contenuto in un cubo fisico.  
 Il giocatore alleva un mostro digitale compiendo attività reali — sessioni di lavoro, studio o allenamento — che si traducono in statistiche e percorsi evolutivi diversi.  
 Le notifiche ricevute dal PC del giocatore diventano sfide di battaglia contro mostri nemici, creando un loop dove la produttività quotidiana influenza direttamente la crescita del pet.
 
@@ -102,12 +102,12 @@ Una sessione dura **25 minuti** fissi. Il giocatore posiziona il cubo con la fac
 
 | Stadio | Nome | Sessioni totali richieste |
 |---|---|---|
-| 0 | Baby I | 0 (partenza) |
-| 1 | Baby II | 2 |
-| 2 | Child | 6 |
-| 3 | Adult | 14 |
-| 4 | Perfect | 26 |
-| 5 | Ultimate | 42 |
+| 0 | Spark | 0 (partenza) |
+| 1 | Wisp | 2 |
+| 2 | Sprite | 6 |
+| 3 | Spirit | 14 |
+| 4 | Avatar | 26 |
+| 5 | Primal | 42 |
 
 ---
 
@@ -115,11 +115,11 @@ Una sessione dura **25 minuti** fissi. Il giocatore posiziona il cubo con la fac
 
 ### 7.1 Scelta elemento (Setup)
 
-Al primo avvio il giocatore sceglie tra **Fire** e **Water**. I tre stadi condivisi (Baby I, Baby II, Child) sono fissi per elemento.
+Al primo avvio il giocatore sceglie tra **Fire** e **Water**. I tre stadi condivisi (Spark, Wisp, Sprite) sono fissi per elemento.
 
-### 7.2 Determinazione linea (Child → Adult, stadio 2 → 3)
+### 7.2 Determinazione linea (Sprite → Spirit, stadio 2 → 3)
 
-La stat più alta al momento dell'evoluzione determina la linea evolutiva per gli stadi Adult e Perfect.  
+La stat più alta al momento dell'evoluzione determina la linea evolutiva per gli stadi Spirit e Avatar.  
 In caso di parità: STR > ENG > INT.
 
 | Linea | Stat dominante |
@@ -128,7 +128,7 @@ In caso di parità: STR > ENG > INT.
 | 1 — ENG | Energia |
 | 2 — INT | Intelligenza |
 
-### 7.3 Determinazione variante Ultimate (stadio 4 → 5)
+### 7.3 Determinazione variante Primal (stadio 4 → 5)
 
 La variante finale dipende dalle condizioni al momento dell'ultima evoluzione:
 
@@ -141,85 +141,85 @@ La variante finale dipende dalle condizioni al momento dell'ultima evoluzione:
 ### 7.4 Albero Fire
 
 ```
-Baby I:   Botamon
-Baby II:  Koromon
-Child:    Agumon
+Spark:   Kindlekin
+Wisp:  Emberpaw
+Sprite:    Pyruff
              │
      ┌───────┼───────┐
   STR (L0)  ENG (L1) INT (L2)
      │         │         │
-  Greymon  Tyrannomon  Meramon
+  Blazebrand  Shieldmane  Aurovulp
      │         │         │
-MetalGreymon Gigadramon Deathmeramon
+Mightforge Fortifire Vulpyre
      │         │         │
    ──┴─────────┴─────────┴──
    Std         Std        Std
-  WarGreymon  Dukemon  Beelzemon (Dark)
+  Flameforge  Citadellion  Eldervulp
    Light       Light     Light
-  Phoenixmon  Phoenixmon Phoenixmon
+  Seraphyre  Seraphyre Seraphyre
    Dark        Dark       Dark
-  Mugendramon Mugendramon Mugendramon
+  Noxfortress Noxfortress Noxfortress
 ```
 
 ### 7.5 Albero Water
 
 ```
-Baby I:   Punimon
-Baby II:  Tsunomon
-Child:    Gabumon
+Spark:   Drowsea
+Wisp:  Gloomfin
+Sprite:    Fanglure
              │
      ┌───────┼───────┐
   STR (L0)  ENG (L1) INT (L2)
      │         │         │
-  Garurumon Seadramon  Gesomon
+  Riptalon Baleguard  Sirenlure
      │         │         │
-WereGarurumon Mermaimon  Whamon
+Maulstream Bulwhark  Abyssibyl
      │         │         │
    ──┴─────────┴─────────┴──
    Std           Std         Std
-MetalGarurumon AncientMermaimon Plesiomon
+Leviacrush Tidenaught Thalassibyl
    Light          Light          Light
-CresGarurumon  CresGarurumon  CresGarurumon
+Lightfin  Lightfin  Lightfin
    Dark            Dark           Dark
-SkullMammothmon SkullMammothmon SkullMammothmon
+Nightmare Nightmare Nightmare
 ```
 
-### 7.6 Sommario Digimon (32 totali)
+### 7.6 Sommario creature (32 totali)
 
 | # | Nome | Elemento | Stadio | Linea |
 |---|---|---|---|---|
-| 0 | Botamon | Fire | Baby I | — |
-| 1 | Koromon | Fire | Baby II | — |
-| 2 | Agumon | Fire | Child | — |
-| 3 | Greymon | Fire | Adult | STR |
-| 4 | MetalGreymon | Fire | Perfect | STR |
-| 5 | WarGreymon | Fire | Ultimate Std | STR |
-| 6 | Phoenixmon | Light | Ultimate Light | Fire (tutte) |
-| 7 | Tyrannomon | Fire | Adult | ENG |
-| 8 | Gigadramon | Fire | Perfect | ENG |
-| 9 | Dukemon | Fire | Ultimate Std | ENG |
+| 0 | Kindlekin | Fire | Spark | — |
+| 1 | Emberpaw | Fire | Wisp | — |
+| 2 | Pyruff | Fire | Sprite | — |
+| 3 | Blazebrand | Fire | Spirit | STR |
+| 4 | Mightforge | Fire | Avatar | STR |
+| 5 | Flameforge | Fire | Primal Std | STR |
+| 6 | Seraphyre | Light | Primal Light | Fire (tutte) |
+| 7 | Shieldmane | Fire | Spirit | ENG |
+| 8 | Fortifire | Fire | Avatar | ENG |
+| 9 | Citadellion | Fire | Primal Std | ENG |
 | 10 | Mitamamon | Light | — | (solo nemico) |
-| 11 | Meramon | Fire | Adult | INT |
-| 12 | Deathmeramon | Fire | Perfect | INT |
-| 13 | Beelzemon | Dark | Ultimate Std | INT |
+| 11 | Aurovulp | Fire | Spirit | INT |
+| 12 | Vulpyre | Fire | Avatar | INT |
+| 13 | Eldervulp | Fire | Primal Std | INT |
 | 14 | Lucemon | Light | — | (solo nemico) |
-| 15 | Mugendramon | Dark | Ultimate Dark | Fire (tutte) |
-| 16 | Punimon | Water | Baby I | — |
-| 17 | Tsunomon | Water | Baby II | — |
-| 18 | Gabumon | Water | Child | — |
-| 19 | Garurumon | Water | Adult | STR |
-| 20 | WereGarurumon | Water | Perfect | STR |
-| 21 | MetalGarurumon | Water | Ultimate Std | STR |
-| 22 | CresGarurumon | Light | Ultimate Light | Water (tutte) |
-| 23 | Seadramon | Water | Adult | ENG |
-| 24 | Mermaimon | Water | Perfect | ENG |
-| 25 | AncientMermaimon | Water | Ultimate Std | ENG |
+| 15 | Noxfortress | Dark | Primal Dark | Fire (tutte) |
+| 16 | Drowsea | Water | Spark | — |
+| 17 | Gloomfin | Water | Wisp | — |
+| 18 | Fanglure | Water | Sprite | — |
+| 19 | Riptalon | Water | Spirit | STR |
+| 20 | Maulstream | Water | Avatar | STR |
+| 21 | Leviacrush | Water | Primal Std | STR |
+| 22 | Lightfin | Light | Primal Light | Water (tutte) |
+| 23 | Baleguard | Water | Spirit | ENG |
+| 24 | Bulwhark | Water | Avatar | ENG |
+| 25 | Tidenaught | Water | Primal Std | ENG |
 | 26 | Vikemon | Light | — | (solo nemico) |
-| 27 | Gesomon | Water | Adult | INT |
-| 28 | Whamon | Water | Perfect | INT |
-| 29 | Plesiomon | Water | Ultimate Std | INT |
+| 27 | Sirenlure | Water | Spirit | INT |
+| 28 | Abyssibyl | Water | Avatar | INT |
+| 29 | Thalassibyl | Water | Primal Std | INT |
 | 30 | Ryugumon | Light | — | (solo nemico) |
-| 31 | SkullMammothmon | Dark | Ultimate Dark | Water (tutte) |
+| 31 | Nightmare | Dark | Primal Dark | Water (tutte) |
 
 > Mitamamon, Lucemon, Vikemon e Ryugumon esistono nel registro come nemici battibili ma non sono più ottenibili come evoluzioni del giocatore.
 
@@ -349,7 +349,7 @@ danno_netto = danno_lordo − DEF_difensore / 4
 
 ## 10. Registro
 
-Il Registro mostra tutti i 32 Digimon del gioco con:
+Il Registro mostra tutte le 32 creature del gioco con:
 - **Ottenuto**: silhouette sbloccata se mai allevato o affrontato in battaglia
 - **Contatore**: quante volte è stato ottenuto come evoluzione
 
@@ -362,14 +362,14 @@ I dati di registro sono salvati nel namespace NVS `registro` **separato** dallo 
 | Schermata | Trigger | Contenuto |
 |---|---|---|
 | **Boot** | Avvio con dati salvati | "Continua" / "Ricomincia", sprite del pet |
-| **Setup** | Primo avvio / Ricomincia | Scelta Fire o Water (Botamon / Punimon) |
+| **Setup** | Primo avvio / Ricomincia | Scelta Fire o Water (Kindlekin / Drowsea) |
 | **Main** | Default Idle/Session/Training/etc | Sprite centrato 112×112, label stato, timer sessione, escrementi, icona notifica, icona BT |
 | **Menu** | Tasto A | 5 voci: Status, Feed, Clean, Heal, Registro |
-| **Status** | Menu → Status | Barre colorate STR/INT/ENG/HAP, nome Digimon, sessioni, evolution progress |
+| **Status** | Menu → Status | Barre colorate STR/INT/ENG/HAP, nome creatura, sessioni, evolution progress |
 | **Clock** | B in Idle | Orologio CEST, sprite, modifica ora con A/B |
 | **Battle** | Long-press B con notifica | Intro sprint → clash cursore → risultato V/L |
-| **Evolving** | Soglia sessioni raggiunta | Barra di progresso, nome nuovo Digimon |
-| **Registro** | Menu → Registro | Lista 32 Digimon, scorrimento con A, silhouette se non ottenuto |
+| **Evolving** | Soglia sessioni raggiunta | Barra di progresso, nome nuova creatura |
+| **Registro** | Menu → Registro | Lista 32 creature, scorrimento con A, silhouette se non ottenuto |
 
 ---
 
@@ -440,7 +440,7 @@ Approccio ibrido (senza ML pesante):
 | Namespace | Chiavi | Sopravvive al reset? |
 |---|---|---|
 | `petcube` | statSTR, statINT, statENG, statHAP, evoStage, lineVariant, finalVariant, sessTotal, sessActive, battlesWon, battlesLost, battleStreak, sickEpisodes, poopCount, clockOffsetSec, gElement... | No — cancellato con "Ricomincia" |
-| `registro` | r0…r31 (contatori ottenuto per Digimon) | **Sì** — persistente tra reset |
+| `registro` | r0…r31 (contatori per creatura) | **Sì** — persistente tra reset |
 
 Migrazione automatica NVS tramite `FW_VERSION` (attuale: 14).
 
