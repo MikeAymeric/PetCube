@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 //  PetCube — Firmware v0.14
 //  Schermata principale: solo sprite (×3) + stato pomodoro in alto
 //  Menu testuale: Status / Feed / Clean / Heal / Registro
@@ -139,7 +139,7 @@ enum Orientation {
 enum Element { FIRE, WATER };
 
 // ── SPRITE TABLE ──────────────────────────────────────────────
-struct DigiSprites {
+struct PetSprites {
   const unsigned char* idle[3];
   const unsigned char* happy[2];
   const unsigned char* sleep[2];
@@ -157,57 +157,57 @@ struct DigiSprites {
   { spr_##n##_sick1,  spr_##n##_sick2  } \
 }
 
-const DigiSprites SPR_BOTAMON      = MAKE_SPR(botamon);
-const DigiSprites SPR_KOROMON      = MAKE_SPR(koromon);
-const DigiSprites SPR_AGUMON       = MAKE_SPR(agumon);
-const DigiSprites SPR_GREYMON      = MAKE_SPR(greymon);
-const DigiSprites SPR_METALGREYMON = MAKE_SPR(metalgreymon);
-const DigiSprites SPR_WARGREYMON   = MAKE_SPR(wargreymon);
-const DigiSprites SPR_PHOENIXMON   = MAKE_SPR(phoenixmon);
-const DigiSprites SPR_MUGENDRAMON  = MAKE_SPR(mugendramon);
-const DigiSprites SPR_PUNIMON      = MAKE_SPR(punimon);
-const DigiSprites SPR_TSUNOMON     = MAKE_SPR(tsunomon);
-const DigiSprites SPR_GABUMON      = MAKE_SPR(gabumon);
-const DigiSprites SPR_GARURUMON    = MAKE_SPR(garurumon);
-const DigiSprites SPR_WEREGARURUMON   = MAKE_SPR(weregarurumon);
-const DigiSprites SPR_METALGARURUMON = MAKE_SPR(metalgarurumon);
-const DigiSprites SPR_CRESGARURUMON  = MAKE_SPR(cresgarurumon);
-const DigiSprites SPR_SKULLMAMMON    = MAKE_SPR(skullmammon);
-// ── Nuovi Digimon (Fire ENG/INT, Water ENG/INT) ────────────────
-const DigiSprites SPR_TYRANNOMON        = MAKE_SPR(tyrannomon);
-const DigiSprites SPR_GIGADRAMON        = MAKE_SPR(gigadramon);
-const DigiSprites SPR_DUKEMON           = MAKE_SPR(dukemon);
-const DigiSprites SPR_MITAMAMON         = MAKE_SPR(mitamamon);
-const DigiSprites SPR_MERAMON           = MAKE_SPR(meramon);
-const DigiSprites SPR_DEATHMERAMON      = MAKE_SPR(deathmeramon);
-const DigiSprites SPR_BEELZEMON         = MAKE_SPR(beelzemon);
-const DigiSprites SPR_LUCEMON           = MAKE_SPR(lucemon);
-const DigiSprites SPR_SEADRAMON         = MAKE_SPR(seadramon);
-const DigiSprites SPR_MERMAIMON         = MAKE_SPR(mermaimon);
-const DigiSprites SPR_ANCIENTMERMAIMON  = MAKE_SPR(ancientmermaimon);
-const DigiSprites SPR_VIKEMON           = MAKE_SPR(vikemon);
-const DigiSprites SPR_GESOMON           = MAKE_SPR(gesomon);
-const DigiSprites SPR_WHAMON            = MAKE_SPR(whamon);
-const DigiSprites SPR_PLESIOMON         = MAKE_SPR(plesiomon);
-const DigiSprites SPR_RYUGUMON          = MAKE_SPR(ryugumon);
+const PetSprites SPR_KINDLEKIN      = MAKE_SPR(kindlekin);
+const PetSprites SPR_EMBERPAW      = MAKE_SPR(emberpaw);
+const PetSprites SPR_PYRUFF       = MAKE_SPR(pyruff);
+const PetSprites SPR_BLAZEBRAND      = MAKE_SPR(blazebrand);
+const PetSprites SPR_MIGHTFORGE = MAKE_SPR(mightforge);
+const PetSprites SPR_FLAMEFORGE   = MAKE_SPR(flameforge);
+const PetSprites SPR_SERAPHYRE   = MAKE_SPR(seraphyre);
+const PetSprites SPR_NOXFORTRESS  = MAKE_SPR(noxfortress);
+const PetSprites SPR_DROWSEA      = MAKE_SPR(drowsea);
+const PetSprites SPR_GLOOMFIN     = MAKE_SPR(gloomfin);
+const PetSprites SPR_FANGLURE      = MAKE_SPR(fanglure);
+const PetSprites SPR_RIPTALON    = MAKE_SPR(riptalon);
+const PetSprites SPR_MAULSTREAM   = MAKE_SPR(maulstream);
+const PetSprites SPR_LEVIACRUSH = MAKE_SPR(leviacrush);
+const PetSprites SPR_LIGHTFIN  = MAKE_SPR(lightfin);
+const PetSprites SPR_NIGHTMARE    = MAKE_SPR(nightmare);
+// ── Creature aggiuntive (Fire ENG/INT, Water ENG/INT) ────────────────
+const PetSprites SPR_SHIELDMANE        = MAKE_SPR(shieldmane);
+const PetSprites SPR_FORTIFIRE        = MAKE_SPR(fortifire);
+const PetSprites SPR_CITADELLION           = MAKE_SPR(citadellion);
+const PetSprites SPR_MITAMAMON         = MAKE_SPR(mitamamon);
+const PetSprites SPR_AUROVULP           = MAKE_SPR(aurovulp);
+const PetSprites SPR_VULPYRE      = MAKE_SPR(vulpyre);
+const PetSprites SPR_ELDERVULP         = MAKE_SPR(eldervulp);
+const PetSprites SPR_LUCEMON           = MAKE_SPR(lucemon);
+const PetSprites SPR_BALEGUARD         = MAKE_SPR(baleguard);
+const PetSprites SPR_BULWHARK         = MAKE_SPR(bulwhark);
+const PetSprites SPR_TIDENAUGHT  = MAKE_SPR(tidenaught);
+const PetSprites SPR_VIKEMON           = MAKE_SPR(vikemon);
+const PetSprites SPR_SIRENLURE           = MAKE_SPR(sirenlure);
+const PetSprites SPR_ABYSSIBYL            = MAKE_SPR(abyssibyl);
+const PetSprites SPR_THALASSIBYL         = MAKE_SPR(thalassibyl);
+const PetSprites SPR_RYUGUMON          = MAKE_SPR(ryugumon);
 
 // lineVariant: 0=STR, 1=ENG, 2=INT
 // Stadi 0-2 condivisi, stadi 3-4 e Ultimate dipendono da lineVariant
-const char* FIRE_SHARED[]   = { "Botamon","Koromon","Agumon" };
-const char* FIRE_LINE0[]    = { "Greymon","MetalGreymon" };          // STR
-const char* FIRE_LINE1[]    = { "Tyrannomon","Gigadramon" };         // ENG
-const char* FIRE_LINE2[]    = { "Meramon","Deathmeramon" };          // INT
-const char* FIRE_FINAL0[]   = { "WarGreymon","Phoenixmon","Mugendramon" };
-const char* FIRE_FINAL1[]   = { "Dukemon","Phoenixmon","Mugendramon" };
-const char* FIRE_FINAL2[]   = { "Beelzemon","Phoenixmon","Mugendramon" };
+const char* FIRE_SHARED[]   = { "Kindlekin","Emberpaw","Pyruff" };
+const char* FIRE_LINE0[]    = { "Blazebrand","Mightforge" };          // STR
+const char* FIRE_LINE1[]    = { "Shieldmane","Fortifire" };         // ENG
+const char* FIRE_LINE2[]    = { "Aurovulp","Vulpyre" };          // INT
+const char* FIRE_FINAL0[]   = { "Flameforge","Seraphyre","Noxfortress" };
+const char* FIRE_FINAL1[]   = { "Citadellion","Seraphyre","Noxfortress" };
+const char* FIRE_FINAL2[]   = { "Eldervulp","Seraphyre","Noxfortress" };
 
-const char* WATER_SHARED[]  = { "Punimon","Tsunomon","Gabumon" };
-const char* WATER_LINE0[]   = { "Garurumon","WereGarurumon" };       // STR
-const char* WATER_LINE1[]   = { "Seadramon","Mermaimon" };       // ENG
-const char* WATER_LINE2[]   = { "Gesomon","Whamon" };               // INT
-const char* WATER_FINAL0[]  = { "MetalGarurumon","CresGarurumon","SkullMammothmon" };
-const char* WATER_FINAL1[]  = { "AncientMermaimon","CresGarurumon","SkullMammothmon" };
-const char* WATER_FINAL2[]  = { "Plesiomon","CresGarurumon","SkullMammothmon" };
+const char* WATER_SHARED[]  = { "Drowsea","Gloomfin","Fanglure" };
+const char* WATER_LINE0[]   = { "Riptalon","Maulstream" };       // STR
+const char* WATER_LINE1[]   = { "Baleguard","Bulwhark" };       // ENG
+const char* WATER_LINE2[]   = { "Sirenlure","Abyssibyl" };               // INT
+const char* WATER_FINAL0[]  = { "Leviacrush","Lightfin","Nightmare" };
+const char* WATER_FINAL1[]  = { "Tidenaught","Lightfin","Nightmare" };
+const char* WATER_FINAL2[]  = { "Thalassibyl","Lightfin","Nightmare" };
 
 // ── STATO GLOBALE ─────────────────────────────────────────────
 GameState    gState        = STATE_IDLE;
@@ -333,12 +333,12 @@ const char* MENU_LABELS[] = { "Status", "Feed", "Clean", "Heal", "Registro" };
 
 
 // ── REGISTRO ──────────────────────────────────────────────────
-// Tutti i Digimon del gioco in ordine
+// Tutte le creature del gioco in ordine
 // Stat base: cuori 1-3 (basso/normale/alto) per STR/INT/ENG/HAP
-struct DigiEntry {
+struct PetEntry {
   const char*      name;
   const char*      element;
-  const DigiSprites* sprites;
+  const PetSprites* sprites;
   uint8_t          strH;   // cuori STR 1-3
   uint8_t          intH;   // cuori INT 1-3
   uint8_t          engH;   // cuori ENG 1-3
@@ -346,54 +346,54 @@ struct DigiEntry {
   uint8_t          obtained; // quante volte ottenuto (salvato NVS)
 };
 
-// Registro completo — 32 Digimon
+// Registro completo — 32 creature
 // Linea 0=STR, 1=ENG, 2=INT per ogni elemento
-DigiEntry REGISTRO[] = {
+PetEntry REGISTRO[] = {
   // ── Fire condivisi ──────────────────────────────────────────
-  { "Botamon",      "Fire",  &SPR_BOTAMON,       1,1,1,2, 0 },
-  { "Koromon",      "Fire",  &SPR_KOROMON,        1,1,1,2, 0 },
-  { "Agumon",       "Fire",  &SPR_AGUMON,         2,1,2,2, 0 },
+  { "Kindlekin",      "Fire",  &SPR_KINDLEKIN,       1,1,1,2, 0 },
+  { "Emberpaw",      "Fire",  &SPR_EMBERPAW,        1,1,1,2, 0 },
+  { "Pyruff",       "Fire",  &SPR_PYRUFF,         2,1,2,2, 0 },
   // ── Fire linea STR ──────────────────────────────────────────
-  { "Greymon",      "Fire",  &SPR_GREYMON,        3,1,2,2, 0 },
-  { "MetalGreymon", "Fire",  &SPR_METALGREYMON,   3,2,2,2, 0 },
-  { "WarGreymon",   "Fire",  &SPR_WARGREYMON,     3,2,3,2, 0 },
-  { "Phoenixmon",   "Light", &SPR_PHOENIXMON,     2,3,2,3, 0 },
+  { "Blazebrand",      "Fire",  &SPR_BLAZEBRAND,        3,1,2,2, 0 },
+  { "Mightforge", "Fire",  &SPR_MIGHTFORGE,   3,2,2,2, 0 },
+  { "Flameforge",   "Fire",  &SPR_FLAMEFORGE,     3,2,3,2, 0 },
+  { "Seraphyre",   "Light", &SPR_SERAPHYRE,     2,3,2,3, 0 },
   // ── Fire linea ENG ──────────────────────────────────────────
-  { "Tyrannomon",   "Fire",  &SPR_TYRANNOMON,     2,1,3,2, 0 },
-  { "Gigadramon",   "Fire",  &SPR_GIGADRAMON,     2,2,3,2, 0 },
-  { "Dukemon",      "Fire",  &SPR_DUKEMON,        3,2,3,2, 0 },
+  { "Shieldmane",   "Fire",  &SPR_SHIELDMANE,     2,1,3,2, 0 },
+  { "Fortifire",   "Fire",  &SPR_FORTIFIRE,     2,2,3,2, 0 },
+  { "Citadellion",      "Fire",  &SPR_CITADELLION,        3,2,3,2, 0 },
   { "Mitamamon",    "Light", &SPR_MITAMAMON,      2,3,3,3, 0 },
   // ── Fire linea INT ──────────────────────────────────────────
-  { "Meramon",      "Fire",  &SPR_MERAMON,        1,3,2,2, 0 },
-  { "Deathmeramon", "Fire",  &SPR_DEATHMERAMON,   2,3,2,2, 0 },
-  { "Beelzemon",    "Dark",  &SPR_BEELZEMON,      2,3,2,1, 0 },
+  { "Aurovulp",      "Fire",  &SPR_AUROVULP,        1,3,2,2, 0 },
+  { "Vulpyre", "Fire",  &SPR_VULPYRE,   2,3,2,2, 0 },
+  { "Eldervulp",    "Fire",  &SPR_ELDERVULP,      2,3,2,1, 0 },
   { "Lucemon",      "Light", &SPR_LUCEMON,        1,3,1,3, 0 },
-  // ── Mugendramon (Dark condiviso Fire) ───────────────────────
-  { "Mugendramon",  "Dark",  &SPR_MUGENDRAMON,    3,1,3,1, 0 },
+  // ── Noxfortress (Dark condiviso Fire) ───────────────────────
+  { "Noxfortress",  "Dark",  &SPR_NOXFORTRESS,    3,1,3,1, 0 },
   // ── Water condivisi ─────────────────────────────────────────
-  { "Punimon",      "Water", &SPR_PUNIMON,        1,1,1,2, 0 },
-  { "Tsunomon",     "Water", &SPR_TSUNOMON,        1,1,1,2, 0 },
-  { "Gabumon",      "Water", &SPR_GABUMON,         1,2,2,2, 0 },
+  { "Drowsea",      "Water", &SPR_DROWSEA,        1,1,1,2, 0 },
+  { "Gloomfin",     "Water", &SPR_GLOOMFIN,        1,1,1,2, 0 },
+  { "Fanglure",      "Water", &SPR_FANGLURE,         1,2,2,2, 0 },
   // ── Water linea STR ─────────────────────────────────────────
-  { "Garurumon",    "Water", &SPR_GARURUMON,       2,2,2,2, 0 },
-  { "WereGarurumon","Water", &SPR_WEREGARURUMON,   3,2,2,2, 0 },
-  { "MetalGarurumon","Water",&SPR_METALGARURUMON,  3,2,3,2, 0 },
-  { "CresGarurumon","Light", &SPR_CRESGARURUMON,   2,3,2,3, 0 },
+  { "Riptalon",    "Water", &SPR_RIPTALON,       2,2,2,2, 0 },
+  { "Maulstream","Water", &SPR_MAULSTREAM,   3,2,2,2, 0 },
+  { "Leviacrush","Water",&SPR_LEVIACRUSH,  3,2,3,2, 0 },
+  { "Lightfin","Light", &SPR_LIGHTFIN,   2,3,2,3, 0 },
   // ── Water linea ENG ─────────────────────────────────────────
-  { "Seadramon",       "Water", &SPR_SEADRAMON,        2,1,3,2, 0 },
-  { "Mermaimon",       "Water", &SPR_MERMAIMON,        2,2,3,2, 0 },
-  { "AncientMermaimon","Water", &SPR_ANCIENTMERMAIMON, 2,2,3,2, 0 },
+  { "Baleguard",       "Water", &SPR_BALEGUARD,        2,1,3,2, 0 },
+  { "Bulwhark",       "Water", &SPR_BULWHARK,        2,2,3,2, 0 },
+  { "Tidenaught","Water", &SPR_TIDENAUGHT, 2,2,3,2, 0 },
   { "Vikemon",         "Light", &SPR_VIKEMON,          3,2,2,3, 0 },
   // ── Water linea INT ─────────────────────────────────────────
-  { "Gesomon",      "Water", &SPR_GESOMON,        1,3,2,2, 0 },
-  { "Whamon",       "Water", &SPR_WHAMON,         1,3,2,2, 0 },
-  { "Plesiomon",    "Water", &SPR_PLESIOMON,      1,3,2,3, 0 },
+  { "Sirenlure",      "Water", &SPR_SIRENLURE,        1,3,2,2, 0 },
+  { "Abyssibyl",       "Water", &SPR_ABYSSIBYL,         1,3,2,2, 0 },
+  { "Thalassibyl",    "Water", &SPR_THALASSIBYL,      1,3,2,3, 0 },
   { "Ryugumon",     "Light", &SPR_RYUGUMON,       1,3,1,3, 0 },
-  // ── SkullMammothmon (Dark condiviso Water) ──────────────────
-  { "SkullMammothmon","Dark",&SPR_SKULLMAMMON,     3,1,3,1, 0 },
+  // ── Nightmare (Dark condiviso Water) ──────────────────
+  { "Nightmare","Dark",&SPR_NIGHTMARE,     3,1,3,1, 0 },
 };
 const int REGISTRO_SIZE = 32;
-int registroCursor = 0;  // Digimon corrente nel registro
+int registroCursor = 0;  // Creatura corrente nel registro
 
 // Aggiorna ottenuto nel registro quando evolve
 void registroMarkObtained(const char* name) {
@@ -427,59 +427,59 @@ void registroLoad() {
 int setupChoice = 0;
 
 // ── HELPERS ───────────────────────────────────────────────────
-const DigiSprites* getCurrentSprites() {
+const PetSprites* getCurrentSprites() {
   int v = max(0, finalVariant);
   if (gElement == FIRE) {
-    if (evoStage == 0) return &SPR_BOTAMON;
-    if (evoStage == 1) return &SPR_KOROMON;
-    if (evoStage == 2) return &SPR_AGUMON;
+    if (evoStage == 0) return &SPR_KINDLEKIN;
+    if (evoStage == 1) return &SPR_EMBERPAW;
+    if (evoStage == 2) return &SPR_PYRUFF;
     if (evoStage == 3) {
-      if (lineVariant == 0) return &SPR_GREYMON;        // STR
-      if (lineVariant == 1) return &SPR_TYRANNOMON;     // ENG
-      return &SPR_MERAMON;                              // INT
+      if (lineVariant == 0) return &SPR_BLAZEBRAND;        // STR
+      if (lineVariant == 1) return &SPR_SHIELDMANE;     // ENG
+      return &SPR_AUROVULP;                              // INT
     }
     if (evoStage == 4) {
-      if (lineVariant == 0) return &SPR_METALGREYMON;   // STR
-      if (lineVariant == 1) return &SPR_GIGADRAMON;     // ENG
-      return &SPR_DEATHMERAMON;                         // INT
+      if (lineVariant == 0) return &SPR_MIGHTFORGE;   // STR
+      if (lineVariant == 1) return &SPR_FORTIFIRE;     // ENG
+      return &SPR_VULPYRE;                         // INT
     }
     // Ultimate Fire
     if (lineVariant == 0) {
-      const DigiSprites* f0[] = { &SPR_WARGREYMON, &SPR_PHOENIXMON, &SPR_MUGENDRAMON };
+      const PetSprites* f0[] = { &SPR_FLAMEFORGE, &SPR_SERAPHYRE, &SPR_NOXFORTRESS };
       return f0[v];
     }
     if (lineVariant == 1) {
-      const DigiSprites* f1[] = { &SPR_DUKEMON,    &SPR_MITAMAMON,  &SPR_MUGENDRAMON };
+      const PetSprites* f1[] = { &SPR_CITADELLION,    &SPR_MITAMAMON,  &SPR_NOXFORTRESS };
       return f1[v];
     }
     // INT line
-    const DigiSprites* f2[] = { &SPR_BEELZEMON,    &SPR_LUCEMON,    &SPR_MUGENDRAMON };
+    const PetSprites* f2[] = { &SPR_ELDERVULP,    &SPR_LUCEMON,    &SPR_NOXFORTRESS };
     return f2[v];
   } else {
-    if (evoStage == 0) return &SPR_PUNIMON;
-    if (evoStage == 1) return &SPR_TSUNOMON;
-    if (evoStage == 2) return &SPR_GABUMON;
+    if (evoStage == 0) return &SPR_DROWSEA;
+    if (evoStage == 1) return &SPR_GLOOMFIN;
+    if (evoStage == 2) return &SPR_FANGLURE;
     if (evoStage == 3) {
-      if (lineVariant == 0) return &SPR_GARURUMON;      // STR
-      if (lineVariant == 1) return &SPR_SEADRAMON;      // ENG
-      return &SPR_GESOMON;                              // INT
+      if (lineVariant == 0) return &SPR_RIPTALON;      // STR
+      if (lineVariant == 1) return &SPR_BALEGUARD;      // ENG
+      return &SPR_SIRENLURE;                              // INT
     }
     if (evoStage == 4) {
-      if (lineVariant == 0) return &SPR_WEREGARURUMON;  // STR
-      if (lineVariant == 1) return &SPR_MERMAIMON;      // ENG
-      return &SPR_WHAMON;                               // INT
+      if (lineVariant == 0) return &SPR_MAULSTREAM;  // STR
+      if (lineVariant == 1) return &SPR_BULWHARK;      // ENG
+      return &SPR_ABYSSIBYL;                               // INT
     }
     // Ultimate Water
     if (lineVariant == 0) {
-      const DigiSprites* w0[] = { &SPR_METALGARURUMON,   &SPR_CRESGARURUMON, &SPR_SKULLMAMMON };
+      const PetSprites* w0[] = { &SPR_LEVIACRUSH,   &SPR_LIGHTFIN, &SPR_NIGHTMARE };
       return w0[v];
     }
     if (lineVariant == 1) {
-      const DigiSprites* w1[] = { &SPR_ANCIENTMERMAIMON, &SPR_VIKEMON,       &SPR_SKULLMAMMON };
+      const PetSprites* w1[] = { &SPR_TIDENAUGHT, &SPR_VIKEMON,       &SPR_NIGHTMARE };
       return w1[v];
     }
     // INT line
-    const DigiSprites* w2[] = { &SPR_PLESIOMON,        &SPR_RYUGUMON,      &SPR_SKULLMAMMON };
+    const PetSprites* w2[] = { &SPR_THALASSIBYL,        &SPR_RYUGUMON,      &SPR_NIGHTMARE };
     return w2[v];
   }
 }
@@ -509,7 +509,7 @@ const char* getCurrentName() {
   }
 }
 
-const unsigned char* getFrame(const DigiSprites* spr, unsigned long now) {
+const unsigned char* getFrame(const PetSprites* spr, unsigned long now) {
   if (isSick)
     return spr->sick[(now / 600) % 2];
   switch (gState) {
@@ -713,7 +713,7 @@ void checkEvolution() {
   }
   evoStage = next;
   gState = STATE_EVOLVING;
-  // Segna il nuovo Digimon nel registro
+  // Segna la nuova creatura nel registro
   registroMarkObtained(getCurrentName());
   // Jingle evoluzione — evolveStartMs impostato DOPO i delay
   // così i 3 secondi partono quando lo schermo appare davvero
@@ -805,7 +805,7 @@ void checkPoop(unsigned long now) {
     statHAP   = max(0, statHAP - POOP_MEGA_MALUS);
     tone(BUZZER, 150, 300);
   } else if (poopMega) {
-    // Il mega non è stato pulito: il Digimon si ammala
+    // Il mega non è stato pulito: la creatura si ammala
     isSick        = true;
     sickStartMs   = now;
     lastSickDecayMs = now;
@@ -848,7 +848,7 @@ void checkSick(unsigned long now) {
   }
 }
 
-void healDigi() {
+void healPet() {
   isSick        = false;
   sickStartMs   = 0;
   lastSickDecayMs = 0;
@@ -863,7 +863,7 @@ void healDigi() {
 }
 
 // ── FEED ──────────────────────────────────────────────────────
-void feedDigi(unsigned long now) {
+void feedPet(unsigned long now) {
   lastFeedMs = now;
   statHAP    = min(100, statHAP + FEED_HAP_BONUS);
   int stat   = random(3);
@@ -948,7 +948,7 @@ void drawHearts(int x, int y, int filled, int total=3) {
 // ── Registro ──────────────────────────────────────────────────
 void drawRegistroScreen(unsigned long now) {
   canvas.fillSprite(C_BG);
-  const DigiEntry& e = REGISTRO[registroCursor];
+  const PetEntry& e = REGISTRO[registroCursor];
 
   canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
   char hdr[24];
@@ -1022,8 +1022,8 @@ void drawSetupScreen(unsigned long now) {
   canvas.drawFastHLine(20, 40, 200, C_DIM);
 
   int frame = (now / 400) % 2;
-  const unsigned char* botaFrame = SPR_BOTAMON.idle[frame];
-  const unsigned char* puniFrame = SPR_PUNIMON.idle[frame];
+  const unsigned char* botaFrame = SPR_KINDLEKIN.idle[frame];
+  const unsigned char* puniFrame = SPR_DROWSEA.idle[frame];
 
   // Fire a sinistra, Water a destra (sprite ×5 = 80×80)
   const int sz = 5;
@@ -1048,7 +1048,7 @@ void drawSetupScreen(unsigned long now) {
 
 void drawMainScreen(unsigned long now) {
   canvas.fillSprite(C_BG);
-  const DigiSprites* spr = getCurrentSprites();
+  const PetSprites* spr = getCurrentSprites();
 
   // ── DEAD ──────────────────────────────────────────────────────
   if (gState == STATE_DEAD) {
@@ -1186,7 +1186,7 @@ void drawMenuScreen(unsigned long now) {
   canvas.fillSprite(C_BG);
 
   // Sprite piccolo in alto centrato (×4 = 64×64)
-  const DigiSprites* spr = getCurrentSprites();
+  const PetSprites* spr = getCurrentSprites();
   const unsigned char* frame = getFrame(spr, now);
   drawSpriteScaled(88, 10, 4, frame);
 
@@ -1230,7 +1230,7 @@ void drawStatusScreen() {
   canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
   canvas.drawString(getCurrentName(), 20, 14);
 
-  const char* stageNames[] = {"Baby I","Baby II","Child","Adult","Perfect","Ultimate"};
+  const char* stageNames[] = {"Spark","Wisp","Sprite","Spirit","Avatar","Primal"};
   canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
   canvas.drawString(stageNames[min(evoStage,5)], 20, 50);
   if (evoStage >= 3) {
@@ -1307,7 +1307,7 @@ void drawClockScreen(unsigned long now) {
     canvas.fillRect(31, 111, ss * 178 / 59, 8, C_CYAN);
 
     // Sprite animato centrato
-    const DigiSprites* spr = getCurrentSprites();
+    const PetSprites* spr = getCurrentSprites();
     drawSpriteScaled(SPR_X, 128, SPR_SCALE, spr->idle[(now/400)%3]);
 
     canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
@@ -1356,7 +1356,7 @@ void handleClockButtons(bool btnANow, bool btnBNow, bool btnCNow) {
 
 void drawEvolvingScreen(unsigned long now) {
   canvas.fillSprite(C_BG);
-  const DigiSprites* spr = getCurrentSprites();
+  const PetSprites* spr = getCurrentSprites();
 
   unsigned long nowFresh = millis();
   unsigned long el = (nowFresh >= evolveStartMs) ? (nowFresh - evolveStartMs) : 0;
@@ -1395,7 +1395,7 @@ void executeMenuItem(unsigned long now) {
       break;
     case 1: // Feed
       if (lastFeedMs == 0 || now - lastFeedMs >= FEED_COOLDOWN_MS) {
-        feedDigi(now);
+        feedPet(now);
         gScreen = SCR_MAIN;
       }
       break;
@@ -1407,7 +1407,7 @@ void executeMenuItem(unsigned long now) {
       break;
     case 3: // Heal
       if (isSick) {
-        healDigi();
+        healPet();
         gScreen = SCR_MAIN;
       }
       break;
@@ -1574,7 +1574,7 @@ uint8_t registroEntryVariant(uint8_t idx) {
 BattleElement registroEntryElement(uint8_t idx) {
   const char* e = REGISTRO[idx].element;
   // Light/Dark sono "morale", l'elemento di battaglia segue il pool:
-  // Botamon..Mugendramon (0..15) = Fire, Punimon..SkullMammon (16..31) = Water
+  // Kindlekin..Noxfortress (0..15) = Fire, Drowsea..Nightmare (16..31) = Water
   if (idx <= 15) return BE_FIRE;
   return BE_WATER;
 }
@@ -1692,56 +1692,56 @@ uint8_t currentPetRegistroIdx() {
   // Mappo lo stadio + linea + variante all'indice nel REGISTRO[]
   // Vedi REGISTRO[] in PetCube.ino
   if (gElement == FIRE) {
-    if (evoStage == 0) return IDX_BOTAMON;
-    if (evoStage == 1) return IDX_KOROMON;
-    if (evoStage == 2) return IDX_AGUMON;
+    if (evoStage == 0) return IDX_KINDLEKIN;
+    if (evoStage == 1) return IDX_EMBERPAW;
+    if (evoStage == 2) return IDX_PYRUFF;
     if (evoStage == 3) {
-      if (lineVariant == 0) return IDX_GREYMON;
-      if (lineVariant == 1) return IDX_TYRANNOMON;
-      return IDX_MERAMON;
+      if (lineVariant == 0) return IDX_BLAZEBRAND;
+      if (lineVariant == 1) return IDX_SHIELDMANE;
+      return IDX_AUROVULP;
     }
     if (evoStage == 4) {
-      if (lineVariant == 0) return IDX_METALGREYMON;
-      if (lineVariant == 1) return IDX_GIGADRAMON;
-      return IDX_DEATHMERAMON;
+      if (lineVariant == 0) return IDX_MIGHTFORGE;
+      if (lineVariant == 1) return IDX_FORTIFIRE;
+      return IDX_VULPYRE;
     }
     // Ultimate
     int v = max(0, finalVariant);
     if (lineVariant == 0) {
-      // STR final: WarGreymon, Phoenixmon, Mugendramon
-      static const uint8_t f0[] = { IDX_WARGREYMON, IDX_PHOENIXMON, IDX_MUGENDRAMON };
+      // STR final: Flameforge, Seraphyre, Noxfortress
+      static const uint8_t f0[] = { IDX_FLAMEFORGE, IDX_SERAPHYRE, IDX_NOXFORTRESS };
       return f0[v];
     }
     if (lineVariant == 1) {
-      static const uint8_t f1[] = { IDX_DUKEMON, IDX_MITAMAMON, IDX_MUGENDRAMON };
+      static const uint8_t f1[] = { IDX_CITADELLION, IDX_MITAMAMON, IDX_NOXFORTRESS };
       return f1[v];
     }
-    static const uint8_t f2[] = { IDX_BEELZEMON, IDX_LUCEMON, IDX_MUGENDRAMON };
+    static const uint8_t f2[] = { IDX_ELDERVULP, IDX_LUCEMON, IDX_NOXFORTRESS };
     return f2[v];
   } else {
-    if (evoStage == 0) return IDX_PUNIMON;
-    if (evoStage == 1) return IDX_TSUNOMON;
-    if (evoStage == 2) return IDX_GABUMON;
+    if (evoStage == 0) return IDX_DROWSEA;
+    if (evoStage == 1) return IDX_GLOOMFIN;
+    if (evoStage == 2) return IDX_FANGLURE;
     if (evoStage == 3) {
-      if (lineVariant == 0) return IDX_GARURUMON;
-      if (lineVariant == 1) return IDX_SEADRAMON;
-      return IDX_GESOMON;
+      if (lineVariant == 0) return IDX_RIPTALON;
+      if (lineVariant == 1) return IDX_BALEGUARD;
+      return IDX_SIRENLURE;
     }
     if (evoStage == 4) {
-      if (lineVariant == 0) return IDX_WEREGARURUMON;
-      if (lineVariant == 1) return IDX_MERMAIMON;
-      return IDX_WHAMON;
+      if (lineVariant == 0) return IDX_MAULSTREAM;
+      if (lineVariant == 1) return IDX_BULWHARK;
+      return IDX_ABYSSIBYL;
     }
     int v = max(0, finalVariant);
     if (lineVariant == 0) {
-      static const uint8_t w0[] = { IDX_METALGARURUMON, IDX_CRESGARURUMON, IDX_SKULLMAMMON };
+      static const uint8_t w0[] = { IDX_LEVIACRUSH, IDX_LIGHTFIN, IDX_NIGHTMARE };
       return w0[v];
     }
     if (lineVariant == 1) {
-      static const uint8_t w1[] = { IDX_ANCIENTMERMAIMON, IDX_VIKEMON, IDX_SKULLMAMMON };
+      static const uint8_t w1[] = { IDX_TIDENAUGHT, IDX_VIKEMON, IDX_NIGHTMARE };
       return w1[v];
     }
-    static const uint8_t w2[] = { IDX_PLESIOMON, IDX_RYUGUMON, IDX_SKULLMAMMON };
+    static const uint8_t w2[] = { IDX_THALASSIBYL, IDX_RYUGUMON, IDX_NIGHTMARE };
     return w2[v];
   }
 }
@@ -1883,7 +1883,7 @@ void finalizeBattle() {
     // +5 HAP
     statHAP = min(100, statHAP + BATTLE_WIN_HAP);
     // +3 alla stat dominante del nemico
-    DigiStats en_base = getStatsFromRegistro(battleEnemyIdx);
+    PetStats en_base = getStatsFromRegistro(battleEnemyIdx);
     uint8_t dom_stat = 0;  // 0=ATK 1=SPA 2=DEF 3=HP
     if (en_base.spa > en_base.atk) dom_stat = 1;
     uint8_t maxV = max(en_base.atk, en_base.spa);
@@ -1955,8 +1955,8 @@ void drawBattleScreen(unsigned long now) {
     enterBattleStateMain();
     return;
   }
-  const DigiSprites* petSpr = REGISTRO[petIdx].sprites;
-  const DigiSprites* enSpr  = REGISTRO[battleEnemyIdx].sprites;
+  const PetSprites* petSpr = REGISTRO[petIdx].sprites;
+  const PetSprites* enSpr  = REGISTRO[battleEnemyIdx].sprites;
   if (!petSpr || !enSpr) {
     canvas.setTextFont(2); canvas.setTextColor(C_STR, C_BG);
     drawCenteredStr(115, "Sprite NULL");
@@ -2255,7 +2255,7 @@ void loop() {
       gScreen    = SCR_MAIN;
       saveToNVS();
       // Segna il Baby I di partenza nel registro
-      registroMarkObtained(gElement == FIRE ? "Botamon" : "Punimon");
+      registroMarkObtained(gElement == FIRE ? "Kindlekin" : "Drowsea");
       tone(BUZZER,784,80); delay(90); tone(BUZZER,1047,200);
       delay(50);
     }
@@ -2401,7 +2401,7 @@ void loop() {
     // A non fa nulla in status
   }
   else if (gScreen == SCR_REGISTRO) {
-    // A: cicla tra i Digimon
+    // A: cicla tra le creature
     if (btnAPrev==HIGH && btnANow==LOW) {
       registroCursor = (registroCursor + 1) % REGISTRO_SIZE;
       tone(BUZZER, 660, 30);
