@@ -98,7 +98,7 @@ Preferences prefs;
 #define SPR_SIZE             16
 #define SPR_DRAW_SIZE        (SPR_SIZE * SPR_SCALE)  // 112
 #define SPR_X                ((DISP_SIZE - SPR_DRAW_SIZE) / 2)  // 64
-#define SPR_Y                68   // sotto l'area stato
+#define SPR_Y                ((DISP_SIZE - SPR_DRAW_SIZE) / 2)  // 64 — centrato
 #define ANIM_IDLE_MS         400
 #define ANIM_SLEEP_MS        700
 #define ANIM_ATK_MS          380
@@ -198,16 +198,16 @@ const char* FIRE_LINE0[]    = { "Greymon","MetalGreymon" };          // STR
 const char* FIRE_LINE1[]    = { "Tyrannomon","Gigadramon" };         // ENG
 const char* FIRE_LINE2[]    = { "Meramon","Deathmeramon" };          // INT
 const char* FIRE_FINAL0[]   = { "WarGreymon","Phoenixmon","Mugendramon" };
-const char* FIRE_FINAL1[]   = { "Dukemon","Mitamamon","Mugendramon" };
-const char* FIRE_FINAL2[]   = { "Beelzemon","Lucemon","Mugendramon" };
+const char* FIRE_FINAL1[]   = { "Dukemon","Phoenixmon","Mugendramon" };
+const char* FIRE_FINAL2[]   = { "Beelzemon","Phoenixmon","Mugendramon" };
 
 const char* WATER_SHARED[]  = { "Punimon","Tsunomon","Gabumon" };
 const char* WATER_LINE0[]   = { "Garurumon","WereGarurumon" };       // STR
 const char* WATER_LINE1[]   = { "Seadramon","Mermaimon" };       // ENG
 const char* WATER_LINE2[]   = { "Gesomon","Whamon" };               // INT
 const char* WATER_FINAL0[]  = { "MetalGarurumon","CresGarurumon","SkullMammothmon" };
-const char* WATER_FINAL1[]  = { "AncientMermaimon","Vikemon","SkullMammothmon" };
-const char* WATER_FINAL2[]  = { "Plesiomon","Ryugumon","SkullMammothmon" };
+const char* WATER_FINAL1[]  = { "AncientMermaimon","CresGarurumon","SkullMammothmon" };
+const char* WATER_FINAL2[]  = { "Plesiomon","CresGarurumon","SkullMammothmon" };
 
 // ── STATO GLOBALE ─────────────────────────────────────────────
 GameState    gState        = STATE_IDLE;
@@ -1097,8 +1097,8 @@ void drawMainScreen(unsigned long now) {
     int tw = canvas.textWidth(buf);
     canvas.drawString(buf, (DISP_SIZE - tw) / 2, 36);
     int prog = (int)((unsigned long)elapsed * 180 / SESSION_MS);
-    canvas.drawRect(30, 56, 180, 6, C_DIM);
-    if (prog > 0) canvas.fillRect(31, 57, min(prog, 178), 4, C_TIMER);
+    canvas.drawRect(30, 50, 180, 6, C_DIM);
+    if (prog > 0) canvas.fillRect(31, 51, min(prog, 178), 4, C_TIMER);
   }
 
   // ── Icona BT ─────────────────────────────────────────────────
@@ -1112,10 +1112,9 @@ void drawMainScreen(unsigned long now) {
 
   // ── Sprite ───────────────────────────────────────────────────
   const unsigned char* frame = getFrame(spr, now);
-  int driftX   = (gState == STATE_IDLE && !isSick) ? getIdleDriftX(now) : 0;
   bool mirrorX = (gState == STATE_IDLE && !isSick) ? getIdleMirror(now) : false;
   uint16_t sprColor = isSick ? 0x07E0 : C_FG;  // verde se malato
-  drawSpriteScaled(SPR_X + driftX, SPR_Y, SPR_SCALE, frame, mirrorX, sprColor);
+  drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, frame, mirrorX, sprColor);
 
   // ── Escrementi ───────────────────────────────────────────────
   if (gState == STATE_IDLE && !isSick) {
