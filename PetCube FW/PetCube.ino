@@ -63,10 +63,23 @@ Adafruit_MPU6050 mpu;
 Preferences prefs;
 
 // ── PIN ───────────────────────────────────────────────────────
-#define BTN_A  D9   // apri menu / cursore menu / cicla uovo setup
-#define BTN_B  D7   // avvia sessione / conferma menu / orologio idle / seleziona uovo
-#define BTN_C  D3   // annulla sessione / chiudi menu / chiudi orologio
-#define BUZZER D6
+//  D0  GPIO1  → BUZZER
+//  D1  GPIO2  → TFT CS        (User_Setup.h: TFT_CS  = 2)
+//  D2  GPIO3  → TFT RST       (User_Setup.h: TFT_RST = 3)
+//  D3  GPIO4  → BTN_C
+//  D4  GPIO5  → I2C SDA       (MPU6050)
+//  D5  GPIO6  → I2C SCL       (MPU6050)
+//  D6  GPIO43 → TFT BLK       (User_Setup.h: TFT_BL  = 43)
+//  D7  GPIO44 → BTN_B
+//  D8  GPIO7  → TFT SCK/SCL   (User_Setup.h: TFT_SCLK = 7)
+//  D9  GPIO8  → BTN_A
+//  D10 GPIO9  → TFT SDA/MOSI  (User_Setup.h: TFT_MOSI = 9)
+//  D11 GPIO10 → TFT DC        (User_Setup.h: TFT_DC  = 10)
+//  BAT+       → TP4056 OUT+
+#define BTN_A  D9
+#define BTN_B  D7
+#define BTN_C  D3
+#define BUZZER D0
 #define LED    LED_BUILTIN
 
 // ── COSTANTI ──────────────────────────────────────────────────
