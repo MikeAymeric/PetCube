@@ -18,10 +18,11 @@
 #define TFT_MOSI  9    // D10 / GPIO9
 #define TFT_SCLK  7    // D8  / GPIO7
 
-#define TFT_CS    2    // D1 / GPIO2
-#define TFT_DC    1    // D0 / GPIO1
-#define TFT_RST   3    // D2 / GPIO3
-// #define TFT_BL  xx  // decommentare se backlight è su un GPIO
+#define TFT_CS    2    // D1  / GPIO2
+#define TFT_DC    10   // D11 / GPIO10  (D0 occupato da BUZZER)
+#define TFT_RST   3    // D2  / GPIO3
+#define TFT_BL             43   // D6 / GPIO43 — controllo backlight
+#define TFT_BACKLIGHT_ON   HIGH // HIGH = backlight acceso
 
 // ── SPI frequency ─────────────────────────────────────────────
 #define SPI_FREQUENCY      27000000

@@ -29,14 +29,36 @@ PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise a
 | Component | Role | Notes |
 |---|---|---|
 | Seeed XIAO ESP32-S3 | MCU | Built-in BLE + WiFi, Arduino-compatible |
-| SH1106 OLED 1.3" 128×64 | Display | I²C address `0x3C` |
-| MPU6050 | Orientation sensor | I²C address `0x68`, shares bus with OLED |
+| GC9A01 TFT 240×240 round | Display | SPI, 3.3V logic |
+| MPU6050 | Orientation sensor | I²C address `0x68` |
 | 3× momentary buttons | Inputs A / B / C | Active-low, internal pull-ups |
-| Passive piezo buzzer | Audio | Single GPIO, tone() driven |
-| TP4056 USB-C module | LiPo charger | Currently base variant; upgrading to one with DW01+FS8205 protection |
-| LiPo 3.7V 500-1000 mAh | Battery | PH2.0 connector (planned) |
+| Passive piezo buzzer | Audio | Single GPIO, `tone()` driven |
+| TP4056 USB-C module | LiPo charger | With DW01+FS8205 protection; OUT+ → XIAO BAT pad |
+| LiPo 3.7V 500–1000 mAh | Battery | — |
 
-The cube currently runs from the XIAO's USB-C while the LiPo + protected TP4056 are sourced. See [`docs/PetCube_Breadboard_Fase3_TP4056.svg`](docs/) for the planned power topology.
+### Wiring
+
+| XIAO Pin | GPIO | Connected to |
+|----------|------|--------------|
+| **3.3V** | — | TFT VCC · MPU6050 VCC |
+| **GND** | — | TFT GND · MPU6050 GND · TP4056 OUT− |
+| **D0** | GPIO1 | Buzzer + |
+| **D1** | GPIO2 | TFT CS |
+| **D2** | GPIO3 | TFT RES |
+| **D3** | GPIO4 | Button C |
+| **D4** | GPIO5 | MPU6050 SDA (I²C) |
+| **D5** | GPIO6 | MPU6050 SCL (I²C) |
+| **D6** | GPIO43 | TFT BLK (backlight) |
+| **D7** | GPIO44 | Button B |
+| **D8** | GPIO7 | TFT SCL (SPI clock) |
+| **D9** | GPIO8 | Button A |
+| **D10** | GPIO9 | TFT SDA (SPI MOSI) |
+| **D11** | GPIO10 | TFT DC |
+| **BAT+** | — | TP4056 OUT+ |
+
+> All buttons connect between the listed pin and **GND** — no external resistor needed (firmware uses `INPUT_PULLUP`).
+> TFT pins labelled SDA/SCL by the manufacturer are SPI, not I²C.
+> The cube charges via the TP4056 USB-C port; do **not** plug the XIAO USB-C simultaneously.
 
 ---
 
@@ -79,12 +101,13 @@ External sources (Google Calendar, Gmail, HacknPlan REST) → companion polls th
 ## Repository structure
 
 ```
-petcube/
-├── firmware/
+PetCube/
+├── PetCube FW/
 │   ├── PetCube.ino                 # Main firmware sketch
-│   ├── petcube_sprites.h           # 32 creatures × 12 frames + UI icons (XBM)
-│   └── ...
-├── companion/
+│   ├── petcube_sprites.h           # 32 creatures × 12 frames
+│   ├── petcube_battle.h            # Battle system (stats, enemy selection, clash logic)
+│   └── User_Setup.h                # TFT_eSPI pin configuration (GC9A01)
+├── PetCube Companion/
 │   ├── main.py                     # CLI entry point
 │   ├── gui.py                      # CustomTkinter dashboard + tray icon
 │   ├── companion_engine.py         # Async core, GUI-controllable
@@ -98,12 +121,13 @@ petcube/
 │   │   ├── discord_plugin.py
 │   │   ├── gmail_plugin.py
 │   │   └── hacknplan_plugin.py
-│   ├── config.json                 # User config (gitignored — see config.example.json)
+│   ├── config.json                 # User config (gitignored)
 │   ├── history/                    # Persisted seen_ids (gitignored)
 │   └── requirements.txt
-├── docs/
-│   ├── PetCube_GDD_v0_11.docx      # Full game design document
-│   └── PetCube_Breadboard_Fase3_TP4056.svg
+├── Sprite/
+│   ├── process_sprites.py          # Sprite processing pipeline (magenta removal, scaling)
+│   └── processed/                  # Output frames per creature (gitignored)
+├── GDD.md                          # Game design document
 └── README.md
 ```
 
@@ -117,7 +141,7 @@ petcube/
 - ESP32 board package by Espressif Systems (≥ 3.0.0)
 - Board selected: **XIAO_ESP32S3**
 - Libraries:
-  - `U8g2` by oliver
+  - `TFT_eSPI` by Bodmer (copy `PetCube FW/User_Setup.h` into the library folder before compiling)
   - `Adafruit MPU6050`
   - `Adafruit Unified Sensor`
   - `Adafruit BusIO`
@@ -302,8 +326,8 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 ### In progress
 - GUI Step 2: visual config editor (replace manual `config.json` editing)
 - GUI Step 3: test console with fake-notification buttons per source/category
-- Hardware: upgrade to TP4056 with DW01+FS8205 protection + LiPo 3.7V PH2.0
-- Solder a wire to the XIAO's BAT pad (back side) for standalone power
+- Hardware assembly: solder all components on breadboard/PCB
+- Sprite assets: 28 creature spritesheets (12 frames each, 12×1 layout)
 
 ### Future
 - 3D-printed case
@@ -319,7 +343,7 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 - **Concept, design, firmware, companion app**: Michael Maneia
 - **Inspiration**: Tamagotchi (Bandai), pomodoro technique (Francesco Cirillo)
 - **Libraries used**:
-  - Firmware: [U8g2](https://github.com/olikraus/u8g2), [Adafruit MPU6050](https://github.com/adafruit/Adafruit_MPU6050), ESP32 Arduino core
+  - Firmware: [TFT_eSPI](https://github.com/Bodmer/TFT_eSPI), [Adafruit MPU6050](https://github.com/adafruit/Adafruit_MPU6050), ESP32 Arduino core
   - Companion: [bleak](https://github.com/hbldh/bleak), [spaCy](https://spacy.io/), [Google API Python Client](https://github.com/googleapis/google-api-python-client), [discord.py](https://github.com/Rapptz/discord.py), [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter), [pystray](https://github.com/moses-palmer/pystray)
 
 
