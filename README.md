@@ -44,7 +44,7 @@ PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise a
 | **GND** | — | TFT GND · MPU6050 GND · TP4056 OUT− |
 | **D0** | GPIO1 | Buzzer + |
 | **D1** | GPIO2 | TFT CS |
-| **D2** | GPIO3 | TFT RES |
+| **D2** | GPIO3 | TFT DC |
 | **D3** | GPIO4 | Button C |
 | **D4** | GPIO5 | MPU6050 SDA (I²C) |
 | **D5** | GPIO6 | MPU6050 SCL (I²C) |
@@ -55,6 +55,7 @@ PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise a
 | **D10** | GPIO9 | TFT SDA (SPI MOSI) |
 | **D11** | GPIO10 | TFT DC |
 | **BAT+** | — | TP4056 OUT+ |
+| **TFT RES** | — | 3V3 (reset software, `TFT_RST = -1`) |
 
 > All buttons connect between the listed pin and **GND** — no external resistor needed (firmware uses `INPUT_PULLUP`).
 > TFT pins labelled SDA/SCL by the manufacturer are SPI, not I²C.
