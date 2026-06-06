@@ -41,7 +41,7 @@ PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise a
 | XIAO Pin | GPIO | Connected to |
 |----------|------|--------------|
 | **3.3V** | — | TFT VCC · MPU6050 VCC · TFT RES |
-| **GND** | — | TFT GND · MPU6050 GND · TP4056 OUT− |
+| **GND** | — | TFT GND · MPU6050 GND · TP4056 OUT− · Buzzer − · Pulsanti − |
 | **D0** | GPIO1 | Buzzer + |
 | **D1** | GPIO2 | TFT CS |
 | **D2** | GPIO3 | TFT DC |
