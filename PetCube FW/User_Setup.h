@@ -19,8 +19,8 @@
 #define TFT_SCLK  7    // D8  / GPIO7
 
 #define TFT_CS    2    // D1  / GPIO2
-#define TFT_DC    10   // D11 / GPIO10  (D0 occupato da BUZZER)
-#define TFT_RST   3    // D2  / GPIO3
+#define TFT_DC    3    // D2  / GPIO3
+#define TFT_RST   -1   // reset software (RES del display collegato a 3V3)
 #define TFT_BL             43   // D6 / GPIO43 — controllo backlight
 #define TFT_BACKLIGHT_ON   HIGH // HIGH = backlight acceso
 
