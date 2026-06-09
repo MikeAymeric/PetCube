@@ -8,13 +8,16 @@ Lancia con:
 Per avvio CLI (no GUI), continua a usare:
     python main.py
 """
+import asyncio
 import json
 import logging
 import queue
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
+from tkinter import filedialog
 from typing import Optional
 
 import customtkinter as ctk
@@ -27,6 +30,7 @@ except ImportError:
     HAS_TRAY = False
 
 from companion_engine import CompanionEngine, load_config
+import firmware_updater as fw_upd
 from notification_packet import (
     NotifPacket, NotifSource, NotifCategory, NotifPriority,
     compute_seed_hash,
@@ -186,6 +190,26 @@ class CompanionGUI(ctk.CTk):
         self._test_sv_priority = ctk.StringVar(value="Normal")
         self._test_send_btn: Optional[ctk.CTkButton] = None
         self._test_log: Optional[ctk.CTkTextbox] = None
+
+        # Firmware tab state
+        self._fw_ble_address: Optional[str] = None
+        self._fw_device_ver: Optional[int] = None
+        self._fw_local_info: Optional[fw_upd.FirmwareInfo] = None
+        self._fw_github_info: Optional[fw_upd.FirmwareInfo] = None
+        self._fw_sv_fw_dir = ctk.StringVar(value=str(Path("firmware").resolve()))
+        self._fw_sv_port = ctk.StringVar(value="")
+        self._fw_lbl_device_ver: Optional[ctk.CTkLabel] = None
+        self._fw_lbl_github_ver: Optional[ctk.CTkLabel] = None
+        self._fw_lbl_local_ver: Optional[ctk.CTkLabel] = None
+        self._fw_lbl_status: Optional[ctk.CTkLabel] = None
+        self._fw_btn_scan: Optional[ctk.CTkButton] = None
+        self._fw_btn_check_gh: Optional[ctk.CTkButton] = None
+        self._fw_btn_ota: Optional[ctk.CTkButton] = None
+        self._fw_btn_flash: Optional[ctk.CTkButton] = None
+        self._fw_progressbar: Optional[ctk.CTkProgressBar] = None
+        self._fw_lbl_progress: Optional[ctk.CTkLabel] = None
+        self._fw_log: Optional[ctk.CTkTextbox] = None
+        self._fw_port_menu: Optional[ctk.CTkOptionMenu] = None
 
         # Settings widget state
         self._sv_device: dict[str, ctk.StringVar] = {}
@@ -351,10 +375,12 @@ class CompanionGUI(ctk.CTk):
         dash_tab = tabview.add("Dashboard")
         settings_tab = tabview.add("Impostazioni")
         test_tab = tabview.add("Test")
+        fw_tab = tabview.add("Firmware")
 
         self._build_dashboard_tab(dash_tab)
         self._build_settings_tab(settings_tab)
         self._build_test_tab(test_tab)
+        self._build_firmware_tab(fw_tab)
 
         tabview.set("Dashboard")
         self._tabview = tabview
@@ -936,6 +962,429 @@ class CompanionGUI(ctk.CTk):
         self.after(4000, lambda: self._test_feedback_lbl.configure(
             text="", text_color=TEXT_DIM
         ) if self._test_feedback_lbl.winfo_exists() else None)
+
+    # ═══════════════════════════════════════════════════════════
+    # Firmware Tab
+    # ═══════════════════════════════════════════════════════════
+
+    def _build_firmware_tab(self, parent) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(3, weight=1)
+
+        # ── 1. Dispositivo (BLE scan + versione corrente) ──
+        ble_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        ble_card.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        ble_card.grid_columnconfigure(2, weight=1)
+
+        ctk.CTkLabel(
+            ble_card, text="DISPOSITIVO",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=TEXT_DIM, anchor="w",
+        ).grid(row=0, column=0, columnspan=3, sticky="ew", padx=15, pady=(10, 6))
+
+        self._fw_btn_scan = ctk.CTkButton(
+            ble_card, text="🔍  Scansiona BLE", width=160,
+            fg_color=ACCENT, hover_color=ACCENT_HOVER, font=ctk.CTkFont(size=12),
+            command=self._fw_on_scan,
+        )
+        self._fw_btn_scan.grid(row=1, column=0, padx=(12, 8), pady=(0, 10), sticky="w")
+
+        self._fw_lbl_device_ver = ctk.CTkLabel(
+            ble_card, text="Versione installata:  —",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12), anchor="w",
+        )
+        self._fw_lbl_device_ver.grid(row=1, column=1, padx=4, pady=(0, 10), sticky="w")
+
+        self._fw_lbl_status = ctk.CTkLabel(
+            ble_card, text="", text_color=TEXT_DIM,
+            font=ctk.CTkFont(size=12), anchor="w",
+        )
+        self._fw_lbl_status.grid(row=1, column=2, padx=(20, 12), pady=(0, 10), sticky="w")
+
+        # ── 2. GitHub Releases ──
+        gh_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        gh_card.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        gh_card.grid_columnconfigure(2, weight=1)
+
+        ctk.CTkLabel(
+            gh_card, text="GITHUB RELEASES",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=TEXT_DIM, anchor="w",
+        ).grid(row=0, column=0, columnspan=4, sticky="ew", padx=15, pady=(10, 6))
+
+        self._fw_btn_check_gh = ctk.CTkButton(
+            gh_card, text="☁  Controlla aggiornamenti", width=200,
+            fg_color=ACCENT, hover_color=ACCENT_HOVER, font=ctk.CTkFont(size=12),
+            command=self._fw_on_check_github,
+        )
+        self._fw_btn_check_gh.grid(row=1, column=0, padx=(12, 8), pady=(0, 10), sticky="w")
+
+        self._fw_lbl_github_ver = ctk.CTkLabel(
+            gh_card, text="Ultima release:  —",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12), anchor="w",
+        )
+        self._fw_lbl_github_ver.grid(row=1, column=1, padx=4, pady=(0, 10), sticky="w")
+
+        self._fw_btn_ota = ctk.CTkButton(
+            gh_card, text="⚡  Scarica e installa via BLE", width=220,
+            fg_color="#5a3a00", hover_color="#7a5010",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            state="disabled",
+            command=self._fw_on_ota,
+        )
+        self._fw_btn_ota.grid(row=1, column=2, padx=(20, 12), pady=(0, 10), sticky="e")
+
+        # ── 3. Progress bar (download + OTA transfer) ──
+        prog_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        prog_card.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+        prog_card.grid_columnconfigure(0, weight=1)
+
+        self._fw_progressbar = ctk.CTkProgressBar(
+            prog_card, fg_color=BG_TERTIARY, progress_color=ACCENT,
+            height=14, corner_radius=6,
+        )
+        self._fw_progressbar.set(0)
+        self._fw_progressbar.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 4))
+
+        self._fw_lbl_progress = ctk.CTkLabel(
+            prog_card, text="", text_color=TEXT_DIM,
+            font=ctk.CTkFont(family="Consolas", size=11), anchor="w",
+        )
+        self._fw_lbl_progress.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 8))
+
+        # ── 4. Log + USB fallback ──
+        log_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        log_card.grid(row=3, column=0, sticky="nsew")
+        log_card.grid_columnconfigure(0, weight=1)
+        log_card.grid_rowconfigure(2, weight=1)
+
+        # Intestazione + USB fallback controls
+        usb_row = ctk.CTkFrame(log_card, fg_color="transparent")
+        usb_row.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 4))
+        usb_row.grid_columnconfigure(3, weight=1)
+
+        ctk.CTkLabel(
+            usb_row, text="LOG",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=TEXT_DIM, anchor="w", width=40,
+        ).grid(row=0, column=0, sticky="w")
+
+        ctk.CTkLabel(
+            usb_row, text="USB fallback:", anchor="w",
+            text_color=TEXT_DIM, font=ctk.CTkFont(size=11), width=90,
+        ).grid(row=0, column=1, padx=(20, 4), sticky="w")
+
+        self._fw_port_menu = ctk.CTkOptionMenu(
+            usb_row,
+            values=self._fw_get_ports(),
+            variable=self._fw_sv_port,
+            fg_color=BG_PRIMARY, button_color=BG_TERTIARY,
+            button_hover_color="#444",
+            font=ctk.CTkFont(size=11), width=130,
+        )
+        self._fw_port_menu.grid(row=0, column=2, padx=(0, 4))
+
+        ctk.CTkButton(
+            usb_row, text="↺", width=28,
+            fg_color=BG_TERTIARY, hover_color="#444",
+            font=ctk.CTkFont(size=11),
+            command=self._fw_refresh_ports,
+        ).grid(row=0, column=3, padx=(0, 4), sticky="w")
+
+        self._fw_btn_flash = ctk.CTkButton(
+            usb_row, text="⚡ Flash USB", width=110,
+            fg_color=BG_TERTIARY, hover_color="#555",
+            font=ctk.CTkFont(size=11),
+            command=self._fw_on_flash_usb,
+        )
+        self._fw_btn_flash.grid(row=0, column=4, padx=(4, 0))
+
+        self._fw_log = ctk.CTkTextbox(
+            log_card,
+            fg_color=BG_PRIMARY, text_color=TEXT_PRIMARY,
+            font=ctk.CTkFont(family="Consolas", size=11),
+            wrap="none", corner_radius=6, state="disabled",
+        )
+        self._fw_log.grid(row=2, column=0, sticky="nsew", padx=10, pady=(4, 10))
+
+    # ── Firmware helpers ──────────────────────────────────────
+
+    def _fw_get_ports(self) -> list[str]:
+        ports = fw_upd.list_serial_ports()
+        return ports if ports else ["—"]
+
+    def _fw_refresh_ports(self) -> None:
+        ports = self._fw_get_ports()
+        if self._fw_port_menu:
+            self._fw_port_menu.configure(values=ports)
+        if ports and ports[0] != "—" and not self._fw_sv_port.get():
+            self._fw_sv_port.set(ports[0])
+
+    def _fw_update_status_label(self) -> None:
+        if not self._fw_lbl_status:
+            return
+        dev = self._fw_device_ver
+        gh = self._fw_github_info
+        if dev is None:
+            self._fw_lbl_status.configure(text="", text_color=TEXT_DIM)
+            return
+        if gh and gh.version > dev:
+            self._fw_lbl_status.configure(
+                text=f"⬆  v{dev} → v{gh.version}  (aggiornamento disponibile)",
+                text_color=WARNING,
+            )
+        elif gh:
+            self._fw_lbl_status.configure(
+                text=f"✓  Firmware aggiornato (v{dev})",
+                text_color=SUCCESS,
+            )
+        else:
+            self._fw_lbl_status.configure(
+                text=f"Versione corrente: v{dev}",
+                text_color=TEXT_PRIMARY,
+            )
+
+    def _fw_log_append(self, text: str) -> None:
+        if not self._fw_log:
+            return
+        self._fw_log.configure(state="normal")
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._fw_log.insert("end", f"{ts}  {text}\n")
+        self._fw_log.see("end")
+        self._fw_log.configure(state="disabled")
+
+    def _fw_set_progress(self, done: int, total: int, label: str = "") -> None:
+        if self._fw_progressbar:
+            ratio = done / total if total > 0 else 0.0
+            self._fw_progressbar.set(ratio)
+        if self._fw_lbl_progress:
+            pct = int((done / total * 100)) if total > 0 else 0
+            kb_done = done // 1024
+            kb_total = total // 1024
+            text = f"{label}  {kb_done} / {kb_total} KB  ({pct}%)" if label else ""
+            self._fw_lbl_progress.configure(text=text)
+
+    def _fw_buttons_lock(self, locked: bool) -> None:
+        state = "disabled" if locked else "normal"
+        for btn in (self._fw_btn_scan, self._fw_btn_check_gh, self._fw_btn_flash):
+            if btn:
+                btn.configure(state=state)
+        if self._fw_btn_ota:
+            if locked:
+                self._fw_btn_ota.configure(state="disabled")
+            else:
+                # Riabilita OTA solo se c'è una release disponibile E il dispositivo è connesso
+                can_ota = (
+                    self._fw_ble_address is not None
+                    and self._fw_github_info is not None
+                )
+                self._fw_btn_ota.configure(state="normal" if can_ota else "disabled")
+
+    # ── BLE Scan ─────────────────────────────────────────────
+
+    def _fw_on_scan(self) -> None:
+        self._fw_buttons_lock(True)
+        self._fw_btn_scan.configure(text="Scansione...")
+        self._fw_lbl_device_ver.configure(
+            text="Versione installata:  ricerca in corso...", text_color=TEXT_DIM
+        )
+        self._fw_log_append("Scansione BLE avviata (timeout 10s)...")
+
+        def run():
+            loop = asyncio.new_event_loop()
+            try:
+                addr = loop.run_until_complete(fw_upd.scan_for_petcube(timeout=10.0))
+                ver = loop.run_until_complete(fw_upd.read_fw_version_ble(addr)) if addr else None
+                self.after(0, lambda: self._fw_scan_done(addr, ver))
+            except Exception as e:
+                self.after(0, lambda: self._fw_scan_done(None, None, str(e)))
+            finally:
+                loop.close()
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _fw_scan_done(self, addr: Optional[str], ver: Optional[int], err: str = "") -> None:
+        self._fw_btn_scan.configure(text="🔍  Scansiona BLE")
+        self._fw_buttons_lock(False)
+        if err:
+            self._fw_log_append(f"ERRORE: {err}")
+            self._fw_lbl_device_ver.configure(
+                text="Versione installata:  errore di scansione", text_color=ERROR
+            )
+            return
+        self._fw_ble_address = addr
+        self._fw_device_ver = ver
+        if addr and ver is not None:
+            self._fw_lbl_device_ver.configure(
+                text=f"Versione installata:  v{ver}  ({addr})", text_color=SUCCESS
+            )
+            self._fw_log_append(f"PetCube trovato @ {addr}  —  FW v{ver}")
+        elif addr:
+            self._fw_lbl_device_ver.configure(
+                text=f"Trovato @ {addr}  (versione non disponibile)", text_color=WARNING
+            )
+            self._fw_log_append(f"PetCube @ {addr} — caratteristica VERSION non presente (FW < v14?)")
+        else:
+            self._fw_lbl_device_ver.configure(
+                text="Versione installata:  nessun PetCube trovato", text_color=ERROR
+            )
+            self._fw_log_append("Nessun dispositivo trovato. Assicurati che il PetCube sia in stato Idle.")
+        self._fw_update_status_label()
+
+    # ── GitHub check ─────────────────────────────────────────
+
+    def _fw_on_check_github(self) -> None:
+        self._fw_buttons_lock(True)
+        self._fw_btn_check_gh.configure(text="Controllo...")
+        self._fw_lbl_github_ver.configure(text="Ultima release:  connessione a GitHub...", text_color=TEXT_DIM)
+        self._fw_log_append("Controllo release su GitHub...")
+
+        cfg_fw = self.config_data.get("firmware", {})
+        owner = cfg_fw.get("github_owner", "MikeAymeric")
+        repo  = cfg_fw.get("github_repo",  "PetCube")
+
+        def run():
+            try:
+                info = fw_upd.check_github_release(owner, repo)
+                self.after(0, lambda: self._fw_github_done(info))
+            except Exception as e:
+                self.after(0, lambda: self._fw_github_done(None, str(e)))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _fw_github_done(self, info: Optional[fw_upd.FirmwareInfo], err: str = "") -> None:
+        self._fw_btn_check_gh.configure(text="☁  Controlla aggiornamenti")
+        self._fw_buttons_lock(False)
+        self._fw_github_info = info
+        if err:
+            self._fw_lbl_github_ver.configure(
+                text=f"Ultima release:  errore ({err})", text_color=ERROR
+            )
+            self._fw_log_append(f"GitHub non raggiungibile: {err}")
+        elif info:
+            self._fw_lbl_github_ver.configure(
+                text=f"Ultima release:  {info.label()}", text_color=SUCCESS
+            )
+            self._fw_log_append(f"Trovata release {info.tag_name}  —  download_url pronto")
+        else:
+            self._fw_lbl_github_ver.configure(
+                text="Ultima release:  nessun asset .bin trovato", text_color=WARNING
+            )
+            self._fw_log_append("Nessun asset .bin trovato nella release più recente.")
+        self._fw_update_status_label()
+
+    # ── BLE OTA ──────────────────────────────────────────────
+
+    def _fw_on_ota(self) -> None:
+        if not self._fw_ble_address:
+            self._fw_log_append("⚠  Scansiona prima il dispositivo BLE.")
+            return
+        if not self._fw_github_info or not self._fw_github_info.download_url:
+            self._fw_log_append("⚠  Controlla prima gli aggiornamenti su GitHub.")
+            return
+
+        self._fw_buttons_lock(True)
+        self._fw_btn_ota.configure(text="In corso...", state="disabled")
+        self._fw_set_progress(0, 1, "Avvio...")
+        self._fw_log_append(f"Avvio OTA: {self._fw_github_info.label()}")
+
+        addr = self._fw_ble_address
+        info = self._fw_github_info
+
+        def run():
+            loop = asyncio.new_event_loop()
+            try:
+                # Step 1: download
+                fw_dir = Path(self._fw_sv_fw_dir.get())
+                fw_dir.mkdir(parents=True, exist_ok=True)
+                bin_dest = fw_dir / f"petcube_{info.tag_name}.bin"
+
+                self.after(0, lambda: self._fw_log_append(f"Download {info.tag_name}..."))
+
+                def dl_progress(done, total):
+                    self.after(0, lambda d=done, t=total: self._fw_set_progress(d, t, "Download"))
+
+                fw_upd.download_firmware(info.download_url, bin_dest, progress_cb=dl_progress)
+                self.after(0, lambda: self._fw_log_append(f"Download completato: {bin_dest.name}"))
+
+                # Step 2: BLE OTA
+                self.after(0, lambda: self._fw_set_progress(0, 1, "OTA transfer"))
+
+                def ota_progress(done, total):
+                    self.after(0, lambda d=done, t=total: self._fw_set_progress(d, t, "OTA transfer"))
+
+                def ota_log(msg):
+                    self.after(0, lambda m=msg: self._fw_log_append(m))
+
+                ok = loop.run_until_complete(
+                    fw_upd.ota_update_ble(addr, bin_dest, ota_progress, ota_log)
+                )
+                self.after(0, lambda: self._fw_ota_done(ok, info.version))
+            except Exception as e:
+                self.after(0, lambda: self._fw_ota_done(False, 0, str(e)))
+            finally:
+                loop.close()
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _fw_ota_done(self, ok: bool, new_ver: int, err: str = "") -> None:
+        self._fw_btn_ota.configure(text="⚡  Scarica e installa via BLE")
+        self._fw_buttons_lock(False)
+        if err:
+            self._fw_log_append(f"ERRORE OTA: {err}")
+            self._fw_set_progress(0, 1, "")
+        elif ok:
+            self._fw_set_progress(1, 1, "Completato")
+            self._fw_log_append("✓ OTA completata. Il dispositivo si sta riavviando con il nuovo firmware.")
+            self._fw_device_ver = new_ver
+            self._fw_lbl_device_ver.configure(
+                text=f"Versione installata:  v{new_ver}  (aggiornato)", text_color=SUCCESS
+            )
+            self._fw_update_status_label()
+        else:
+            self._fw_set_progress(0, 1, "")
+            self._fw_log_append("✗ OTA fallita. Controlla che il PetCube sia in stato Idle e riprova.")
+
+    # ── USB fallback ─────────────────────────────────────────
+
+    def _fw_on_flash_usb(self) -> None:
+        port = self._fw_sv_port.get()
+        if not port or port == "—":
+            self._fw_log_append("⚠  Seleziona una porta COM per il flash USB.")
+            return
+        # Usa il .bin scaricato (se esiste) o cerca nella cartella locale
+        fw_dir = Path(self._fw_sv_fw_dir.get())
+        info = fw_upd.find_local_firmware(fw_dir)
+        if not info or not info.bin_path:
+            self._fw_log_append("⚠  Nessun .bin trovato. Controlla prima gli aggiornamenti da GitHub.")
+            return
+
+        self._fw_buttons_lock(True)
+        self._fw_btn_flash.configure(text="Flashing...")
+        self._fw_log_append(f"Flash USB: {info.bin_path.name} → {port}")
+
+        def run():
+            ok = fw_upd.flash_firmware_usb(
+                bin_path=info.bin_path,
+                port=port,
+                log_cb=lambda m: self.after(0, lambda msg=m: self._fw_log_append(msg)),
+            )
+            self.after(0, lambda: self._fw_usb_done(ok, info.version))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _fw_usb_done(self, ok: bool, new_ver: int) -> None:
+        self._fw_btn_flash.configure(text="⚡ Flash USB")
+        self._fw_buttons_lock(False)
+        if ok:
+            self._fw_log_append("✓ Flash USB completato. Riavvia manualmente il dispositivo.")
+            self._fw_device_ver = new_ver
+            self._fw_lbl_device_ver.configure(
+                text=f"Versione installata:  v{new_ver}  (aggiornato)", text_color=SUCCESS
+            )
+            self._fw_update_status_label()
+        else:
+            self._fw_log_append("✗ Flash USB fallito.")
 
     # ═══════════════════════════════════════════════════════════
     # Engine control

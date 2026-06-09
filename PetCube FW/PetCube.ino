@@ -57,6 +57,8 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+// OTA over-the-air update
+#include <Update.h>
 
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 Adafruit_MPU6050 mpu;
@@ -90,9 +92,12 @@ Preferences prefs;
 #define FW_VERSION           14   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
-#define BLE_DEVICE_NAME      "PetCube"
-#define BLE_SERVICE_UUID     "12345678-1234-5678-1234-56789abcdef0"
-#define BLE_CHAR_UUID        "12345678-1234-5678-1234-56789abcdef1"
+#define BLE_DEVICE_NAME         "PetCube"
+#define BLE_SERVICE_UUID        "12345678-1234-5678-1234-56789abcdef0"
+#define BLE_CHAR_UUID           "12345678-1234-5678-1234-56789abcdef1"
+#define BLE_CHAR_VERSION_UUID   "12345678-1234-5678-1234-56789abcdef2"
+#define BLE_CHAR_OTA_CTRL_UUID  "12345678-1234-5678-1234-56789abcdef3"
+#define BLE_CHAR_OTA_DATA_UUID  "12345678-1234-5678-1234-56789abcdef4"
 #define SPR_SCALE            3    // sprite 16×16 → 48×48
 #define SPR_SIZE             16
 #define SPR_DRAW_SIZE        (SPR_SIZE * SPR_SCALE)  // 48
@@ -269,12 +274,21 @@ bool enemyKnown[32] = {false};
 // ── 📡 BLE GATT server state ──────────────────────────────────
 BLEServer*        bleServer        = nullptr;
 BLECharacteristic* bleNotifChar    = nullptr;
-bool              bleAdvertising   = false;   // stiamo facendo advertising?
-bool              bleClientConnected = false; // un PC è connesso?
-bool              bleClientConnectedPrev = false; // per detection edge
-bool              bleInitialized   = false;   // stack già inizializzato?
+BLECharacteristic* bleVersionChar  = nullptr;
+BLECharacteristic* bleOtaCtrlChar  = nullptr;
+BLECharacteristic* bleOtaDataChar  = nullptr;
+bool              bleAdvertising   = false;
+bool              bleClientConnected = false;
+bool              bleClientConnectedPrev = false;
+bool              bleInitialized   = false;
 // Spinlock per protezione pendingNotifs[] tra BLE callback task e main loop
 portMUX_TYPE      notifsMux        = portMUX_INITIALIZER_UNLOCKED;
+
+// ── OTA state ────────────────────────────────────────────────
+enum OtaState : uint8_t { OTA_IDLE = 0, OTA_RECEIVING = 1, OTA_DONE = 2, OTA_ERROR = 0xFF };
+volatile OtaState    otaState         = OTA_IDLE;
+volatile uint32_t    otaBytesReceived = 0;
+volatile bool        otaRebootPending = false;
 
 // MPU
 float filtX = 0, filtY = 0;
@@ -1546,6 +1560,86 @@ class PetCubeBLECharCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
+// ── OTA Callbacks ────────────────────────────────────────────
+
+// CTRL characteristic:
+//   Write 0x01 + uint32_le(total_size)  → avvia OTA session
+//   Write 0x02                          → commit (verifica + riavvio)
+//   Write 0x03                          → abort
+//   Read                                → byte di stato (OtaState)
+class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* ch) override {
+    String val = ch->getValue();
+    if (val.length() == 0) return;
+    uint8_t cmd = (uint8_t)val[0];
+
+    if (cmd == 0x01 && val.length() >= 5) {
+      // START — bytes 1-4 = total firmware size (little-endian)
+      uint32_t sz;
+      memcpy(&sz, val.c_str() + 1, 4);
+      Update.abort();
+      if (Update.begin(sz, U_FLASH)) {
+        otaState = OTA_RECEIVING;
+        otaBytesReceived = 0;
+        uint8_t ok = 0x01;
+        ch->setValue(&ok, 1);
+        Serial.printf("OTA START: %u bytes\n", sz);
+      } else {
+        otaState = OTA_ERROR;
+        uint8_t err = 0x00;
+        ch->setValue(&err, 1);
+        Serial.println("OTA START: Update.begin() fallito");
+      }
+
+    } else if (cmd == 0x02) {
+      // COMMIT
+      if (otaState == OTA_RECEIVING && Update.end(true)) {
+        otaState = OTA_DONE;
+        uint8_t ok = 0x01;
+        ch->setValue(&ok, 1);
+        Serial.println("OTA COMMIT OK — riavvio imminente");
+        otaRebootPending = true;   // riavvio gestito dal main loop
+      } else {
+        Update.abort();
+        otaState = OTA_ERROR;
+        uint8_t err = 0x00;
+        ch->setValue(&err, 1);
+        Serial.printf("OTA COMMIT fallito: %s\n", Update.errorString());
+      }
+
+    } else if (cmd == 0x03) {
+      // ABORT
+      Update.abort();
+      otaState = OTA_IDLE;
+      Serial.println("OTA abortito dal client");
+    }
+  }
+
+  void onRead(BLECharacteristic* ch) override {
+    uint8_t st = (uint8_t)otaState;
+    ch->setValue(&st, 1);
+  }
+};
+
+// DATA characteristic: write without response — riceve i chunk binari
+class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* ch) override {
+    if (otaState != OTA_RECEIVING) return;
+    String val = ch->getValue();
+    size_t len = val.length();
+    if (len == 0 || !Update.isRunning()) return;
+
+    size_t written = Update.write((uint8_t*)val.c_str(), len);
+    if (written != len) {
+      Update.abort();
+      otaState = OTA_ERROR;
+      Serial.printf("OTA write error dopo %u bytes\n", (unsigned)otaBytesReceived);
+    } else {
+      otaBytesReceived += written;
+    }
+  }
+};
+
 // Inizializza BLE stack una volta sola (al boot)
 void bleInit() {
   if (bleInitialized) return;
@@ -1559,6 +1653,29 @@ void bleInit() {
     BLECharacteristic::PROPERTY_WRITE
   );
   bleNotifChar->setCallbacks(new PetCubeBLECharCallbacks());
+
+  // Caratteristica VERSION (read-only) — espone FW_VERSION come uint16 little-endian
+  bleVersionChar = svc->createCharacteristic(
+    BLE_CHAR_VERSION_UUID,
+    BLECharacteristic::PROPERTY_READ
+  );
+  uint16_t fwVer = FW_VERSION;
+  bleVersionChar->setValue((uint8_t*)&fwVer, 2);
+
+  // Caratteristica OTA CTRL — write + read per gestione sessione OTA
+  bleOtaCtrlChar = svc->createCharacteristic(
+    BLE_CHAR_OTA_CTRL_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ
+  );
+  bleOtaCtrlChar->setCallbacks(new PetCubeOtaCtrlCallbacks());
+
+  // Caratteristica OTA DATA — write without response per ricezione chunk
+  bleOtaDataChar = svc->createCharacteristic(
+    BLE_CHAR_OTA_DATA_UUID,
+    BLECharacteristic::PROPERTY_WRITE_NR
+  );
+  bleOtaDataChar->setCallbacks(new PetCubeOtaDataCallbacks());
+
   svc->start();
 
   // Configura advertising una volta sola (l'aggiunta del Service UUID si accumulerebbe)
@@ -2221,6 +2338,12 @@ void setup() {
 }
 
 void loop() {
+  // Riavvio post-OTA: aspetta che il client BLE riceva l'ACK, poi reboot
+  if (otaRebootPending) {
+    delay(500);
+    ESP.restart();
+  }
+
   unsigned long now = millis();
 
   // ⚔️  Serial mock notifiche per testing (rimuovere quando BLE è pronto)
