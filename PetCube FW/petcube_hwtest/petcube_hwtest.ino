@@ -238,6 +238,15 @@ void loop() {
 
     // Fronti di discesa (press)
     if (btnA && !lastA) beep(880, 80);
+
+
+
+
+
+
+
+
+    
     if (btnB && !lastB) melodyB();
     if (btnC && !lastC) {
         blOn = !blOn;
