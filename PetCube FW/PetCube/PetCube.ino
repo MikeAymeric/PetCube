@@ -1,5 +1,5 @@
 ﻿// ═══════════════════════════════════════════════════════════════
-//  PetCube — Firmware v0.14
+//  PetCube — Firmware v0.15
 //  Schermata principale: solo sprite (×3) + stato pomodoro in alto
 //  Menu testuale: Status / Feed / Clean / Heal / Registro
 //  Escrementi, malattia, morte, nutrizione
@@ -20,6 +20,15 @@
 //
 //  Libreria richiesta (oltre alle solite):
 //    BLE built-in di ESP32 Arduino Core (NO install separata richiesta)
+//
+//  ── CHANGELOG v14 → v15 ───────────────────────────────────────
+//  🖥️  Migrazione display da TFT_eSPI a LovyanGFX:
+//      - Risolve crash al boot (Guru Meditation StoreProhibited) su
+//        ESP32-S3 + GC9A01 con schermo nero flickerante in loop
+//      - Configurazione in LGFX_Config.h (SPI/pannello/backlight)
+//      - Costanti colore esplicite uint16_t (RGB565) + invert/rgb_order
+//        corretti per ripristinare i colori attesi
+//  • Bump FW_VERSION a 15, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v13 → v14 ───────────────────────────────────────
 //  📡  Server BLE GATT integrato:
@@ -103,7 +112,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP per cancel sessione
-#define FW_VERSION           14   // bump al cambio struttura NVS
+#define FW_VERSION           15   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -148,7 +157,7 @@ constexpr uint16_t C_MAGENTA = (uint16_t)TFT_MAGENTA;
 
 // Build di prova senza sprite: mostra nome + nome frame animazione al posto
 // del bitmap. Da rimuovere quando le sprite definitive saranno pronte.
-#define SPRITES_PLACEHOLDER  1
+#define SPRITES_PLACEHOLDER  0
 
 #if SPRITES_PLACEHOLDER
 // Definito qui (e non vicino a getFrameLabel) perché l'IDE Arduino genera i
@@ -1109,7 +1118,7 @@ void drawBootScreen() {
   canvas.setTextFont(4); canvas.setTextColor(C_CYAN, C_BG);
   canvas.drawString("PetCube", 72, 40);
   canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
-  canvas.drawString("v0.14", 98, 74);
+  canvas.drawString("v0.15", 98, 74);
   canvas.drawFastHLine(30, 96, 180, C_DIM);
 
   // Opzione 0: continua
@@ -2369,7 +2378,7 @@ void setup() {
   canvas.setTextColor(C_FG, C_BG);
   canvas.drawString("PetCube", 80, 100);
   canvas.setTextFont(2);
-  canvas.drawString("v0.3  Loading...", 55, 135);
+  canvas.drawString("v0.15  Loading...", 55, 135);
   canvas.pushSprite(0, 0);
 
   if (!mpu.begin()) {
