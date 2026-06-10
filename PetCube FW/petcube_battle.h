@@ -1,9 +1,9 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 //  petcube_battle.h
 //  Modulo battaglie PetCube v0.13
 //
 //  Contiene:
-//    - Stat base di combat per i 32 Digimon
+//    - Stat base di combat per le 32 creature
 //    - Costanti meccaniche (RNG range, type bonus, modifier streak/priority)
 //    - Strutture pacchetto BLE notifica
 //    - Helper di selezione nemico (categoria + hash → indice REGISTRO)
@@ -19,94 +19,94 @@
 
 // ── INDICI REGISTRO ───────────────────────────────────────────
 // Posizioni nel REGISTRO[] di PetCube.ino — devono coincidere.
-#define IDX_BOTAMON         0
-#define IDX_KOROMON         1
-#define IDX_AGUMON          2
-#define IDX_GREYMON         3
-#define IDX_METALGREYMON    4
-#define IDX_WARGREYMON      5
-#define IDX_PHOENIXMON      6
-#define IDX_TYRANNOMON      7
-#define IDX_GIGADRAMON      8
-#define IDX_DUKEMON         9
+#define IDX_KINDLEKIN         0
+#define IDX_EMBERPAW         1
+#define IDX_PYRUFF          2
+#define IDX_BLAZEBRAND         3
+#define IDX_MIGHTFORGE    4
+#define IDX_FLAMEFORGE      5
+#define IDX_SERAPHYRE      6
+#define IDX_SHIELDMANE      7
+#define IDX_FORTIFIRE      8
+#define IDX_CITADELLION         9
 #define IDX_MITAMAMON       10
-#define IDX_MERAMON         11
-#define IDX_DEATHMERAMON    12
-#define IDX_BEELZEMON       13
+#define IDX_AUROVULP         11
+#define IDX_VULPYRE    12
+#define IDX_ELDERVULP       13
 #define IDX_LUCEMON         14
-#define IDX_MUGENDRAMON     15
-#define IDX_PUNIMON         16
-#define IDX_TSUNOMON        17
-#define IDX_GABUMON         18
-#define IDX_GARURUMON       19
-#define IDX_WEREGARURUMON   20
-#define IDX_METALGARURUMON  21
-#define IDX_CRESGARURUMON   22
-#define IDX_SEADRAMON       23
-#define IDX_MERMAIMON       24
-#define IDX_ANCIENTMERMAIMON 25
+#define IDX_NOXFORTRESS     15
+#define IDX_DROWSEA         16
+#define IDX_GLOOMFIN        17
+#define IDX_FANGLURE         18
+#define IDX_RIPTALON       19
+#define IDX_MAULSTREAM   20
+#define IDX_LEVIACRUSH  21
+#define IDX_LIGHTFIN   22
+#define IDX_BALEGUARD       23
+#define IDX_BULWHARK       24
+#define IDX_TIDENAUGHT 25
 #define IDX_VIKEMON         26
-#define IDX_GESOMON         27
-#define IDX_WHAMON          28
-#define IDX_PLESIOMON       29
+#define IDX_SIRENLURE         27
+#define IDX_ABYSSIBYL          28
+#define IDX_THALASSIBYL       29
 #define IDX_RYUGUMON        30
-#define IDX_SKULLMAMMON     31
+#define IDX_NIGHTMARE     31
 
-// ── STAT BASE DEI 32 DIGIMON ──────────────────────────────────
+// ── STAT BASE DELLE 32 CREATURE ──────────────────────────────────
 // Formato: { ATK, SPA, DEF, HP }
-// Totali per stadio: Baby I=40, Baby II=70, Child=120, Adult=200, Perfect=270, Ultimate=320
-struct DigiStats {
+// Totali per stadio: Spark=40, Wisp=70, Sprite=120, Spirit=200, Avatar=270, Primal=320
+struct PetStats {
   uint8_t atk;
   uint8_t spa;
   uint8_t def;
   uint8_t hp;
 };
 
-const DigiStats DIGI_STATS[] PROGMEM = {
+const PetStats PET_STATS[] PROGMEM = {
   // Fire condivisi + linea STR
-  /*  0 Botamon       */ { 10,  8, 12, 10 },
-  /*  1 Koromon       */ { 18, 13, 18, 21 },
-  /*  2 Agumon        */ { 38, 22, 28, 32 },
-  /*  3 Greymon       */ { 62, 48, 45, 45 },
-  /*  4 MetalGreymon  */ { 78, 65, 65, 62 },
-  /*  5 WarGreymon    */ { 92, 70, 82, 76 },
-  /*  6 Phoenixmon    */ { 72, 90, 75, 83 },
+  /*  0 Kindlekin       */ { 10,  8, 12, 10 },
+  /*  1 Emberpaw       */ { 18, 13, 18, 21 },
+  /*  2 Pyruff        */ { 38, 22, 28, 32 },
+  /*  3 Blazebrand       */ { 62, 48, 45, 45 },
+  /*  4 Mightforge  */ { 78, 65, 65, 62 },
+  /*  5 Flameforge    */ { 92, 70, 82, 76 },
+  /*  6 Seraphyre    */ { 72, 90, 75, 83 },
   // Fire linea ENG
-  /*  7 Tyrannomon    */ { 58, 50, 50, 42 },
-  /*  8 Gigadramon    */ { 72, 68, 70, 60 },
-  /*  9 Dukemon       */ { 85, 80, 82, 73 },
+  /*  7 Shieldmane    */ { 58, 50, 50, 42 },
+  /*  8 Fortifire    */ { 72, 68, 70, 60 },
+  /*  9 Citadellion       */ { 85, 80, 82, 73 },
   /* 10 Mitamamon     */ { 70, 88, 78, 84 },
   // Fire linea INT
-  /* 11 Meramon       */ { 42, 65, 35, 58 },
-  /* 12 Deathmeramon  */ { 60, 78, 55, 77 },
-  /* 13 Beelzemon     */ { 92, 85, 70, 73 },
+  /* 11 Aurovulp       */ { 42, 65, 35, 58 },
+  /* 12 Vulpyre  */ { 60, 78, 55, 77 },
+  /* 13 Eldervulp     */ { 92, 85, 70, 73 },
   /* 14 Lucemon       */ { 78, 95, 68, 79 },
-  /* 15 Mugendramon   */ { 88, 75, 90, 67 },
+  /* 15 Noxfortress   */ { 88, 75, 90, 67 },
   // Water condivisi + linea STR
-  /* 16 Punimon       */ {  8, 10, 12, 10 },
-  /* 17 Tsunomon      */ { 21, 12, 17, 20 },
-  /* 18 Gabumon       */ { 32, 28, 30, 30 },
-  /* 19 Garurumon     */ { 55, 45, 50, 50 },
-  /* 20 WereGarurumon */ { 80, 55, 60, 75 },
-  /* 21 MetalGarurumon*/ { 88, 82, 78, 72 },
-  /* 22 CresGarurumon */ { 82, 80, 76, 82 },
+  /* 16 Drowsea       */ {  8, 10, 12, 10 },
+  /* 17 Gloomfin      */ { 21, 12, 17, 20 },
+  /* 18 Fanglure       */ { 32, 28, 30, 30 },
+  /* 19 Riptalon     */ { 55, 45, 50, 50 },
+  /* 20 Maulstream */ { 80, 55, 60, 75 },
+  /* 21 Leviacrush*/ { 88, 82, 78, 72 },
+  /* 22 Lightfin */ { 82, 80, 76, 82 },
   // Water linea ENG
-  /* 23 Seadramon     */ { 50, 48, 52, 50 },
-  /* 24 Mermaimon     */ { 65, 68, 60, 77 },
-  /* 25 AncientMermai */ { 75, 92, 75, 78 },
+  /* 23 Baleguard     */ { 50, 48, 52, 50 },
+  /* 24 Bulwhark     */ { 65, 68, 60, 77 },
+  /* 25 Tidenaught    */ { 75, 92, 75, 78 },
   /* 26 Vikemon       */ { 90, 72, 88, 70 },
   // Water linea INT
-  /* 27 Gesomon       */ { 45, 60, 38, 57 },
-  /* 28 Whamon        */ { 55, 65, 75, 75 },
-  /* 29 Plesiomon     */ { 78, 85, 82, 75 },
+  /* 27 Sirenlure       */ { 45, 60, 38, 57 },
+  /* 28 Abyssibyl        */ { 55, 65, 75, 75 },
+  /* 29 Thalassibyl     */ { 78, 85, 82, 75 },
   /* 30 Ryugumon      */ { 70, 92, 78, 80 },
   // Water Dark (linea STR)
-  /* 31 SkullMammon   */ { 90, 70, 92, 68 },
+  /* 31 Nightmare   */ { 90, 70, 92, 68 },
 };
 
-inline DigiStats getStatsFromRegistro(uint8_t idx) {
-  DigiStats s;
-  memcpy_P(&s, &DIGI_STATS[idx], sizeof(DigiStats));
+inline PetStats getStatsFromRegistro(uint8_t idx) {
+  PetStats s;
+  memcpy_P(&s, &PET_STATS[idx], sizeof(PetStats));
   return s;
 }
 
@@ -233,8 +233,8 @@ inline BattleElement sourceToElement(NotifSource src, uint8_t dayOfWeek, BattleE
 }
 
 // Lista candidati per uno stadio dato. Restituisce numero di candidati e popola array.
-// pet_stage: 0=Baby I, 1=Baby II, 2=Child, 3=Adult, 4=Perfect, 5=Ultimate
-// pet_element: per la regola "Baby/Child stesso elemento OK"
+// pet_stage: 0=Spark, 1=Wisp, 2=Sprite, 3=Spirit, 4=Avatar, 5=Primal
+// pet_element: per la regola "Baby/Sprite stesso elemento OK"
 // enemy_element: già risolto da sourceToElement
 // category: per filtrare (Light/Dark/STR/ENG/INT)
 // Output: candidates[] contiene indici REGISTRO, ritorna count.
@@ -244,52 +244,52 @@ inline uint8_t enemyCandidates(uint8_t pet_stage,
                                 uint8_t* candidates) {
   uint8_t count = 0;
 
-  // Caso speciale Baby I (stadio 0): solo Botamon e Punimon esistono
+  // Caso speciale Spark (stadio 0): solo Kindlekin e Drowsea esistono
   if (pet_stage == 0) {
-    candidates[count++] = (enemy_element == BE_FIRE) ? IDX_BOTAMON : IDX_PUNIMON;
+    candidates[count++] = (enemy_element == BE_FIRE) ? IDX_KINDLEKIN : IDX_DROWSEA;
     return count;
   }
-  // Caso speciale Baby II (stadio 1): solo Koromon e Tsunomon
+  // Caso speciale SparkI (stadio 1): solo Emberpaw e Gloomfin
   if (pet_stage == 1) {
-    candidates[count++] = (enemy_element == BE_FIRE) ? IDX_KOROMON : IDX_TSUNOMON;
+    candidates[count++] = (enemy_element == BE_FIRE) ? IDX_EMBERPAW : IDX_GLOOMFIN;
     return count;
   }
-  // Caso speciale Child (stadio 2): solo Agumon e Gabumon
+  // Caso speciale Sprite (stadio 2): solo Pyruff e Fanglure
   if (pet_stage == 2) {
-    candidates[count++] = (enemy_element == BE_FIRE) ? IDX_AGUMON : IDX_GABUMON;
+    candidates[count++] = (enemy_element == BE_FIRE) ? IDX_PYRUFF : IDX_FANGLURE;
     return count;
   }
 
-  // Adult (3), Perfect (4): solo STR/ENG/INT esistono (no Light/Dark)
+  // Spirit (3), Avatar (4): solo STR/ENG/INT esistono (no Light/Dark)
   // Per categorie Light/Dark a questi stadi, pesco da tutte e 3 le linee come fallback
   if (pet_stage == 3) {
     if (enemy_element == BE_FIRE) {
-      // STR=Greymon (3), ENG=Tyrannomon (7), INT=Meramon (11)
+      // STR=Blazebrand (3), ENG=Shieldmane (7), INT=Aurovulp (11)
       switch (category) {
         case CAT_SCADENZA:                              // STR
-          candidates[count++] = IDX_GREYMON; break;
+          candidates[count++] = IDX_BLAZEBRAND; break;
         case CAT_OPPORTUNITA:                           // ENG
-          candidates[count++] = IDX_TYRANNOMON; break;
+          candidates[count++] = IDX_SHIELDMANE; break;
         case CAT_CURIOSITA: case CAT_AIUTO:             // INT
-          candidates[count++] = IDX_MERAMON; break;
+          candidates[count++] = IDX_AUROVULP; break;
         default:                                        // Light/Dark/Routine
-          candidates[count++] = IDX_GREYMON;
-          candidates[count++] = IDX_TYRANNOMON;
-          candidates[count++] = IDX_MERAMON;
+          candidates[count++] = IDX_BLAZEBRAND;
+          candidates[count++] = IDX_SHIELDMANE;
+          candidates[count++] = IDX_AUROVULP;
       }
     } else {
-      // STR=Garurumon (19), ENG=Seadramon (23), INT=Gesomon (27)
+      // STR=Riptalon (19), ENG=Baleguard (23), INT=Sirenlure (27)
       switch (category) {
         case CAT_SCADENZA:                              // STR
-          candidates[count++] = IDX_GARURUMON; break;
+          candidates[count++] = IDX_RIPTALON; break;
         case CAT_OPPORTUNITA:                           // ENG
-          candidates[count++] = IDX_SEADRAMON; break;
+          candidates[count++] = IDX_BALEGUARD; break;
         case CAT_CURIOSITA: case CAT_AIUTO:             // INT
-          candidates[count++] = IDX_GESOMON; break;
+          candidates[count++] = IDX_SIRENLURE; break;
         default:
-          candidates[count++] = IDX_GARURUMON;
-          candidates[count++] = IDX_SEADRAMON;
-          candidates[count++] = IDX_GESOMON;
+          candidates[count++] = IDX_RIPTALON;
+          candidates[count++] = IDX_BALEGUARD;
+          candidates[count++] = IDX_SIRENLURE;
       }
     }
     return count;
@@ -297,82 +297,79 @@ inline uint8_t enemyCandidates(uint8_t pet_stage,
 
   if (pet_stage == 4) {
     if (enemy_element == BE_FIRE) {
-      // STR=MetalGreymon(4), ENG=Gigadramon(8), INT=Deathmeramon(12)
+      // STR=Mightforge(4), ENG=Fortifire(8), INT=Vulpyre(12)
       switch (category) {
-        case CAT_SCADENZA:    candidates[count++] = IDX_METALGREYMON; break;
-        case CAT_OPPORTUNITA: candidates[count++] = IDX_GIGADRAMON; break;
+        case CAT_SCADENZA:    candidates[count++] = IDX_MIGHTFORGE; break;
+        case CAT_OPPORTUNITA: candidates[count++] = IDX_FORTIFIRE; break;
         case CAT_CURIOSITA: case CAT_AIUTO:
-                              candidates[count++] = IDX_DEATHMERAMON; break;
+                              candidates[count++] = IDX_VULPYRE; break;
         default:
-          candidates[count++] = IDX_METALGREYMON;
-          candidates[count++] = IDX_GIGADRAMON;
-          candidates[count++] = IDX_DEATHMERAMON;
+          candidates[count++] = IDX_MIGHTFORGE;
+          candidates[count++] = IDX_FORTIFIRE;
+          candidates[count++] = IDX_VULPYRE;
       }
     } else {
-      // STR=WereGarurumon(20), ENG=Mermaimon(24), INT=Whamon(28)
+      // STR=Maulstream(20), ENG=Bulwhark(24), INT=Abyssibyl(28)
       switch (category) {
-        case CAT_SCADENZA:    candidates[count++] = IDX_WEREGARURUMON; break;
-        case CAT_OPPORTUNITA: candidates[count++] = IDX_MERMAIMON; break;
+        case CAT_SCADENZA:    candidates[count++] = IDX_MAULSTREAM; break;
+        case CAT_OPPORTUNITA: candidates[count++] = IDX_BULWHARK; break;
         case CAT_CURIOSITA: case CAT_AIUTO:
-                              candidates[count++] = IDX_WHAMON; break;
+                              candidates[count++] = IDX_ABYSSIBYL; break;
         default:
-          candidates[count++] = IDX_WEREGARURUMON;
-          candidates[count++] = IDX_MERMAIMON;
-          candidates[count++] = IDX_WHAMON;
+          candidates[count++] = IDX_MAULSTREAM;
+          candidates[count++] = IDX_BULWHARK;
+          candidates[count++] = IDX_ABYSSIBYL;
       }
     }
     return count;
   }
 
-  // Ultimate (5): tutti gli Std/Light/Dark esistono
+  // Primal (5): tutti gli Std/Light/Dark esistono
   if (enemy_element == BE_FIRE) {
-    // Fire Ultimate: WarGreymon(5), Phoenixmon(6), Dukemon(9), Mitamamon(10), Beelzemon(13), Lucemon(14), Mugendramon(15)
+    // Fire Primal: Flameforge(5), Seraphyre(6), Citadellion(9), Mitamamon(10), Eldervulp(13), Lucemon(14), Noxfortress(15)
     switch (category) {
       case CAT_LODE:                                                // Light
-        candidates[count++] = IDX_PHOENIXMON;
+        candidates[count++] = IDX_SERAPHYRE;
         candidates[count++] = IDX_MITAMAMON;
         candidates[count++] = IDX_LUCEMON;
         break;
       case CAT_CRITICA: case CAT_CRISI:                             // Dark
-        candidates[count++] = IDX_MUGENDRAMON;
-        // Beelzemon è Dark come elemento ma Standard come variante;
-        // lo includiamo qui perché tematicamente coerente con Crisi.
-        candidates[count++] = IDX_BEELZEMON;
+        candidates[count++] = IDX_NOXFORTRESS;
         break;
       case CAT_SCADENZA:                                            // STR Standard
-        candidates[count++] = IDX_WARGREYMON; break;
+        candidates[count++] = IDX_FLAMEFORGE; break;
       case CAT_OPPORTUNITA:                                         // ENG Standard
-        candidates[count++] = IDX_DUKEMON; break;
+        candidates[count++] = IDX_CITADELLION; break;
       case CAT_CURIOSITA: case CAT_AIUTO:                           // INT Standard
-        candidates[count++] = IDX_BEELZEMON; break;
+        candidates[count++] = IDX_ELDERVULP; break;
       default:                                                      // Routine: tutti
-        candidates[count++] = IDX_WARGREYMON;
-        candidates[count++] = IDX_DUKEMON;
-        candidates[count++] = IDX_BEELZEMON;
-        candidates[count++] = IDX_PHOENIXMON;
+        candidates[count++] = IDX_FLAMEFORGE;
+        candidates[count++] = IDX_CITADELLION;
+        candidates[count++] = IDX_ELDERVULP;
+        candidates[count++] = IDX_SERAPHYRE;
     }
   } else {
-    // Water Ultimate
+    // Water Primal
     switch (category) {
       case CAT_LODE:
-        candidates[count++] = IDX_CRESGARURUMON;
+        candidates[count++] = IDX_LIGHTFIN;
         candidates[count++] = IDX_VIKEMON;
         candidates[count++] = IDX_RYUGUMON;
         break;
       case CAT_CRITICA: case CAT_CRISI:
-        candidates[count++] = IDX_SKULLMAMMON;  // Dark condiviso tutte le linee Water
+        candidates[count++] = IDX_NIGHTMARE;  // Dark condiviso tutte le linee Water
         break;
       case CAT_SCADENZA:
-        candidates[count++] = IDX_METALGARURUMON; break;
+        candidates[count++] = IDX_LEVIACRUSH; break;
       case CAT_OPPORTUNITA:
-        candidates[count++] = IDX_ANCIENTMERMAIMON; break;
+        candidates[count++] = IDX_TIDENAUGHT; break;
       case CAT_CURIOSITA: case CAT_AIUTO:
-        candidates[count++] = IDX_PLESIOMON; break;
+        candidates[count++] = IDX_THALASSIBYL; break;
       default:
-        candidates[count++] = IDX_METALGARURUMON;
-        candidates[count++] = IDX_ANCIENTMERMAIMON;
-        candidates[count++] = IDX_PLESIOMON;
-        candidates[count++] = IDX_CRESGARURUMON;
+        candidates[count++] = IDX_LEVIACRUSH;
+        candidates[count++] = IDX_TIDENAUGHT;
+        candidates[count++] = IDX_THALASSIBYL;
+        candidates[count++] = IDX_LIGHTFIN;
     }
   }
   return count;
@@ -386,7 +383,7 @@ inline uint8_t selectEnemy(const NotifPacket& pkt,
   BattleElement enemy_elem = sourceToElement(pkt.source, dayOfWeek, pet_element);
   uint8_t candidates[8];
   uint8_t n = enemyCandidates(pet_stage, enemy_elem, pkt.category, candidates);
-  if (n == 0) return IDX_AGUMON;  // fallback safety
+  if (n == 0) return IDX_PYRUFF;  // fallback safety
   return candidates[pkt.seedHash % n];
 }
 
@@ -404,7 +401,7 @@ struct CombatStats {
 inline CombatStats computePetCombatStats(uint8_t pet_registry_idx,
                                           int statSTR, int statINT,
                                           int statENG, int statHAP) {
-  DigiStats base = getStatsFromRegistro(pet_registry_idx);
+  PetStats base = getStatsFromRegistro(pet_registry_idx);
   CombatStats c;
   c.atk = base.atk + statSTR / 2;
   c.spa = base.spa + statINT / 2;
@@ -430,7 +427,7 @@ inline uint16_t priorityModifierPct(NotifPriority p) {
 inline CombatStats computeEnemyCombatStats(uint8_t enemy_idx,
                                             NotifPriority priority,
                                             uint8_t streak) {
-  DigiStats base = getStatsFromRegistro(enemy_idx);
+  PetStats base = getStatsFromRegistro(enemy_idx);
   uint32_t prio = priorityModifierPct(priority);
   uint32_t streak_pct = streakModifierPct(streak);
   uint32_t combined = (prio * streak_pct) / 100;  // es. 130 * 120 / 100 = 156
