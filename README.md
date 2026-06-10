@@ -104,10 +104,11 @@ External sources (Google Calendar, Gmail, HacknPlan REST) → companion polls th
 ```
 PetCube/
 ├── PetCube FW/
-│   ├── PetCube.ino                 # Main firmware sketch
-│   ├── petcube_sprites.h           # 32 creatures × 12 frames
-│   ├── petcube_battle.h            # Battle system (stats, enemy selection, clash logic)
-│   └── User_Setup.h                # TFT_eSPI pin configuration (GC9A01)
+│   └── PetCube/
+│       ├── PetCube.ino              # Main firmware sketch
+│       ├── petcube_sprites.h        # 32 creatures × 12 frames
+│       ├── petcube_battle.h         # Battle system (stats, enemy selection, clash logic)
+│       └── User_Setup.h             # TFT_eSPI pin configuration (GC9A01)
 ├── PetCube Companion/
 │   ├── main.py                     # CLI entry point
 │   ├── gui.py                      # CustomTkinter dashboard + tray icon
@@ -142,7 +143,7 @@ PetCube/
 - ESP32 board package by Espressif Systems (≥ 3.0.0)
 - Board selected: **XIAO_ESP32S3**
 - Libraries:
-  - `TFT_eSPI` by Bodmer (copy `PetCube FW/User_Setup.h` into the library folder before compiling)
+  - `TFT_eSPI` by Bodmer (copy `PetCube FW/PetCube/User_Setup.h` into the library folder before compiling)
   - `Adafruit MPU6050`
   - `Adafruit Unified Sensor`
   - `Adafruit BusIO`

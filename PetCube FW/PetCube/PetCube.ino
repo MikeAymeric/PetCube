@@ -136,6 +136,11 @@ Preferences prefs;
 #define C_CYAN  0x07FFu
 #define C_DIM   0x39C7u
 #define C_POOP  0x6200u
+#define C_MAGENTA TFT_MAGENTA
+
+// Build di prova senza sprite: mostra nome + nome frame animazione al posto
+// del bitmap. Da rimuovere quando le sprite definitive saranno pronte.
+#define SPRITES_PLACEHOLDER  1
 
 const int EVO_THRESH[] = { 0, 2, 6, 14, 26, 42 };
 
@@ -566,6 +571,61 @@ const unsigned char* getFrame(const PetSprites* spr, unsigned long now) {
   }
 }
 
+#if SPRITES_PLACEHOLDER
+// Frame d'animazione corrente come testo (placeholder finché le sprite non
+// sono pronte), con colore in base allo stato: idle=giallo, angry=magenta,
+// happy=verde, sick=arancio, sleep=blu.
+struct FrameLabel { const char* name; uint16_t color; };
+
+FrameLabel getFrameLabel(unsigned long now) {
+  if (isSick) {
+    int f = (now / 600) % 2;
+    return { f == 0 ? "sick1" : "sick2", C_TIMER };
+  }
+  switch (gState) {
+    case STATE_SLEEP: {
+      int f = (now / ANIM_SLEEP_MS) % 2;
+      return { f == 0 ? "sleep1" : "sleep2", C_INT };
+    }
+    case STATE_SESSION:
+    case STATE_TRAINING:
+    case STATE_WORK: {
+      int f = (now / ANIM_ATK_MS) % 4;
+      return { (f < 2) ? "angry1" : "angry2", C_MAGENTA };
+    }
+    case STATE_STUDY: {
+      int f = (now / ANIM_ATK_MS) % 4;
+      if (f < 2) return { (now / ANIM_IDLE_MS) % 2 == 0 ? "happy1" : "happy2", C_HAP };
+      return { "idle1", C_ENG };
+    }
+    default:
+      if (statHAP > 80 && (now / 1000) % 6 == 0)
+        return { (now / ANIM_IDLE_MS) % 2 == 0 ? "happy1" : "happy2", C_HAP };
+      return { (now / ANIM_IDLE_MS) % 3 == 0 ? "idle1" : "idle2", C_ENG };
+  }
+}
+
+// Colore del nome del mostro in base all'elemento (rosso=fuoco, ciano=acqua).
+uint16_t getNameColor() {
+  return (gElement == FIRE) ? C_STR : C_CYAN;
+}
+
+// Disegna nome + frame al posto della sprite, centrati nell'area sprite.
+void drawSpritePlaceholder(int x, int y, int w, int h, unsigned long now) {
+  const char* name = getCurrentName();
+  FrameLabel fl = getFrameLabel(now);
+
+  canvas.setTextFont(2); canvas.setTextSize(1);
+  canvas.setTextColor(getNameColor(), C_BG);
+  int nw = canvas.textWidth(name);
+  canvas.drawString(name, x + (w - nw) / 2, y + h / 2 - 14);
+
+  canvas.setTextColor(fl.color, C_BG);
+  int fw = canvas.textWidth(fl.name);
+  canvas.drawString(fl.name, x + (w - fw) / 2, y + h / 2 + 4);
+}
+#endif
+
 // Calcola offset X per moto idle oscillatorio (seno approssimato)
 int getIdleDriftX(unsigned long now) {
   // Prima metà del periodo: da -DRIFT a +DRIFT (verso destra)
@@ -990,24 +1050,28 @@ void drawRegistroScreen(unsigned long now) {
   canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
   char hdr[24];
   sprintf(hdr, "%d/%d  Registro", registroCursor+1, REGISTRO_SIZE);
-  canvas.drawString(hdr, 20, 12);
+  drawCenteredStr(14, hdr);
   canvas.drawFastHLine(0, 32, DISP_SIZE, C_DIM);
 
   if (e.obtained == 0) {
     canvas.setTextFont(4); canvas.setTextColor(C_DIM, C_BG);
-    canvas.drawString("???", 80, 100);
+    drawCenteredStr(100, "???");
     canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
-    canvas.drawString("Non ancora", 70, 150);
-    canvas.drawString("ottenuto!", 75, 172);
+    drawCenteredStr(150, "Non ancora");
+    drawCenteredStr(172, "ottenuto!");
   } else {
+    // Sprite spostata a (28,50): a (14,40) l'angolo superiore sinistro
+    // finiva fuori dall'area circolare visibile.
     const unsigned char* frame = e.sprites->idle[(now/ANIM_IDLE_MS)%3];
-    drawSpriteScaled(14, 40, 4, frame);
+    drawSpriteScaled(28, 50, 4, frame);
 
-    canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
-    canvas.drawString(e.name, 84, 42);
-    canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
+    // Nome in font2 (anziché font4) e spostato a destra della sprite,
+    // così i nomi lunghi non finiscono fuori dal cerchio visibile.
+    canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
+    canvas.drawString(e.name, 100, 58);
+    canvas.setTextColor(C_CYAN, C_BG);
     char ob[20]; sprintf(ob, "%s  x%d", e.element, e.obtained);
-    canvas.drawString(ob, 84, 76);
+    canvas.drawString(ob, 100, 80);
 
     // Cuori: S, I, E, H — due colonne
     canvas.setTextColor(C_FG, C_BG);
@@ -1018,9 +1082,10 @@ void drawRegistroScreen(unsigned long now) {
   }
 
   canvas.drawFastHLine(0, 215, DISP_SIZE, C_DIM);
-  canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
-  canvas.drawString("A=cicla  C=esci", 50, 220);
-  canvas.setTextSize(1);
+  // Font ridotto a size1 e centrato: a size2 il testo era troppo largo
+  // per la corda del cerchio visibile a quest'altezza.
+  canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
+  drawCenteredStr(222, "A=cicla  C=esci");
   canvas.pushSprite(0, 0);
 }
 
@@ -1047,7 +1112,7 @@ void drawBootScreen() {
 
   canvas.drawFastHLine(30, 178, 180, C_DIM);
   canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
-  canvas.drawString("A=cambia  B=OK", 58, 188);
+  drawCenteredStr(188, "A=cambia  B=OK");
   canvas.setTextSize(1);
   canvas.pushSprite(0, 0);
 }
@@ -1055,7 +1120,7 @@ void drawBootScreen() {
 void drawSetupScreen(unsigned long now) {
   canvas.fillSprite(C_BG);
   canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
-  canvas.drawString("Scegli elemento:", 50, 18);
+  drawCenteredStr(18, "Scegli elemento:");
   canvas.drawFastHLine(20, 40, 200, C_DIM);
 
   int frame = (now / 400) % 2;
@@ -1077,8 +1142,10 @@ void drawSetupScreen(unsigned long now) {
   canvas.setTextColor(setupChoice==1 ? C_CYAN : C_DIM, C_BG);
   canvas.drawString("Water", 140, 168);
 
+  // y=185 (anziché 210): a quella quota la corda del cerchio visibile
+  // è larga abbastanza da contenere il testo senza tagli.
   canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
-  canvas.drawString("A=cambia  B=OK", 55, 210);
+  drawCenteredStr(185, "A=cambia  B=OK");
   canvas.setTextSize(1);
   canvas.pushSprite(0, 0);
 }
@@ -1093,7 +1160,11 @@ void drawMainScreen(unsigned long now) {
       canvas.setTextFont(4); canvas.setTextColor(C_DIM, C_BG);
       canvas.drawString("ADDIO...", 68, 105);
     }
+#if SPRITES_PLACEHOLDER
+    drawSpritePlaceholder(SPR_X, SPR_Y, SPR_DRAW_SIZE, SPR_DRAW_SIZE, now);
+#else
     drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, spr->sick[(now/600)%2]);
+#endif
     canvas.pushSprite(0, 0);
     return;
   }
@@ -1139,26 +1210,33 @@ void drawMainScreen(unsigned long now) {
   }
 
   // ── Icona BT ─────────────────────────────────────────────────
+  // Posizionata entro l'area visibile circolare (Ø240px / 32.4mm):
+  // a (188,12) l'icona finiva fuori dal cerchio e veniva tagliata dalla cornice.
   if (bleClientConnected) {
     canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_CYAN, C_BG);
-    canvas.drawString("B", 188, 12);
+    canvas.drawString("B", 168, 14);
     canvas.setTextSize(1);
   } else if (bleAdvertising && (now/700)%2 == 0) {
-    canvas.fillRect(188, 16, 6, 6, C_DIM);
+    canvas.fillRect(168, 18, 6, 6, C_DIM);
   }
 
   // ── Sprite ───────────────────────────────────────────────────
+#if SPRITES_PLACEHOLDER
+  drawSpritePlaceholder(SPR_X, SPR_Y, SPR_DRAW_SIZE, SPR_DRAW_SIZE, now);
+#else
   const unsigned char* frame = getFrame(spr, now);
   bool mirrorX = (gState == STATE_IDLE && !isSick) ? getIdleMirror(now) : false;
   uint16_t sprColor = isSick ? 0x07E0 : C_FG;  // verde se malato
   drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, frame, mirrorX, sprColor);
+#endif
 
   // ── Escrementi ───────────────────────────────────────────────
   if (gState == STATE_IDLE && !isSick) {
     if (poopMega) {
-      // Mega: doppia dimensione, bottom-right
+      // Mega: doppia dimensione, bottom-right (mx ridotto da 168 a 140
+      // per restare entro l'area circolare visibile, vedi icona BT sopra)
       const int s = 4;
-      int mx = 168, my = 193;
+      int mx = 140, my = 193;
       canvas.fillRect(mx+3*s, my,     5*s, s, C_POOP);
       canvas.fillRect(mx+s,   my+s,   9*s, s, C_POOP);
       canvas.fillRect(mx+3*s, my+2*s, 5*s, s, C_POOP);
@@ -1223,9 +1301,13 @@ void drawMenuScreen(unsigned long now) {
   canvas.fillSprite(C_BG);
 
   // Sprite piccolo in alto centrato (×4 = 64×64)
+#if SPRITES_PLACEHOLDER
+  drawSpritePlaceholder(88, 10, 64, 64, now);
+#else
   const PetSprites* spr = getCurrentSprites();
   const unsigned char* frame = getFrame(spr, now);
   drawSpriteScaled(88, 10, 4, frame);
+#endif
 
   canvas.drawFastHLine(20, 82, 200, C_DIM);
 
@@ -1253,33 +1335,35 @@ void drawMenuScreen(unsigned long now) {
     canvas.drawString(i == menuCursor ? (String(">") + label).c_str() : label, 30, y);
   }
 
-  canvas.drawFastHLine(20, 222, 200, C_DIM);
-  canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
-  canvas.drawString("A=giu  B=ok  C=esci", 30, 226);
-  canvas.setTextSize(1);
+  // Footer a size1 e centrato a y=216: a size2/y=226 il testo era
+  // più largo della corda del cerchio visibile e finiva tagliato.
+  canvas.drawFastHLine(20, 212, 200, C_DIM);
+  canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
+  drawCenteredStr(216, "A=giu B=ok C=esci");
   canvas.pushSprite(0, 0);
 }
 
 void drawStatusScreen() {
   canvas.fillSprite(C_BG);
 
-  // Nome + stadio
-  canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
-  canvas.drawString(getCurrentName(), 20, 14);
+  // Nome + stadio. Font ridotto a 2 e centrato: a font4/x=20 i nomi più
+  // lunghi (es. "Noxfortress") finivano fuori dall'area circolare visibile.
+  canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
+  drawCenteredStr(16, getCurrentName());
 
   // Tag identità multiplayer (es. "Mike#47213"), se assegnato dalla Companion App
   if (petTag.length() > 0) {
     canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
     int tw = canvas.textWidth(petTag);
-    canvas.drawString(petTag, DISP_SIZE - tw - 10, 18);
+    canvas.drawString(petTag, max(0, 197 - tw), 36);
   }
 
   const char* stageNames[] = {"Spark","Wisp","Sprite","Spirit","Avatar","Primal"};
   canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
-  canvas.drawString(stageNames[min(evoStage,5)], 20, 50);
+  canvas.drawString(stageNames[min(evoStage,5)], 24, 52);
   if (evoStage >= 3) {
     const char* lnames[] = { "STR", "ENG", "INT" };
-    canvas.drawString(lnames[lineVariant], 120, 50);
+    canvas.drawString(lnames[lineVariant], 120, 52);
   }
   canvas.drawFastHLine(10, 72, 220, C_DIM);
 
@@ -1304,15 +1388,16 @@ void drawStatusScreen() {
   if (evoStage < 5) {
     sprintf(buf, "Evo: %d", EVO_THRESH[evoStage+1]); canvas.drawString(buf, 130, 168);
   }
-  sprintf(buf, "W:%d  L:%d", battlesWon, battlesLost); canvas.drawString(buf, 20, 192);
+  sprintf(buf, "W:%d  L:%d", battlesWon, battlesLost); canvas.drawString(buf, 24, 192);
   if (isSick) {
     canvas.setTextColor(C_STR, C_BG); canvas.drawString("MALATO!", 140, 192);
   }
 
+  // Footer a size1 e centrato a y=218: a size2/y=220 era troppo largo
+  // per la corda del cerchio visibile e finiva tagliato.
   canvas.drawFastHLine(10, 214, 220, C_DIM);
-  canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
-  canvas.drawString("B=ora  C=indietro", 40, 220);
-  canvas.setTextSize(1);
+  canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
+  drawCenteredStr(218, "B=ora C=indietro");
   canvas.pushSprite(0, 0);
 }
 
@@ -1326,7 +1411,7 @@ void drawClockScreen(unsigned long now) {
 
   if (!clockSet) {
     canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
-    canvas.drawString("Imposta ora CEST:", 35, 28);
+    drawCenteredStr(28, "Imposta ora CEST:");
     canvas.drawFastHLine(20, 50, 200, C_DIM);
 
     char buf[12];
@@ -1335,10 +1420,11 @@ void drawClockScreen(unsigned long now) {
     int tw = canvas.textWidth(buf);
     canvas.drawString(buf, (DISP_SIZE - tw) / 2, 90);
 
-    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
-    canvas.drawString("A=+ora   B=+min", 40, 160);
-    canvas.drawString("C=salva  (salta=C)", 28, 182);
-    canvas.setTextSize(1);
+    // Hint a size1 e centrati: a size2 la seconda riga era troppo larga
+    // per la corda del cerchio visibile e finiva tagliata.
+    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
+    drawCenteredStr(160, "A=+ora B=+min");
+    drawCenteredStr(174, "C=salva (salta=C)");
   } else {
     char buf[10];
     sprintf(buf, "%02d:%02d", hh, mm);
@@ -1350,13 +1436,18 @@ void drawClockScreen(unsigned long now) {
     canvas.drawRect(30, 110, 180, 10, C_DIM);
     canvas.fillRect(31, 111, ss * 178 / 59, 8, C_CYAN);
 
-    // Sprite animato centrato
+    // Sprite animato centrato. Y ridotta da 128 a 100: a y=128 il bordo
+    // inferiore (y=240) finiva ben fuori dall'area circolare visibile.
+#if SPRITES_PLACEHOLDER
+    drawSpritePlaceholder(SPR_X, 100, SPR_DRAW_SIZE, SPR_DRAW_SIZE, now);
+#else
     const PetSprites* spr = getCurrentSprites();
-    drawSpriteScaled(SPR_X, 128, SPR_SCALE, spr->idle[(now/400)%3]);
+    drawSpriteScaled(SPR_X, 100, SPR_SCALE, spr->idle[(now/400)%3]);
+#endif
 
-    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
-    canvas.drawString("C = chiudi", 75, 220);
-    canvas.setTextSize(1);
+    // Hint a size1 e centrato: a size2/x=75 finiva tagliato a destra.
+    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
+    drawCenteredStr(220, "C = chiudi");
   }
 
   canvas.pushSprite(0, 0);
@@ -1406,11 +1497,16 @@ void drawEvolvingScreen(unsigned long now) {
   unsigned long el = (nowFresh >= evolveStartMs) ? (nowFresh - evolveStartMs) : 0;
 
   // Flash sprite
-  if ((now / 80) % 2 == 0)
+  if ((now / 80) % 2 == 0) {
+#if SPRITES_PLACEHOLDER
+    drawSpritePlaceholder(SPR_X, SPR_Y, SPR_DRAW_SIZE, SPR_DRAW_SIZE, now);
+#else
     drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, spr->idle[0]);
+#endif
+  }
 
   canvas.setTextFont(4); canvas.setTextColor(C_TIMER, C_BG);
-  canvas.drawString("Evoluzione!", 40, 14);
+  drawCenteredStr(14, "Evoluzione!");
 
   // Barra progresso
   int prog = min((int)(el * DISP_SIZE / EVOLVE_ANIM_MS), DISP_SIZE);
@@ -2136,11 +2232,13 @@ void drawBattleScreen(unsigned long now) {
     return;
   }
 
-  // Posizioni sprite battle: pet sx ×4 (64px), nemico dx ×4
+  // Posizioni sprite battle: pet sx ×4 (64px), nemico dx ×4.
+  // x=28/y=44 (anziché 14/38): a 14/38 l'angolo esterno delle sprite
+  // finiva fuori dall'area circolare visibile.
   const int bscale = 4;
   const int bsz    = SPR_SIZE * bscale;  // 64
-  int petX = 14, enX = DISP_SIZE - 14 - bsz;
-  int yPos = 38;
+  int petX = 28, enX = DISP_SIZE - 28 - bsz;
+  int yPos = 44;
 
   if (gState == STATE_BATTLE_INTRO) {
     int progress = min((int)el, 800);
@@ -2155,11 +2253,11 @@ void drawBattleScreen(unsigned long now) {
     if (el >= 1000) {
       gState = STATE_BATTLE_CLASH;
       battleStateMs = now;
-      cursorX = 10;
+      cursorX = 36;
       cursorDir = 1;
       petCritThisClash = false;
       critWindowStart = 120 - critWindowWidth / 2 + random(-15, 16);
-      critWindowStart = constrain(critWindowStart, 12, 218 - critWindowWidth);
+      critWindowStart = constrain(critWindowStart, 37, 203 - critWindowWidth);
     }
   }
   else if (gState == STATE_BATTLE_CLASH) {
@@ -2167,13 +2265,14 @@ void drawBattleScreen(unsigned long now) {
     drawSpriteScaled(petX, yPos, bscale, petSpr->atk[idx0], true);
     drawSpriteScaled(enX,  yPos, bscale, enSpr->atk[idx0]);
 
-    // Timing-game bar
-    canvas.drawRect(10, 180, 220, 20, C_FG);
+    // Timing-game bar ristretta a 170px (centrata, x:35-205): a 220px
+    // (x:10-230) le estremità finivano fuori dall'area circolare visibile.
+    canvas.drawRect(35, 180, 170, 20, C_FG);
     canvas.fillRect(critWindowStart, 181, critWindowWidth, 18, C_ENG);
 
     cursorX += cursorDir * 4;
-    if (cursorX >= 228) { cursorX = 228; cursorDir = -1; }
-    if (cursorX <= 10)  { cursorX = 10;  cursorDir =  1; }
+    if (cursorX >= 200) { cursorX = 200; cursorDir = -1; }
+    if (cursorX <= 36)  { cursorX = 36;  cursorDir =  1; }
     canvas.fillRect(cursorX, 181, 4, 18, C_BG);
     canvas.drawFastVLine(cursorX+1, 177, 26, C_FG);
 
