@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 //  PetCube — Firmware v0.14
 //  Schermata principale: solo sprite (×3) + stato pomodoro in alto
 //  Menu testuale: Status / Feed / Clean / Heal / Registro
@@ -46,13 +46,12 @@
 // ═══════════════════════════════════════════════════════════════
 
 #include <Wire.h>
-#include <U8g2lib.h>
+#include <TFT_eSPI.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Preferences.h>
 #include "petcube_sprites.h"
 #include "petcube_battle.h"
-// BLE GATT server (built-in ESP32 Arduino Core)
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -60,14 +59,28 @@
 // OTA over-the-air update
 #include <Update.h>
 
-U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+TFT_eSPI   tft;
+TFT_eSprite canvas(&tft);
 Adafruit_MPU6050 mpu;
 Preferences prefs;
 
 // ── PIN ───────────────────────────────────────────────────────
-#define BTN_A  D1   // apri menu / cursore menu / cicla uovo setup
-#define BTN_B  D2   // avvia sessione / conferma menu / orologio idle / seleziona uovo
-#define BTN_C  D3   // annulla sessione / chiudi menu / chiudi orologio
+//  D0  GPIO1  → BUZZER
+//  D1  GPIO2  → TFT CS        (User_Setup.h: TFT_CS   = 2)
+//  D2  GPIO3  → TFT DC        (User_Setup.h: TFT_DC   = 3)
+//  D3  GPIO4  → BTN_C
+//  D4  GPIO5  → I2C SDA       (MPU6050)
+//  D5  GPIO6  → I2C SCL       (MPU6050)
+//  D6  GPIO43 → TFT BLK       (User_Setup.h: TFT_BL   = 43)
+//  D7  GPIO44 → BTN_B
+//  D8  GPIO7  → TFT SCK       (User_Setup.h: TFT_SCLK = 7)
+//  D9  GPIO8  → BTN_A
+//  D10 GPIO9  → TFT MOSI      (User_Setup.h: TFT_MOSI = 9)
+//  TFT RST    → 3V3 (TFT_RST = -1, reset software)
+//  BAT+       → TP4056 OUT+
+#define BTN_A  D9
+#define BTN_B  D7
+#define BTN_C  D3
 #define BUZZER D0
 #define LED    LED_BUILTIN
 
@@ -98,17 +111,30 @@ Preferences prefs;
 #define BLE_CHAR_VERSION_UUID   "12345678-1234-5678-1234-56789abcdef2"
 #define BLE_CHAR_OTA_CTRL_UUID  "12345678-1234-5678-1234-56789abcdef3"
 #define BLE_CHAR_OTA_DATA_UUID  "12345678-1234-5678-1234-56789abcdef4"
-#define SPR_SCALE            3    // sprite 16×16 → 48×48
+#define DISP_SIZE            240
+#define SPR_SCALE            7    // sprite 16×16 → 112×112
 #define SPR_SIZE             16
-#define SPR_DRAW_SIZE        (SPR_SIZE * SPR_SCALE)  // 48
-#define SPR_X                ((128 - SPR_DRAW_SIZE) / 2)  // 40 (centrato)
-#define SPR_Y                10   // sotto la riga stato
+#define SPR_DRAW_SIZE        (SPR_SIZE * SPR_SCALE)  // 112
+#define SPR_X                ((DISP_SIZE - SPR_DRAW_SIZE) / 2)  // 64
+#define SPR_Y                ((DISP_SIZE - SPR_DRAW_SIZE) / 2)  // 64 — centrato
 #define ANIM_IDLE_MS         400
 #define ANIM_SLEEP_MS        700
-#define ANIM_ATK_MS          380   // rallentato come idle
-#define SPR_DRIFT            40    // copre tutto lo schermo: (128-48)/2
-#define SPR_DRIFT_PERIOD_MS  16000 // 8s verso destra + 8s verso sinistra
+#define ANIM_ATK_MS          380
+#define SPR_DRIFT            55
+#define SPR_DRIFT_PERIOD_MS  16000
 #define EVOLVE_ANIM_MS       3000
+
+// ── Colori ────────────────────────────────────────────────────
+#define C_BG    TFT_BLACK
+#define C_FG    TFT_WHITE
+#define C_HAP   TFT_GREEN
+#define C_STR   TFT_RED
+#define C_INT   TFT_BLUE
+#define C_ENG   TFT_YELLOW
+#define C_TIMER TFT_ORANGE
+#define C_CYAN  0x07FFu
+#define C_DIM   0x39C7u
+#define C_POOP  0x6200u
 
 const int EVO_THRESH[] = { 0, 2, 6, 14, 26, 42 };
 
@@ -131,7 +157,7 @@ enum Orientation {
 enum Element { FIRE, WATER };
 
 // ── SPRITE TABLE ──────────────────────────────────────────────
-struct DigiSprites {
+struct PetSprites {
   const unsigned char* idle[3];
   const unsigned char* happy[2];
   const unsigned char* sleep[2];
@@ -149,57 +175,57 @@ struct DigiSprites {
   { spr_##n##_sick1,  spr_##n##_sick2  } \
 }
 
-const DigiSprites SPR_BOTAMON      = MAKE_SPR(botamon);
-const DigiSprites SPR_KOROMON      = MAKE_SPR(koromon);
-const DigiSprites SPR_AGUMON       = MAKE_SPR(agumon);
-const DigiSprites SPR_GREYMON      = MAKE_SPR(greymon);
-const DigiSprites SPR_METALGREYMON = MAKE_SPR(metalgreymon);
-const DigiSprites SPR_WARGREYMON   = MAKE_SPR(wargreymon);
-const DigiSprites SPR_PHOENIXMON   = MAKE_SPR(phoenixmon);
-const DigiSprites SPR_MUGENDRAMON  = MAKE_SPR(mugendramon);
-const DigiSprites SPR_PUNIMON      = MAKE_SPR(punimon);
-const DigiSprites SPR_TSUNOMON     = MAKE_SPR(tsunomon);
-const DigiSprites SPR_GABUMON      = MAKE_SPR(gabumon);
-const DigiSprites SPR_GARURUMON    = MAKE_SPR(garurumon);
-const DigiSprites SPR_WEREGARURUMON   = MAKE_SPR(weregarurumon);
-const DigiSprites SPR_METALGARURUMON = MAKE_SPR(metalgarurumon);
-const DigiSprites SPR_CRESGARURUMON  = MAKE_SPR(cresgarurumon);
-const DigiSprites SPR_SKULLMAMMON    = MAKE_SPR(skullmammon);
-// ── Nuovi Digimon (Fire ENG/INT, Water ENG/INT) ────────────────
-const DigiSprites SPR_TYRANNOMON        = MAKE_SPR(tyrannomon);
-const DigiSprites SPR_GIGADRAMON        = MAKE_SPR(gigadramon);
-const DigiSprites SPR_DUKEMON           = MAKE_SPR(dukemon);
-const DigiSprites SPR_MITAMAMON         = MAKE_SPR(mitamamon);
-const DigiSprites SPR_MERAMON           = MAKE_SPR(meramon);
-const DigiSprites SPR_DEATHMERAMON      = MAKE_SPR(deathmeramon);
-const DigiSprites SPR_BEELZEMON         = MAKE_SPR(beelzemon);
-const DigiSprites SPR_LUCEMON           = MAKE_SPR(lucemon);
-const DigiSprites SPR_SEADRAMON         = MAKE_SPR(seadramon);
-const DigiSprites SPR_MERMAIMON         = MAKE_SPR(mermaimon);
-const DigiSprites SPR_ANCIENTMERMAIMON  = MAKE_SPR(ancientmermaimon);
-const DigiSprites SPR_VIKEMON           = MAKE_SPR(vikemon);
-const DigiSprites SPR_GESOMON           = MAKE_SPR(gesomon);
-const DigiSprites SPR_WHAMON            = MAKE_SPR(whamon);
-const DigiSprites SPR_PLESIOMON         = MAKE_SPR(plesiomon);
-const DigiSprites SPR_RYUGUMON          = MAKE_SPR(ryugumon);
+const PetSprites SPR_KINDLEKIN      = MAKE_SPR(kindlekin);
+const PetSprites SPR_EMBERPAW      = MAKE_SPR(emberpaw);
+const PetSprites SPR_PYRUFF       = MAKE_SPR(pyruff);
+const PetSprites SPR_BLAZEBRAND      = MAKE_SPR(blazebrand);
+const PetSprites SPR_MIGHTFORGE = MAKE_SPR(mightforge);
+const PetSprites SPR_FLAMEFORGE   = MAKE_SPR(flameforge);
+const PetSprites SPR_SERAPHYRE   = MAKE_SPR(seraphyre);
+const PetSprites SPR_NOXFORTRESS  = MAKE_SPR(noxfortress);
+const PetSprites SPR_DROWSEA      = MAKE_SPR(drowsea);
+const PetSprites SPR_GLOOMFIN     = MAKE_SPR(gloomfin);
+const PetSprites SPR_FANGLURE      = MAKE_SPR(fanglure);
+const PetSprites SPR_RIPTALON    = MAKE_SPR(riptalon);
+const PetSprites SPR_MAULSTREAM   = MAKE_SPR(maulstream);
+const PetSprites SPR_LEVIACRUSH = MAKE_SPR(leviacrush);
+const PetSprites SPR_LIGHTFIN  = MAKE_SPR(lightfin);
+const PetSprites SPR_NIGHTMARE    = MAKE_SPR(nightmare);
+// ── Creature aggiuntive (Fire ENG/INT, Water ENG/INT) ────────────────
+const PetSprites SPR_SHIELDMANE        = MAKE_SPR(shieldmane);
+const PetSprites SPR_FORTIFIRE        = MAKE_SPR(fortifire);
+const PetSprites SPR_CITADELLION           = MAKE_SPR(citadellion);
+const PetSprites SPR_MITAMAMON         = MAKE_SPR(mitamamon);
+const PetSprites SPR_AUROVULP           = MAKE_SPR(aurovulp);
+const PetSprites SPR_VULPYRE      = MAKE_SPR(vulpyre);
+const PetSprites SPR_ELDERVULP         = MAKE_SPR(eldervulp);
+const PetSprites SPR_LUCEMON           = MAKE_SPR(lucemon);
+const PetSprites SPR_BALEGUARD         = MAKE_SPR(baleguard);
+const PetSprites SPR_BULWHARK         = MAKE_SPR(bulwhark);
+const PetSprites SPR_TIDENAUGHT  = MAKE_SPR(tidenaught);
+const PetSprites SPR_VIKEMON           = MAKE_SPR(vikemon);
+const PetSprites SPR_SIRENLURE           = MAKE_SPR(sirenlure);
+const PetSprites SPR_ABYSSIBYL            = MAKE_SPR(abyssibyl);
+const PetSprites SPR_THALASSIBYL         = MAKE_SPR(thalassibyl);
+const PetSprites SPR_RYUGUMON          = MAKE_SPR(ryugumon);
 
 // lineVariant: 0=STR, 1=ENG, 2=INT
 // Stadi 0-2 condivisi, stadi 3-4 e Ultimate dipendono da lineVariant
-const char* FIRE_SHARED[]   = { "Botamon","Koromon","Agumon" };
-const char* FIRE_LINE0[]    = { "Greymon","MetalGreymon" };          // STR
-const char* FIRE_LINE1[]    = { "Tyrannomon","Gigadramon" };         // ENG
-const char* FIRE_LINE2[]    = { "Meramon","Deathmeramon" };          // INT
-const char* FIRE_FINAL0[]   = { "WarGreymon","Phoenixmon","Mugendramon" };
-const char* FIRE_FINAL1[]   = { "Dukemon","Mitamamon","Mugendramon" };
-const char* FIRE_FINAL2[]   = { "Beelzemon","Lucemon","Mugendramon" };
+const char* FIRE_SHARED[]   = { "Kindlekin","Emberpaw","Pyruff" };
+const char* FIRE_LINE0[]    = { "Blazebrand","Mightforge" };          // STR
+const char* FIRE_LINE1[]    = { "Shieldmane","Fortifire" };         // ENG
+const char* FIRE_LINE2[]    = { "Aurovulp","Vulpyre" };          // INT
+const char* FIRE_FINAL0[]   = { "Flameforge","Seraphyre","Noxfortress" };
+const char* FIRE_FINAL1[]   = { "Citadellion","Seraphyre","Noxfortress" };
+const char* FIRE_FINAL2[]   = { "Eldervulp","Seraphyre","Noxfortress" };
 
-const char* WATER_SHARED[]  = { "Punimon","Tsunomon","Gabumon" };
-const char* WATER_LINE0[]   = { "Garurumon","WereGarurumon" };       // STR
-const char* WATER_LINE1[]   = { "Seadramon","Mermaimon" };       // ENG
-const char* WATER_LINE2[]   = { "Gesomon","Whamon" };               // INT
-const char* WATER_FINAL0[]  = { "MetalGarurumon","CresGarurumon","SkullMammothmon" };
-const char* WATER_FINAL1[]  = { "AncientMermaimon","Vikemon","SkullMammothmon" };
-const char* WATER_FINAL2[]  = { "Plesiomon","Ryugumon","SkullMammothmon" };
+const char* WATER_SHARED[]  = { "Drowsea","Gloomfin","Fanglure" };
+const char* WATER_LINE0[]   = { "Riptalon","Maulstream" };       // STR
+const char* WATER_LINE1[]   = { "Baleguard","Bulwhark" };       // ENG
+const char* WATER_LINE2[]   = { "Sirenlure","Abyssibyl" };               // INT
+const char* WATER_FINAL0[]  = { "Leviacrush","Lightfin","Nightmare" };
+const char* WATER_FINAL1[]  = { "Tidenaught","Lightfin","Nightmare" };
+const char* WATER_FINAL2[]  = { "Thalassibyl","Lightfin","Nightmare" };
 
 // ── STATO GLOBALE ─────────────────────────────────────────────
 GameState    gState        = STATE_IDLE;
@@ -334,12 +360,12 @@ const char* MENU_LABELS[] = { "Status", "Feed", "Clean", "Heal", "Registro" };
 
 
 // ── REGISTRO ──────────────────────────────────────────────────
-// Tutti i Digimon del gioco in ordine
+// Tutte le creature del gioco in ordine
 // Stat base: cuori 1-3 (basso/normale/alto) per STR/INT/ENG/HAP
-struct DigiEntry {
+struct PetEntry {
   const char*      name;
   const char*      element;
-  const DigiSprites* sprites;
+  const PetSprites* sprites;
   uint8_t          strH;   // cuori STR 1-3
   uint8_t          intH;   // cuori INT 1-3
   uint8_t          engH;   // cuori ENG 1-3
@@ -347,54 +373,54 @@ struct DigiEntry {
   uint8_t          obtained; // quante volte ottenuto (salvato NVS)
 };
 
-// Registro completo — 32 Digimon
+// Registro completo — 32 creature
 // Linea 0=STR, 1=ENG, 2=INT per ogni elemento
-DigiEntry REGISTRO[] = {
+PetEntry REGISTRO[] = {
   // ── Fire condivisi ──────────────────────────────────────────
-  { "Botamon",      "Fire",  &SPR_BOTAMON,       1,1,1,2, 0 },
-  { "Koromon",      "Fire",  &SPR_KOROMON,        1,1,1,2, 0 },
-  { "Agumon",       "Fire",  &SPR_AGUMON,         2,1,2,2, 0 },
+  { "Kindlekin",      "Fire",  &SPR_KINDLEKIN,       1,1,1,2, 0 },
+  { "Emberpaw",      "Fire",  &SPR_EMBERPAW,        1,1,1,2, 0 },
+  { "Pyruff",       "Fire",  &SPR_PYRUFF,         2,1,2,2, 0 },
   // ── Fire linea STR ──────────────────────────────────────────
-  { "Greymon",      "Fire",  &SPR_GREYMON,        3,1,2,2, 0 },
-  { "MetalGreymon", "Fire",  &SPR_METALGREYMON,   3,2,2,2, 0 },
-  { "WarGreymon",   "Fire",  &SPR_WARGREYMON,     3,2,3,2, 0 },
-  { "Phoenixmon",   "Light", &SPR_PHOENIXMON,     2,3,2,3, 0 },
+  { "Blazebrand",      "Fire",  &SPR_BLAZEBRAND,        3,1,2,2, 0 },
+  { "Mightforge", "Fire",  &SPR_MIGHTFORGE,   3,2,2,2, 0 },
+  { "Flameforge",   "Fire",  &SPR_FLAMEFORGE,     3,2,3,2, 0 },
+  { "Seraphyre",   "Light", &SPR_SERAPHYRE,     2,3,2,3, 0 },
   // ── Fire linea ENG ──────────────────────────────────────────
-  { "Tyrannomon",   "Fire",  &SPR_TYRANNOMON,     2,1,3,2, 0 },
-  { "Gigadramon",   "Fire",  &SPR_GIGADRAMON,     2,2,3,2, 0 },
-  { "Dukemon",      "Fire",  &SPR_DUKEMON,        3,2,3,2, 0 },
+  { "Shieldmane",   "Fire",  &SPR_SHIELDMANE,     2,1,3,2, 0 },
+  { "Fortifire",   "Fire",  &SPR_FORTIFIRE,     2,2,3,2, 0 },
+  { "Citadellion",      "Fire",  &SPR_CITADELLION,        3,2,3,2, 0 },
   { "Mitamamon",    "Light", &SPR_MITAMAMON,      2,3,3,3, 0 },
   // ── Fire linea INT ──────────────────────────────────────────
-  { "Meramon",      "Fire",  &SPR_MERAMON,        1,3,2,2, 0 },
-  { "Deathmeramon", "Fire",  &SPR_DEATHMERAMON,   2,3,2,2, 0 },
-  { "Beelzemon",    "Dark",  &SPR_BEELZEMON,      2,3,2,1, 0 },
+  { "Aurovulp",      "Fire",  &SPR_AUROVULP,        1,3,2,2, 0 },
+  { "Vulpyre", "Fire",  &SPR_VULPYRE,   2,3,2,2, 0 },
+  { "Eldervulp",    "Fire",  &SPR_ELDERVULP,      2,3,2,1, 0 },
   { "Lucemon",      "Light", &SPR_LUCEMON,        1,3,1,3, 0 },
-  // ── Mugendramon (Dark condiviso Fire) ───────────────────────
-  { "Mugendramon",  "Dark",  &SPR_MUGENDRAMON,    3,1,3,1, 0 },
+  // ── Noxfortress (Dark condiviso Fire) ───────────────────────
+  { "Noxfortress",  "Dark",  &SPR_NOXFORTRESS,    3,1,3,1, 0 },
   // ── Water condivisi ─────────────────────────────────────────
-  { "Punimon",      "Water", &SPR_PUNIMON,        1,1,1,2, 0 },
-  { "Tsunomon",     "Water", &SPR_TSUNOMON,        1,1,1,2, 0 },
-  { "Gabumon",      "Water", &SPR_GABUMON,         1,2,2,2, 0 },
+  { "Drowsea",      "Water", &SPR_DROWSEA,        1,1,1,2, 0 },
+  { "Gloomfin",     "Water", &SPR_GLOOMFIN,        1,1,1,2, 0 },
+  { "Fanglure",      "Water", &SPR_FANGLURE,         1,2,2,2, 0 },
   // ── Water linea STR ─────────────────────────────────────────
-  { "Garurumon",    "Water", &SPR_GARURUMON,       2,2,2,2, 0 },
-  { "WereGarurumon","Water", &SPR_WEREGARURUMON,   3,2,2,2, 0 },
-  { "MetalGarurumon","Water",&SPR_METALGARURUMON,  3,2,3,2, 0 },
-  { "CresGarurumon","Light", &SPR_CRESGARURUMON,   2,3,2,3, 0 },
+  { "Riptalon",    "Water", &SPR_RIPTALON,       2,2,2,2, 0 },
+  { "Maulstream","Water", &SPR_MAULSTREAM,   3,2,2,2, 0 },
+  { "Leviacrush","Water",&SPR_LEVIACRUSH,  3,2,3,2, 0 },
+  { "Lightfin","Light", &SPR_LIGHTFIN,   2,3,2,3, 0 },
   // ── Water linea ENG ─────────────────────────────────────────
-  { "Seadramon",       "Water", &SPR_SEADRAMON,        2,1,3,2, 0 },
-  { "Mermaimon",       "Water", &SPR_MERMAIMON,        2,2,3,2, 0 },
-  { "AncientMermaimon","Water", &SPR_ANCIENTMERMAIMON, 2,2,3,2, 0 },
+  { "Baleguard",       "Water", &SPR_BALEGUARD,        2,1,3,2, 0 },
+  { "Bulwhark",       "Water", &SPR_BULWHARK,        2,2,3,2, 0 },
+  { "Tidenaught","Water", &SPR_TIDENAUGHT, 2,2,3,2, 0 },
   { "Vikemon",         "Light", &SPR_VIKEMON,          3,2,2,3, 0 },
   // ── Water linea INT ─────────────────────────────────────────
-  { "Gesomon",      "Water", &SPR_GESOMON,        1,3,2,2, 0 },
-  { "Whamon",       "Water", &SPR_WHAMON,         1,3,2,2, 0 },
-  { "Plesiomon",    "Water", &SPR_PLESIOMON,      1,3,2,3, 0 },
+  { "Sirenlure",      "Water", &SPR_SIRENLURE,        1,3,2,2, 0 },
+  { "Abyssibyl",       "Water", &SPR_ABYSSIBYL,         1,3,2,2, 0 },
+  { "Thalassibyl",    "Water", &SPR_THALASSIBYL,      1,3,2,3, 0 },
   { "Ryugumon",     "Light", &SPR_RYUGUMON,       1,3,1,3, 0 },
-  // ── SkullMammothmon (Dark condiviso Water) ──────────────────
-  { "SkullMammothmon","Dark",&SPR_SKULLMAMMON,     3,1,3,1, 0 },
+  // ── Nightmare (Dark condiviso Water) ──────────────────
+  { "Nightmare","Dark",&SPR_NIGHTMARE,     3,1,3,1, 0 },
 };
 const int REGISTRO_SIZE = 32;
-int registroCursor = 0;  // Digimon corrente nel registro
+int registroCursor = 0;  // Creatura corrente nel registro
 
 // Aggiorna ottenuto nel registro quando evolve
 void registroMarkObtained(const char* name) {
@@ -428,59 +454,59 @@ void registroLoad() {
 int setupChoice = 0;
 
 // ── HELPERS ───────────────────────────────────────────────────
-const DigiSprites* getCurrentSprites() {
+const PetSprites* getCurrentSprites() {
   int v = max(0, finalVariant);
   if (gElement == FIRE) {
-    if (evoStage == 0) return &SPR_BOTAMON;
-    if (evoStage == 1) return &SPR_KOROMON;
-    if (evoStage == 2) return &SPR_AGUMON;
+    if (evoStage == 0) return &SPR_KINDLEKIN;
+    if (evoStage == 1) return &SPR_EMBERPAW;
+    if (evoStage == 2) return &SPR_PYRUFF;
     if (evoStage == 3) {
-      if (lineVariant == 0) return &SPR_GREYMON;        // STR
-      if (lineVariant == 1) return &SPR_TYRANNOMON;     // ENG
-      return &SPR_MERAMON;                              // INT
+      if (lineVariant == 0) return &SPR_BLAZEBRAND;        // STR
+      if (lineVariant == 1) return &SPR_SHIELDMANE;     // ENG
+      return &SPR_AUROVULP;                              // INT
     }
     if (evoStage == 4) {
-      if (lineVariant == 0) return &SPR_METALGREYMON;   // STR
-      if (lineVariant == 1) return &SPR_GIGADRAMON;     // ENG
-      return &SPR_DEATHMERAMON;                         // INT
+      if (lineVariant == 0) return &SPR_MIGHTFORGE;   // STR
+      if (lineVariant == 1) return &SPR_FORTIFIRE;     // ENG
+      return &SPR_VULPYRE;                         // INT
     }
     // Ultimate Fire
     if (lineVariant == 0) {
-      const DigiSprites* f0[] = { &SPR_WARGREYMON, &SPR_PHOENIXMON, &SPR_MUGENDRAMON };
+      const PetSprites* f0[] = { &SPR_FLAMEFORGE, &SPR_SERAPHYRE, &SPR_NOXFORTRESS };
       return f0[v];
     }
     if (lineVariant == 1) {
-      const DigiSprites* f1[] = { &SPR_DUKEMON,    &SPR_MITAMAMON,  &SPR_MUGENDRAMON };
+      const PetSprites* f1[] = { &SPR_CITADELLION,    &SPR_MITAMAMON,  &SPR_NOXFORTRESS };
       return f1[v];
     }
     // INT line
-    const DigiSprites* f2[] = { &SPR_BEELZEMON,    &SPR_LUCEMON,    &SPR_MUGENDRAMON };
+    const PetSprites* f2[] = { &SPR_ELDERVULP,    &SPR_LUCEMON,    &SPR_NOXFORTRESS };
     return f2[v];
   } else {
-    if (evoStage == 0) return &SPR_PUNIMON;
-    if (evoStage == 1) return &SPR_TSUNOMON;
-    if (evoStage == 2) return &SPR_GABUMON;
+    if (evoStage == 0) return &SPR_DROWSEA;
+    if (evoStage == 1) return &SPR_GLOOMFIN;
+    if (evoStage == 2) return &SPR_FANGLURE;
     if (evoStage == 3) {
-      if (lineVariant == 0) return &SPR_GARURUMON;      // STR
-      if (lineVariant == 1) return &SPR_SEADRAMON;      // ENG
-      return &SPR_GESOMON;                              // INT
+      if (lineVariant == 0) return &SPR_RIPTALON;      // STR
+      if (lineVariant == 1) return &SPR_BALEGUARD;      // ENG
+      return &SPR_SIRENLURE;                              // INT
     }
     if (evoStage == 4) {
-      if (lineVariant == 0) return &SPR_WEREGARURUMON;  // STR
-      if (lineVariant == 1) return &SPR_MERMAIMON;      // ENG
-      return &SPR_WHAMON;                               // INT
+      if (lineVariant == 0) return &SPR_MAULSTREAM;  // STR
+      if (lineVariant == 1) return &SPR_BULWHARK;      // ENG
+      return &SPR_ABYSSIBYL;                               // INT
     }
     // Ultimate Water
     if (lineVariant == 0) {
-      const DigiSprites* w0[] = { &SPR_METALGARURUMON,   &SPR_CRESGARURUMON, &SPR_SKULLMAMMON };
+      const PetSprites* w0[] = { &SPR_LEVIACRUSH,   &SPR_LIGHTFIN, &SPR_NIGHTMARE };
       return w0[v];
     }
     if (lineVariant == 1) {
-      const DigiSprites* w1[] = { &SPR_ANCIENTMERMAIMON, &SPR_VIKEMON,       &SPR_SKULLMAMMON };
+      const PetSprites* w1[] = { &SPR_TIDENAUGHT, &SPR_VIKEMON,       &SPR_NIGHTMARE };
       return w1[v];
     }
     // INT line
-    const DigiSprites* w2[] = { &SPR_PLESIOMON,        &SPR_RYUGUMON,      &SPR_SKULLMAMMON };
+    const PetSprites* w2[] = { &SPR_THALASSIBYL,        &SPR_RYUGUMON,      &SPR_NIGHTMARE };
     return w2[v];
   }
 }
@@ -510,7 +536,7 @@ const char* getCurrentName() {
   }
 }
 
-const unsigned char* getFrame(const DigiSprites* spr, unsigned long now) {
+const unsigned char* getFrame(const PetSprites* spr, unsigned long now) {
   if (isSick)
     return spr->sick[(now / 600) % 2];
   switch (gState) {
@@ -555,9 +581,9 @@ bool getIdleMirror(unsigned long now) {
   return t < (unsigned long)(SPR_DRIFT_PERIOD_MS / 2);
 }
 
-// Disegna sprite con scaling via drawBox (zero PROGMEM aggiuntivo)
 void drawSpriteScaled(int x, int y, int scale,
-                      const unsigned char* bmp, bool mirror = false) {
+                      const unsigned char* bmp, bool mirror = false,
+                      uint16_t color = C_FG) {
   for (int row = 0; row < SPR_SIZE; row++) {
     uint8_t b0 = pgm_read_byte(&bmp[row * 2]);
     uint8_t b1 = pgm_read_byte(&bmp[row * 2 + 1]);
@@ -565,28 +591,26 @@ void drawSpriteScaled(int x, int y, int scale,
     for (int col = 0; col < SPR_SIZE; col++) {
       if (rowbits & (1 << col)) {
         int drawCol = mirror ? (SPR_SIZE - 1 - col) : col;
-        u8g2.drawBox(x + drawCol*scale, y + row*scale, scale, scale);
+        canvas.fillRect(x + drawCol*scale, y + row*scale, scale, scale, color);
       }
     }
   }
 }
 
-// Disegna piccola icona escremento (5x5 pixel)
 void drawPoopIcon(int x, int y) {
-  // 7x6px — punta stretta, base larga
-  u8g2.drawBox(x+2, y,   3, 1);
-  u8g2.drawBox(x+1, y+1, 5, 1);
-  u8g2.drawBox(x+2, y+2, 3, 1);
-  u8g2.drawBox(x+1, y+3, 5, 1);
-  u8g2.drawBox(x,   y+4, 7, 1);
-  u8g2.drawBox(x,   y+5, 7, 1);
+  const int s = 3;
+  canvas.fillRect(x+2*s, y,     3*s, s, C_POOP);
+  canvas.fillRect(x+s,   y+s,   5*s, s, C_POOP);
+  canvas.fillRect(x+2*s, y+2*s, 3*s, s, C_POOP);
+  canvas.fillRect(x+s,   y+3*s, 5*s, s, C_POOP);
+  canvas.fillRect(x,     y+4*s, 7*s, s, C_POOP);
+  canvas.fillRect(x,     y+5*s, 7*s, s, C_POOP);
 }
 
-// Barra progresso
-void drawBar(int x, int y, int w, int h, int val) {
-  u8g2.drawFrame(x, y, w, h);
+void drawBar(int x, int y, int w, int h, int val, uint16_t color = C_HAP) {
+  canvas.drawRect(x, y, w, h, C_DIM);
   int fill = val * (w-2) / 100;
-  if (fill > 0) u8g2.drawBox(x+1, y+1, fill, h-2);
+  if (fill > 0) canvas.fillRect(x+1, y+1, fill, h-2, color);
 }
 
 // ── NVS ───────────────────────────────────────────────────────
@@ -716,7 +740,7 @@ void checkEvolution() {
   }
   evoStage = next;
   gState = STATE_EVOLVING;
-  // Segna il nuovo Digimon nel registro
+  // Segna la nuova creatura nel registro
   registroMarkObtained(getCurrentName());
   // Jingle evoluzione — evolveStartMs impostato DOPO i delay
   // così i 3 secondi partono quando lo schermo appare davvero
@@ -808,7 +832,7 @@ void checkPoop(unsigned long now) {
     statHAP   = max(0, statHAP - POOP_MEGA_MALUS);
     tone(BUZZER, 150, 300);
   } else if (poopMega) {
-    // Il mega non è stato pulito: il Digimon si ammala
+    // Il mega non è stato pulito: la creatura si ammala
     isSick        = true;
     sickStartMs   = now;
     lastSickDecayMs = now;
@@ -851,7 +875,7 @@ void checkSick(unsigned long now) {
   }
 }
 
-void healDigi() {
+void healPet() {
   isSick        = false;
   sickStartMs   = 0;
   lastSickDecayMs = 0;
@@ -866,7 +890,7 @@ void healDigi() {
 }
 
 // ── FEED ──────────────────────────────────────────────────────
-void feedDigi(unsigned long now) {
+void feedPet(unsigned long now) {
   lastFeedMs = now;
   statHAP    = min(100, statHAP + FEED_HAP_BONUS);
   int stat   = random(3);
@@ -883,23 +907,13 @@ void feedDigi(unsigned long now) {
 Orientation lastDisplayOri = ORI_NORMAL;
 
 void updateDisplayRotation(Orientation ori) {
-  // Ruota il display solo quando cambia orientamento
-  // Sleep e DND non ruotano (capovolto/faccia giù non ha senso ruotare)
   if (ori == lastDisplayOri) return;
   lastDisplayOri = ori;
   switch (ori) {
-    case ORI_LEFT:
-      u8g2.setDisplayRotation(U8G2_R1);  // 90° CW
-      break;
-    case ORI_RIGHT:
-      u8g2.setDisplayRotation(U8G2_R3);  // 90° CCW
-      break;
-    case ORI_UPSIDE_DOWN:
-      u8g2.setDisplayRotation(U8G2_R2);  // 180°
-      break;
-    default:  // NORMAL, FACE_UP, FACE_DOWN
-      u8g2.setDisplayRotation(U8G2_R0);
-      break;
+    case ORI_LEFT:        tft.setRotation(1); break;
+    case ORI_RIGHT:       tft.setRotation(3); break;
+    case ORI_UPSIDE_DOWN: tft.setRotation(2); break;
+    default:              tft.setRotation(0); break;
   }
 }
 
@@ -925,493 +939,410 @@ void enterStateFromOri(Orientation ori) {
 //  DRAW FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
 
-// ── Rotazione display per orientamento ────────────────────────
-// Ruota il display in base all'orientamento fisico del cubo
-// così lo schermo appare sempre dritto
 void setDisplayRotation(Orientation ori) {
-  u8g2.clearBuffer();
-  switch (ori) {
-    case ORI_LEFT:
-      u8g2 = U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R1, U8X8_PIN_NONE);
-      break;
-    case ORI_RIGHT:
-      u8g2 = U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R3, U8X8_PIN_NONE);
-      break;
-    case ORI_UPSIDE_DOWN:
-      u8g2 = U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R2, U8X8_PIN_NONE);
-      break;
-    default:
-      u8g2 = U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
-      break;
-  }
-  u8g2.begin();
+  updateDisplayRotation(ori);
 }
 
 // ── Cuori helper ──────────────────────────────────────────────
 void drawHeart(int x, int y, bool filled) {
+  const int s = 3;
+  uint16_t c = filled ? C_STR : C_DIM;
   if (filled) {
-    u8g2.drawPixel(x+1,y);   u8g2.drawPixel(x+3,y);
-    u8g2.drawBox(x,y+1,5,2);
-    u8g2.drawBox(x+1,y+3,3,1);
-    u8g2.drawPixel(x+2,y+4);
+    canvas.fillRect(x+s,   y,     s,   s,   c);
+    canvas.fillRect(x+3*s, y,     s,   s,   c);
+    canvas.fillRect(x,     y+s,   5*s, 2*s, c);
+    canvas.fillRect(x+s,   y+3*s, 3*s, s,   c);
+    canvas.fillRect(x+2*s, y+4*s, s,   s,   c);
   } else {
-    u8g2.drawPixel(x+1,y);   u8g2.drawPixel(x+3,y);
-    u8g2.drawPixel(x,y+1);   u8g2.drawPixel(x+4,y+1);
-    u8g2.drawPixel(x,y+2);   u8g2.drawPixel(x+4,y+2);
-    u8g2.drawPixel(x+1,y+3); u8g2.drawPixel(x+3,y+3);
-    u8g2.drawPixel(x+2,y+4);
+    canvas.fillRect(x+s,   y,     s, s, c);
+    canvas.fillRect(x+3*s, y,     s, s, c);
+    canvas.fillRect(x,     y+s,   s, s, c);
+    canvas.fillRect(x+4*s, y+s,   s, s, c);
+    canvas.fillRect(x,     y+2*s, s, s, c);
+    canvas.fillRect(x+4*s, y+2*s, s, s, c);
+    canvas.fillRect(x+s,   y+3*s, s, s, c);
+    canvas.fillRect(x+3*s, y+3*s, s, s, c);
+    canvas.fillRect(x+2*s, y+4*s, s, s, c);
   }
 }
 
 void drawHearts(int x, int y, int filled, int total=3) {
   for (int i = 0; i < total; i++) {
-    drawHeart(x + i*7, y, i < filled);
+    drawHeart(x + i*20, y, i < filled);
   }
 }
 
 // ── Registro ──────────────────────────────────────────────────
 void drawRegistroScreen(unsigned long now) {
-  u8g2.clearBuffer();
-  const DigiEntry& e = REGISTRO[registroCursor];
+  canvas.fillSprite(C_BG);
+  const PetEntry& e = REGISTRO[registroCursor];
 
-  // ── Header ──────────────────────────────────────────────────
-  u8g2.setFont(u8g2_font_5x7_tr);
+  canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
   char hdr[24];
   sprintf(hdr, "%d/%d  Registro", registroCursor+1, REGISTRO_SIZE);
-  u8g2.drawStr(0, 8, hdr);
-  u8g2.drawStr(100, 8, "A/C");
-  u8g2.drawHLine(0, 9, 128);
+  canvas.drawString(hdr, 20, 12);
+  canvas.drawFastHLine(0, 32, DISP_SIZE, C_DIM);
 
   if (e.obtained == 0) {
-    // Non ottenuto
-    u8g2.setFont(u8g2_font_7x13B_tr);
-    u8g2.drawStr(8, 38, "???");
-    u8g2.setFont(u8g2_font_5x7_tr);
-    u8g2.drawStr(44, 22, "???");
-    u8g2.drawStr(44, 34, "Prova ad");
-    u8g2.drawStr(44, 44, "ottenerlo!");
+    canvas.setTextFont(4); canvas.setTextColor(C_DIM, C_BG);
+    canvas.drawString("???", 80, 100);
+    canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
+    canvas.drawString("Non ancora", 70, 150);
+    canvas.drawString("ottenuto!", 75, 172);
   } else {
-    // Sprite idle ×2 a sinistra (y=11..42)
     const unsigned char* frame = e.sprites->idle[(now/ANIM_IDLE_MS)%3];
-    drawSpriteScaled(2, 11, 2, frame);
+    drawSpriteScaled(14, 40, 4, frame);
 
-    // Info a destra
-    u8g2.setFont(u8g2_font_6x10_tr);
-    u8g2.drawStr(38, 20, e.name);
-    u8g2.setFont(u8g2_font_5x7_tr);
+    canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
+    canvas.drawString(e.name, 84, 42);
+    canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
+    char ob[20]; sprintf(ob, "%s  x%d", e.element, e.obtained);
+    canvas.drawString(ob, 84, 76);
 
-    // Elemento + volte ottenuto
-    char ob[20];
-    sprintf(ob, "%s  x%d", e.element, e.obtained);
-    u8g2.drawStr(38, 30, ob);
-
-    // Cuori su 2 righe
-    // Riga 1: S e I
-    u8g2.drawStr(38, 40, "S");
-    drawHearts(46, 33, e.strH);
-    u8g2.drawStr(82, 40, "I");
-    drawHearts(90, 33, e.intH);
-    // Riga 2: E e H
-    u8g2.drawStr(38, 51, "E");
-    drawHearts(46, 44, e.engH);
-    u8g2.drawStr(82, 51, "H");
-    drawHearts(90, 44, e.hapH);
+    // Cuori: S, I, E, H — due colonne
+    canvas.setTextColor(C_FG, C_BG);
+    canvas.drawString("S", 84, 102); drawHearts(100, 100, e.strH);
+    canvas.drawString("I", 84, 130); drawHearts(100, 128, e.intH);
+    canvas.drawString("E", 84, 158); drawHearts(100, 156, e.engH);
+    canvas.drawString("H", 84, 186); drawHearts(100, 184, e.hapH);
   }
 
-  // Indicazioni in fondo
-  u8g2.drawHLine(0, 54, 128);
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(0, 63, "A=cicla           C=esci");
-  u8g2.sendBuffer();
+  canvas.drawFastHLine(0, 215, DISP_SIZE, C_DIM);
+  canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
+  canvas.drawString("A=cicla  C=esci", 50, 220);
+  canvas.setTextSize(1);
+  canvas.pushSprite(0, 0);
 }
 
 
 void drawBootScreen() {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(2, 10, "PetCube v0.12");
-  u8g2.drawHLine(0, 12, 128);
+  canvas.fillSprite(C_BG);
+  canvas.setTextFont(4); canvas.setTextColor(C_CYAN, C_BG);
+  canvas.drawString("PetCube", 72, 40);
+  canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
+  canvas.drawString("v0.14", 98, 74);
+  canvas.drawFastHLine(30, 96, 180, C_DIM);
 
-  u8g2.setFont(u8g2_font_5x7_tr);
-  // Opzione 0: carica
-  if (bootChoice == 0) { u8g2.drawBox(0, 15, 128, 10); u8g2.setDrawColor(0); }
-  u8g2.drawStr(2, 23, "> Continua partita");
-  u8g2.setDrawColor(1);
+  // Opzione 0: continua
+  uint16_t c0 = (bootChoice == 0) ? C_FG : C_DIM;
+  if (bootChoice == 0) canvas.fillRect(30, 102, 180, 28, 0x1082);
+  canvas.setTextFont(2); canvas.setTextColor(c0, C_BG);
+  canvas.drawString("> Continua partita", 38, 109);
 
-  // Opzione 1: ricomincia
-  if (bootChoice == 1) { u8g2.drawBox(0, 27, 128, 10); u8g2.setDrawColor(0); }
-  u8g2.drawStr(2, 35, "> Nuova partita");
-  u8g2.setDrawColor(1);
+  // Opzione 1: nuova partita
+  uint16_t c1 = (bootChoice == 1) ? C_FG : C_DIM;
+  if (bootChoice == 1) canvas.fillRect(30, 140, 180, 28, 0x1082);
+  canvas.setTextColor(c1, C_BG);
+  canvas.drawString("> Nuova partita", 38, 147);
 
-  u8g2.drawHLine(0, 44, 128);
-  u8g2.drawStr(0, 53, "A = cambia");
-  u8g2.drawStr(0, 63, "B = seleziona");
-  u8g2.sendBuffer();
+  canvas.drawFastHLine(30, 178, 180, C_DIM);
+  canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
+  canvas.drawString("A=cambia  B=OK", 58, 188);
+  canvas.setTextSize(1);
+  canvas.pushSprite(0, 0);
 }
 
 void drawSetupScreen(unsigned long now) {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(2, 10, "Scegli elemento:");
-  u8g2.drawHLine(0, 12, 128);
+  canvas.fillSprite(C_BG);
+  canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
+  canvas.drawString("Scegli elemento:", 50, 18);
+  canvas.drawFastHLine(20, 40, 200, C_DIM);
 
-  // Anteprime animate Botamon (Fire, sx) e Punimon (Water, dx)
-  // Sprite 16×16 scalate ×2 = 32×32; anim a 2 frame (idle1/idle2) ~400ms
   int frame = (now / 400) % 2;
-  const unsigned char* botaFrame = SPR_BOTAMON.idle[frame];
-  const unsigned char* puniFrame = SPR_PUNIMON.idle[frame];
+  const unsigned char* botaFrame = SPR_KINDLEKIN.idle[frame];
+  const unsigned char* puniFrame = SPR_DROWSEA.idle[frame];
 
-  // Box di selezione attorno allo sprite scelto
-  if (setupChoice == 0) u8g2.drawFrame(14, 16, 36, 36);
-  else                  u8g2.drawFrame(78, 16, 36, 36);
+  // Fire a sinistra, Water a destra (sprite ×5 = 80×80)
+  const int sz = 5;
+  int lx = 30, rx = 130, sy = 60;
+  if (setupChoice == 0) canvas.drawRect(lx-4, sy-4, SPR_SIZE*sz+8, SPR_SIZE*sz+8, C_TIMER);
+  else                  canvas.drawRect(rx-4, sy-4, SPR_SIZE*sz+8, SPR_SIZE*sz+8, C_CYAN);
 
-  drawSpriteScaled(16, 18, 2, botaFrame);  // Fire
-  drawSpriteScaled(80, 18, 2, puniFrame);  // Water
+  drawSpriteScaled(lx, sy, sz, botaFrame, false, setupChoice==0 ? C_TIMER : C_DIM);
+  drawSpriteScaled(rx, sy, sz, puniFrame, false, setupChoice==1 ? C_CYAN  : C_DIM);
 
-  // Etichette sotto gli sprite
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(20, 60, "Fire");
-  u8g2.drawStr(84, 60, "Water");
+  canvas.setTextFont(2);
+  canvas.setTextColor(setupChoice==0 ? C_TIMER : C_DIM, C_BG);
+  canvas.drawString("Fire",  45, 168);
+  canvas.setTextColor(setupChoice==1 ? C_CYAN : C_DIM, C_BG);
+  canvas.drawString("Water", 140, 168);
 
-  // Footer hint
-  u8g2.drawHLine(0, 53, 128);
-  // Eventuale "A=cambia  B=OK" — opzionale, qui omesso per non sovrapporre
-  // alle label. L'utente sa già dai feedback sonori.
-
-  u8g2.sendBuffer();
+  canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
+  canvas.drawString("A=cambia  B=OK", 55, 210);
+  canvas.setTextSize(1);
+  canvas.pushSprite(0, 0);
 }
 
 void drawMainScreen(unsigned long now) {
-  u8g2.clearBuffer();
-  const DigiSprites* spr = getCurrentSprites();
+  canvas.fillSprite(C_BG);
+  const PetSprites* spr = getCurrentSprites();
 
-  // Quando lo schermo è ruotato (Left/Right), il display è 64×128 (verticale).
-  // Usiamo coordinate adattate. Normal e UpsideDown → 128×64 (orizzontale).
-  bool vertical = (gOrient == ORI_LEFT || gOrient == ORI_RIGHT);
-
-  // Dimensioni display effettive
-  int dispW = vertical ? 64  : 128;
-  int dispH = vertical ? 128 : 64;
-
-  // Posizione sprite centrata
-  int sprX = (dispW - SPR_DRAW_SIZE) / 2;
-  int sprY = vertical ? (dispH - SPR_DRAW_SIZE) / 2       // centrato verticalmente
-                      : SPR_Y;                             // sotto la riga testo
-
-  // ── Riga stato (in cima, adattata al display) ─────────────────
-  u8g2.setFont(u8g2_font_5x7_tr);
-
+  // ── DEAD ──────────────────────────────────────────────────────
   if (gState == STATE_DEAD) {
-    if ((now/500)%2) u8g2.drawStr(0, 8, "ADDIO...");
-    const unsigned char* f = spr->sick[(now/600)%2];
-    drawSpriteScaled(sprX, sprY, SPR_SCALE, f);
-    u8g2.sendBuffer();
+    if ((now/500)%2) {
+      canvas.setTextFont(4); canvas.setTextColor(C_DIM, C_BG);
+      canvas.drawString("ADDIO...", 68, 105);
+    }
+    drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, spr->sick[(now/600)%2]);
+    canvas.pushSprite(0, 0);
     return;
   }
 
-  // Label stato
+  // ── Label stato ───────────────────────────────────────────────
   const char* stateLabel = "Idle";
+  uint16_t labelColor = C_DIM;
   if (isSick) {
-    stateLabel = ((now/400)%2) ? "SICK!" : "     ";
+    stateLabel = ((now/400)%2) ? "SICK!" : "";
+    labelColor = C_STR;
   } else {
     switch (gState) {
-      case STATE_TRAINING: stateLabel = "Training"; break;
-      case STATE_STUDY:    stateLabel = "Study";    break;
-      case STATE_WORK:     stateLabel = "Work";     break;
-      case STATE_SLEEP:    stateLabel = "Sleep";    break;
-      case STATE_DND:      stateLabel = "DND";      break;
+      case STATE_TRAINING: stateLabel = "Training"; labelColor = C_STR;   break;
+      case STATE_STUDY:    stateLabel = "Study";    labelColor = C_INT;   break;
+      case STATE_WORK:     stateLabel = "Work";     labelColor = C_ENG;   break;
+      case STATE_SLEEP:    stateLabel = "Sleep";    labelColor = C_CYAN;  break;
+      case STATE_DND:      stateLabel = "DND";      labelColor = C_DIM;   break;
       case STATE_SESSION:
-        if (sessionType==STATE_TRAINING) stateLabel="Training";
-        else if (sessionType==STATE_STUDY) stateLabel="Study";
-        else stateLabel="Work";
+        if (sessionType==STATE_TRAINING)      { stateLabel="Training"; labelColor=C_STR; }
+        else if (sessionType==STATE_STUDY)    { stateLabel="Study";    labelColor=C_INT; }
+        else                                  { stateLabel="Work";     labelColor=C_ENG; }
         break;
       default: break;
     }
   }
-  // In orizzontale: label e timer sulla stessa riga, barra sotto
-  // In verticale: label riga 1, timer riga 2, barra sotto il timer
+
+  canvas.setTextFont(2); canvas.setTextColor(labelColor, C_BG);
+  int lw = canvas.textWidth(stateLabel);
+  canvas.drawString(stateLabel, (DISP_SIZE - lw) / 2, 14);
+
+  // ── Timer sessione ────────────────────────────────────────────
   if (sessionRunning) {
     unsigned long elapsed = now - sessionStartMs;
     unsigned long remain  = SESSION_MS > elapsed ? SESSION_MS - elapsed : 0;
     char buf[8];
     sprintf(buf, "%02lu:%02lu", remain/60000, (remain%60000)/1000);
-    if (vertical) {
-      u8g2.drawStr(0, 8,  stateLabel);   // riga 1: tipo sessione
-      u8g2.drawStr(0, 17, buf);           // riga 2: timer
-      int prog = (int)((unsigned long)elapsed * dispW / SESSION_MS);
-      u8g2.drawBox(0, 18, min(prog, dispW), 1);
-    } else {
-      u8g2.drawStr(0,  8, stateLabel);   // label a sinistra
-      u8g2.drawStr(52, 8, buf);           // timer a destra
-      int prog = (int)((unsigned long)elapsed * 128 / SESSION_MS);
-      u8g2.drawBox(0, 9, min(prog, 128), 1);
-    }
-  } else {
-    u8g2.drawStr(0, 8, stateLabel);
+    canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
+    int tw = canvas.textWidth(buf);
+    canvas.drawString(buf, (DISP_SIZE - tw) / 2, 36);
+    int prog = (int)((unsigned long)elapsed * 180 / SESSION_MS);
+    canvas.drawRect(30, 50, 180, 6, C_DIM);
+    if (prog > 0) canvas.fillRect(31, 51, min(prog, 178), 4, C_TIMER);
   }
 
-  // ── 📡 Icona BT (solo orizzontale, in alto a destra accanto al timer/label) ─
-  if (!vertical && bleClientConnected) {
-    // Disegno una piccola "B" stilizzata 5×7 in alto a destra
-    // Posizione: 120,1 - 124,7 (rimane libero per Sleep/altro stato)
-    int bx = 122;
-    int by = 1;
-    // Triangoli che formano la "B" del Bluetooth
-    u8g2.drawVLine(bx,     by,     7);   // asta verticale
-    u8g2.drawLine(bx,     by,     bx+2, by+2);  // / superiore
-    u8g2.drawLine(bx+2,   by+2,   bx,   by+4);  // \ centrale 1
-    u8g2.drawLine(bx,     by+4,   bx+2, by+6);  // / inferiore
-    u8g2.drawLine(bx+2,   by+6,   bx,   by+3);  // collegamento centrale-basso? simplified
-  } else if (!vertical && bleAdvertising) {
-    // Advertising (in attesa di client): puntino pulsante in alto a destra
-    if ((now / 700) % 2 == 0) {
-      u8g2.drawPixel(124, 2);
-      u8g2.drawPixel(125, 2);
-      u8g2.drawPixel(124, 3);
-      u8g2.drawPixel(125, 3);
-    }
+  // ── Icona BT ─────────────────────────────────────────────────
+  if (bleClientConnected) {
+    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_CYAN, C_BG);
+    canvas.drawString("B", 188, 12);
+    canvas.setTextSize(1);
+  } else if (bleAdvertising && (now/700)%2 == 0) {
+    canvas.fillRect(188, 16, 6, 6, C_DIM);
   }
 
   // ── Sprite ───────────────────────────────────────────────────
   const unsigned char* frame = getFrame(spr, now);
-  // Moto idle: solo in orizzontale (in verticale si muoverebbe su/giù, meno bello)
-  int driftX   = (!vertical && gState == STATE_IDLE && !isSick) ? getIdleDriftX(now) : 0;
-  bool mirrorX = (!vertical && gState == STATE_IDLE && !isSick) ? getIdleMirror(now) : false;
-  drawSpriteScaled(sprX + driftX, sprY, SPR_SCALE, frame, mirrorX);
+  bool mirrorX = (gState == STATE_IDLE && !isSick) ? getIdleMirror(now) : false;
+  uint16_t sprColor = isSick ? 0x07E0 : C_FG;  // verde se malato
+  drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, frame, mirrorX, sprColor);
 
-  // ── Escrementi — solo in IDLE, angolo basso destra ─────────────
+  // ── Escrementi ───────────────────────────────────────────────
   if (gState == STATE_IDLE && !isSick) {
     if (poopMega) {
-      // Mega: 11x6 in basso a destra
-      int mx = dispW - 12;
-      int my = dispH - 7;
-      u8g2.drawBox(mx+3, my,   5, 1);
-      u8g2.drawBox(mx+1, my+1, 9, 1);
-      u8g2.drawBox(mx+3, my+2, 5, 1);
-      u8g2.drawBox(mx+1, my+3, 9, 1);
-      u8g2.drawBox(mx,   my+4,11, 1);
-      u8g2.drawBox(mx,   my+5,11, 1);
+      // Mega: doppia dimensione, bottom-right
+      const int s = 4;
+      int mx = 168, my = 193;
+      canvas.fillRect(mx+3*s, my,     5*s, s, C_POOP);
+      canvas.fillRect(mx+s,   my+s,   9*s, s, C_POOP);
+      canvas.fillRect(mx+3*s, my+2*s, 5*s, s, C_POOP);
+      canvas.fillRect(mx+s,   my+3*s, 9*s, s, C_POOP);
+      canvas.fillRect(mx,     my+4*s, 11*s,s, C_POOP);
+      canvas.fillRect(mx,     my+5*s, 11*s,s, C_POOP);
     } else if (poopCount > 0) {
-      // Normali: 2 colonne da destra, icone 7x6, gap 9px orizzontale 8px verticale
-      int startX = dispW - 8;
-      int startY = dispH - 7;
+      int startX = 163, startY = 193;
       for (int i = 0; i < poopCount && i < 4; i++) {
-        int col = i % 2;
-        int row = i / 2;
-        drawPoopIcon(startX - col * 9, startY - row * 8);
+        int col = i % 2, row = i / 2;
+        drawPoopIcon(startX - col * 26, startY - row * 22);
       }
     }
   }
 
-  // ── ⚔️  Icona notifica (se notifica pendente in Idle) ────────
-  if (!vertical && gState == STATE_IDLE) {
+  // ── Icona notifica ────────────────────────────────────────────
+  if (gState == STATE_IDLE) {
     int n = countActiveNotifs();
     if (n > 0) {
       int firstIdx = firstActiveNotif();
       NotifSource src = pendingNotifs[firstIdx].pkt.source;
-      // Posizione icona 12×12 nell'angolo in alto a destra
-      int ix = dispW - 14;
-      int iy = 14;
+      int ix = 155, iy = 13;
 
-      // Source con icona XBM dedicata
       const unsigned char* iconBmp = nullptr;
       switch (src) {
         case SRC_DISCORD:  iconBmp = ICON_DISCORD;   break;
         case SRC_CALENDAR: iconBmp = ICON_CALENDAR;  break;
         case SRC_GMAIL:    iconBmp = ICON_GMAIL;     break;
-        case SRC_TRELLO:   iconBmp = ICON_HACKNPLAN; break;  // HacknPlan riusa SRC_TRELLO
+        case SRC_TRELLO:   iconBmp = ICON_HACKNPLAN; break;
         case SRC_TELEGRAM: iconBmp = ICON_TELEGRAM;  break;
         case SRC_WHATSAPP: iconBmp = ICON_WHATSAPP;  break;
-        // SRC_INSTAGRAM (8) e SRC_GENERIC (255): nessuna icona → fallback lettera
         default: break;
       }
 
       if (iconBmp) {
-        // Disegno diretto: pixel bianchi del PNG = pixel attivi (accesi) sul display
-        u8g2.drawXBMP(ix, iy, 12, 12, iconBmp);
+        canvas.drawXBitmap(ix, iy, iconBmp, 12, 12, C_FG);
       } else {
-        // Fallback lettera per source senza icona dedicata (Discord, Slack, GitHub)
-        // Per leggibilità disegno un piccolo riquadro arrotondato dietro
-        u8g2.drawRBox(ix - 1, iy - 1, 14, 14, 2);
-        u8g2.setDrawColor(0);
-        u8g2.setFont(u8g2_font_5x7_tr);
+        canvas.fillRoundRect(ix-1, iy-1, 14, 14, 2, C_DIM);
+        canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_BG, C_BG);
         const char* ch = "?";
         switch (src) {
           case SRC_DISCORD: ch = "D"; break;
           case SRC_SLACK:   ch = "S"; break;
           case SRC_GITHUB:  ch = "G"; break;
-          default: ch = "?";
+          default: break;
         }
-        u8g2.drawStr(ix + 3, iy + 9, ch);
-        u8g2.setDrawColor(1);
+        canvas.drawString(ch, ix+4, iy+3);
       }
-
-      // Counter se >1 notifica
       if (n > 1) {
-        char cnt[3];
-        sprintf(cnt, "%d", n);
-        u8g2.setFont(u8g2_font_5x7_tr);
-        u8g2.drawStr(ix - 6, iy + 9, cnt);
+        char cnt[3]; sprintf(cnt, "%d", n);
+        canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_TIMER, C_BG);
+        canvas.drawString(cnt, ix-14, iy+1);
+        canvas.setTextSize(1);
       }
     }
   }
 
-  u8g2.sendBuffer();
+  canvas.pushSprite(0, 0);
 }
 
 void drawMenuScreen(unsigned long now) {
-  u8g2.clearBuffer();
+  canvas.fillSprite(C_BG);
 
-  // ── Linea verticale separatrice ──────────────────────────────
-  u8g2.drawVLine(55, 0, 64);
-
-  // ── Sprite piccolo a destra (×2 = 32×32), centrato verticalmente
-  const DigiSprites* spr = getCurrentSprites();
+  // Sprite piccolo in alto centrato (×4 = 64×64)
+  const PetSprites* spr = getCurrentSprites();
   const unsigned char* frame = getFrame(spr, now);
-  drawSpriteScaled(72, 16, 2, frame);
+  drawSpriteScaled(88, 10, 4, frame);
 
-  // ── Menu a sinistra ──────────────────────────────────────────
-  u8g2.setFont(u8g2_font_5x7_tr);
+  canvas.drawFastHLine(20, 82, 200, C_DIM);
+
   unsigned long now_ = millis();
-
   for (int i = 0; i < MENU_ITEMS; i++) {
-    int y = 10 + i * 11;
+    int y = 90 + i * 26;
 
-    // Cursore
-    if (i == menuCursor) u8g2.drawStr(0, y, ">");
-
-    // Label
     char label[20];
     strcpy(label, MENU_LABELS[i]);
 
-    // Stato disponibilità
     bool enabled = true;
-    if (i == 1) { // Feed
+    if (i == 1) {
       if (lastFeedMs > 0 && now_ - lastFeedMs < FEED_COOLDOWN_MS) {
         unsigned long wait = (FEED_COOLDOWN_MS - (now_ - lastFeedMs)) / 60000 + 1;
         sprintf(label, "Feed(%lum)", wait);
         enabled = false;
       }
     }
-    if (i == 2) enabled = (poopCount > 0 || poopMega); // Clean
-    if (i == 3) enabled = isSick;                       // Heal
-    // Tutte le voci ora attive (Battle rimossa)
+    if (i == 2) enabled = (poopCount > 0 || poopMega);
+    if (i == 3) enabled = isSick;
 
-    u8g2.setDrawColor(enabled ? 1 : 0);
-    // Testo grigio per voci disabilitate: scrivo solo se non i==cursore
-    if (!enabled && i != menuCursor) {
-      u8g2.setDrawColor(1);
-      // Disegnamo il testo con colore invertito
-      u8g2.drawStr(8, y, label);
-      // Sovrapponiamo pattern per effetto "dimmed" — semplicemente saltiamo un pixel su due
-      // (l'OLED non ha livelli di grigio, usiamo questo workaround)
-    } else {
-      u8g2.setDrawColor(1);
-      u8g2.drawStr(8, y, label);
-    }
-    u8g2.setDrawColor(1);
+    uint16_t c = !enabled ? C_DIM : (i == menuCursor ? C_TIMER : C_FG);
+    if (i == menuCursor) canvas.fillRect(20, y-2, 200, 22, 0x1082);
+    canvas.setTextFont(2); canvas.setTextColor(c, C_BG);
+    canvas.drawString(i == menuCursor ? (String(">") + label).c_str() : label, 30, y);
   }
 
-  // Hint controlli
-  u8g2.drawHLine(0, 56, 54);
-  u8g2.drawStr(0, 63, "A=giu B=ok C=esci");
-
-  u8g2.sendBuffer();
+  canvas.drawFastHLine(20, 222, 200, C_DIM);
+  canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
+  canvas.drawString("A=giu  B=ok  C=esci", 30, 226);
+  canvas.setTextSize(1);
+  canvas.pushSprite(0, 0);
 }
 
 void drawStatusScreen() {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_5x7_tr);
+  canvas.fillSprite(C_BG);
 
   // Nome + stadio
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 10, getCurrentName());
-  u8g2.setFont(u8g2_font_5x7_tr);
-  const char* stageNames[] = {"Baby I","Baby II","Child","Adult","Perfect","Ultimate"};
-  u8g2.drawStr(70, 10, stageNames[min(evoStage,5)]);
-  // Mostra la linea evolutiva da Adult in poi
+  canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
+  canvas.drawString(getCurrentName(), 20, 14);
+
+  const char* stageNames[] = {"Spark","Wisp","Sprite","Spirit","Avatar","Primal"};
+  canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
+  canvas.drawString(stageNames[min(evoStage,5)], 20, 50);
   if (evoStage >= 3) {
     const char* lnames[] = { "STR", "ENG", "INT" };
-    u8g2.setFont(u8g2_font_5x7_tr);
-    u8g2.drawStr(70, 20, lnames[lineVariant]);
+    canvas.drawString(lnames[lineVariant], 120, 50);
   }
-  u8g2.drawHLine(0, 12, 128);
+  canvas.drawFastHLine(10, 72, 220, C_DIM);
 
-  // Stat con barre
-  char buf[20];
-  sprintf(buf, "HAP"); u8g2.drawStr(0,  22, buf); drawBar(24, 15, 52, 6, statHAP);
-  sprintf(buf, "STR"); u8g2.drawStr(0,  31, buf); drawBar(24, 24, 52, 6, statSTR);
-  sprintf(buf, "INT"); u8g2.drawStr(0,  40, buf); drawBar(24, 33, 52, 6, statINT);
-  sprintf(buf, "ENG"); u8g2.drawStr(0,  49, buf); drawBar(24, 42, 52, 6, statENG);
+  // Barre stat
+  const int bx = 55, bw = 130, bh = 10, lx = 14;
+  canvas.setTextFont(2);
+  canvas.setTextColor(C_HAP, C_BG); canvas.drawString("HAP", lx, 80);
+  drawBar(bx, 82, bw, bh, statHAP, C_HAP);
+  canvas.setTextColor(C_STR, C_BG); canvas.drawString("STR", lx, 100);
+  drawBar(bx, 102, bw, bh, statSTR, C_STR);
+  canvas.setTextColor(C_INT, C_BG); canvas.drawString("INT", lx, 120);
+  drawBar(bx, 122, bw, bh, statINT, C_INT);
+  canvas.setTextColor(C_ENG, C_BG); canvas.drawString("ENG", lx, 140);
+  drawBar(bx, 142, bw, bh, statENG, C_ENG);
 
-  // Battaglie
-  sprintf(buf, "W:%d L:%d", battlesWon, battlesLost);
-  u8g2.drawStr(82, 22, buf);
+  canvas.drawFastHLine(10, 160, 220, C_DIM);
 
-  // Sessioni e prossima evo
-  sprintf(buf, "Sess:%d", sessTotal);
-  u8g2.drawStr(82, 31, buf);
+  // Sessioni / Evo / Battaglie
+  char buf[24];
+  canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
+  sprintf(buf, "Sess: %d", sessTotal); canvas.drawString(buf, 20, 168);
   if (evoStage < 5) {
-    sprintf(buf, "Evo:%d", EVO_THRESH[evoStage+1]);
-    u8g2.drawStr(82, 40, buf);
+    sprintf(buf, "Evo: %d", EVO_THRESH[evoStage+1]); canvas.drawString(buf, 130, 168);
   }
-
-  // Stato malattia
+  sprintf(buf, "W:%d  L:%d", battlesWon, battlesLost); canvas.drawString(buf, 20, 192);
   if (isSick) {
-    u8g2.drawStr(82, 49, "MALATO!");
+    canvas.setTextColor(C_STR, C_BG); canvas.drawString("MALATO!", 140, 192);
   }
 
-  u8g2.drawHLine(0, 55, 128);
-  u8g2.drawStr(0, 63, "B=ora  C=indietro");
-
-  u8g2.sendBuffer();
+  canvas.drawFastHLine(10, 214, 220, C_DIM);
+  canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
+  canvas.drawString("B=ora  C=indietro", 40, 220);
+  canvas.setTextSize(1);
+  canvas.pushSprite(0, 0);
 }
 
 void drawClockScreen(unsigned long now) {
-  u8g2.clearBuffer();
+  canvas.fillSprite(C_BG);
 
-  // Calcola ora CEST da offset
   long totalSec = (long)(now / 1000) + clockOffsetSec;
   int  hh = (totalSec / 3600) % 24;
   int  mm = (totalSec / 60)   % 60;
   int  ss =  totalSec         % 60;
 
   if (!clockSet) {
-    // Ora non impostata — mostra schermata di impostazione
-    u8g2.setFont(u8g2_font_6x10_tr);
-    u8g2.drawStr(2, 10, "Imposta ora CEST:");
-    u8g2.drawHLine(0, 12, 128);
+    canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
+    canvas.drawString("Imposta ora CEST:", 35, 28);
+    canvas.drawFastHLine(20, 50, 200, C_DIM);
 
     char buf[12];
     sprintf(buf, "%02d : %02d", clockEditH, clockEditM);
-    u8g2.setFont(u8g2_font_7x13B_tr);
-    u8g2.drawStr(28, 38, buf);
+    canvas.setTextFont(4); canvas.setTextColor(C_TIMER, C_BG);
+    int tw = canvas.textWidth(buf);
+    canvas.drawString(buf, (DISP_SIZE - tw) / 2, 90);
 
-    u8g2.setFont(u8g2_font_5x7_tr);
-    u8g2.drawStr(0, 52, "A=+ora  B=+min");
-    u8g2.drawStr(0, 63, "C=salva  (salta=C)");
+    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
+    canvas.drawString("A=+ora   B=+min", 40, 160);
+    canvas.drawString("C=salva  (salta=C)", 28, 182);
+    canvas.setTextSize(1);
   } else {
-    // Ora impostata — mostra orologio
     char buf[10];
     sprintf(buf, "%02d:%02d", hh, mm);
-    u8g2.setFont(u8g2_font_7x13B_tr);
-    // Centrato
-    int tw = strlen(buf) * 7;
-    u8g2.drawStr((128-tw)/2, 32, buf);
+    canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
+    int tw = canvas.textWidth(buf);
+    canvas.drawString(buf, (DISP_SIZE - tw) / 2, 70);
 
-    // Secondi come barra progresso
-    u8g2.setFont(u8g2_font_5x7_tr);
-    u8g2.drawFrame(16, 38, 96, 5);
-    u8g2.drawBox(17, 39, ss * 94 / 59, 3);
+    // Barra secondi
+    canvas.drawRect(30, 110, 180, 10, C_DIM);
+    canvas.fillRect(31, 111, ss * 178 / 59, 8, C_CYAN);
 
-    // Sprite piccolo animato
-    const DigiSprites* spr = getCurrentSprites();
-    drawSpriteScaled(56, 44, 2, spr->idle[(now/400)%3]);
+    // Sprite animato centrato
+    const PetSprites* spr = getCurrentSprites();
+    drawSpriteScaled(SPR_X, 128, SPR_SCALE, spr->idle[(now/400)%3]);
 
-    u8g2.drawStr(38, 63, "C = chiudi");
+    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
+    canvas.drawString("C = chiudi", 75, 220);
+    canvas.setTextSize(1);
   }
 
-  u8g2.sendBuffer();
+  canvas.pushSprite(0, 0);
 }
 
 void handleClockButtons(bool btnANow, bool btnBNow, bool btnCNow) {
@@ -1451,34 +1382,30 @@ void handleClockButtons(bool btnANow, bool btnBNow, bool btnCNow) {
 }
 
 void drawEvolvingScreen(unsigned long now) {
-  u8g2.clearBuffer();
-  const DigiSprites* spr = getCurrentSprites();
+  canvas.fillSprite(C_BG);
+  const PetSprites* spr = getCurrentSprites();
 
-  // Adatta coordinate al display verticale/orizzontale
-  bool vertical = (gOrient == ORI_LEFT || gOrient == ORI_RIGHT);
-  int dispW = vertical ? 64  : 128;
-  int dispH = vertical ? 128 : 64;
-  int sprX  = (dispW - SPR_DRAW_SIZE) / 2;
-  int sprY  = (dispH - SPR_DRAW_SIZE) / 2;  // centrato verticalmente
-
-  bool show = (now / 80) % 2 == 0;
-  if (show) drawSpriteScaled(sprX, sprY, SPR_SCALE, spr->idle[0]);
-
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 10, "Evoluzione!");
-
-  // Usa millis() fresco — evita underflow se evolveStartMs > now del loop
   unsigned long nowFresh = millis();
   unsigned long el = (nowFresh >= evolveStartMs) ? (nowFresh - evolveStartMs) : 0;
-  int prog = min((int)(el * dispW / EVOLVE_ANIM_MS), dispW);
-  u8g2.drawBox(0, 11, prog, 1);
+
+  // Flash sprite
+  if ((now / 80) % 2 == 0)
+    drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, spr->idle[0]);
+
+  canvas.setTextFont(4); canvas.setTextColor(C_TIMER, C_BG);
+  canvas.drawString("Evoluzione!", 40, 14);
+
+  // Barra progresso
+  int prog = min((int)(el * DISP_SIZE / EVOLVE_ANIM_MS), DISP_SIZE);
+  canvas.fillRect(0, 44, prog, 4, C_TIMER);
 
   if (el > EVOLVE_ANIM_MS / 2) {
-    u8g2.setFont(u8g2_font_5x7_tr);
-    u8g2.drawStr(2, dispH - 2, getCurrentName());
+    canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
+    int tw = canvas.textWidth(getCurrentName());
+    canvas.drawString(getCurrentName(), (DISP_SIZE - tw) / 2, 210);
   }
 
-  u8g2.sendBuffer();
+  canvas.pushSprite(0, 0);
 
   if (el >= EVOLVE_ANIM_MS) {
     gState  = STATE_IDLE;
@@ -1495,7 +1422,7 @@ void executeMenuItem(unsigned long now) {
       break;
     case 1: // Feed
       if (lastFeedMs == 0 || now - lastFeedMs >= FEED_COOLDOWN_MS) {
-        feedDigi(now);
+        feedPet(now);
         gScreen = SCR_MAIN;
       }
       break;
@@ -1507,7 +1434,7 @@ void executeMenuItem(unsigned long now) {
       break;
     case 3: // Heal
       if (isSick) {
-        healDigi();
+        healPet();
         gScreen = SCR_MAIN;
       }
       break;
@@ -1777,7 +1704,7 @@ uint8_t registroEntryVariant(uint8_t idx) {
 BattleElement registroEntryElement(uint8_t idx) {
   const char* e = REGISTRO[idx].element;
   // Light/Dark sono "morale", l'elemento di battaglia segue il pool:
-  // Botamon..Mugendramon (0..15) = Fire, Punimon..SkullMammon (16..31) = Water
+  // Kindlekin..Noxfortress (0..15) = Fire, Drowsea..Nightmare (16..31) = Water
   if (idx <= 15) return BE_FIRE;
   return BE_WATER;
 }
@@ -1895,56 +1822,56 @@ uint8_t currentPetRegistroIdx() {
   // Mappo lo stadio + linea + variante all'indice nel REGISTRO[]
   // Vedi REGISTRO[] in PetCube.ino
   if (gElement == FIRE) {
-    if (evoStage == 0) return IDX_BOTAMON;
-    if (evoStage == 1) return IDX_KOROMON;
-    if (evoStage == 2) return IDX_AGUMON;
+    if (evoStage == 0) return IDX_KINDLEKIN;
+    if (evoStage == 1) return IDX_EMBERPAW;
+    if (evoStage == 2) return IDX_PYRUFF;
     if (evoStage == 3) {
-      if (lineVariant == 0) return IDX_GREYMON;
-      if (lineVariant == 1) return IDX_TYRANNOMON;
-      return IDX_MERAMON;
+      if (lineVariant == 0) return IDX_BLAZEBRAND;
+      if (lineVariant == 1) return IDX_SHIELDMANE;
+      return IDX_AUROVULP;
     }
     if (evoStage == 4) {
-      if (lineVariant == 0) return IDX_METALGREYMON;
-      if (lineVariant == 1) return IDX_GIGADRAMON;
-      return IDX_DEATHMERAMON;
+      if (lineVariant == 0) return IDX_MIGHTFORGE;
+      if (lineVariant == 1) return IDX_FORTIFIRE;
+      return IDX_VULPYRE;
     }
     // Ultimate
     int v = max(0, finalVariant);
     if (lineVariant == 0) {
-      // STR final: WarGreymon, Phoenixmon, Mugendramon
-      static const uint8_t f0[] = { IDX_WARGREYMON, IDX_PHOENIXMON, IDX_MUGENDRAMON };
+      // STR final: Flameforge, Seraphyre, Noxfortress
+      static const uint8_t f0[] = { IDX_FLAMEFORGE, IDX_SERAPHYRE, IDX_NOXFORTRESS };
       return f0[v];
     }
     if (lineVariant == 1) {
-      static const uint8_t f1[] = { IDX_DUKEMON, IDX_MITAMAMON, IDX_MUGENDRAMON };
+      static const uint8_t f1[] = { IDX_CITADELLION, IDX_MITAMAMON, IDX_NOXFORTRESS };
       return f1[v];
     }
-    static const uint8_t f2[] = { IDX_BEELZEMON, IDX_LUCEMON, IDX_MUGENDRAMON };
+    static const uint8_t f2[] = { IDX_ELDERVULP, IDX_LUCEMON, IDX_NOXFORTRESS };
     return f2[v];
   } else {
-    if (evoStage == 0) return IDX_PUNIMON;
-    if (evoStage == 1) return IDX_TSUNOMON;
-    if (evoStage == 2) return IDX_GABUMON;
+    if (evoStage == 0) return IDX_DROWSEA;
+    if (evoStage == 1) return IDX_GLOOMFIN;
+    if (evoStage == 2) return IDX_FANGLURE;
     if (evoStage == 3) {
-      if (lineVariant == 0) return IDX_GARURUMON;
-      if (lineVariant == 1) return IDX_SEADRAMON;
-      return IDX_GESOMON;
+      if (lineVariant == 0) return IDX_RIPTALON;
+      if (lineVariant == 1) return IDX_BALEGUARD;
+      return IDX_SIRENLURE;
     }
     if (evoStage == 4) {
-      if (lineVariant == 0) return IDX_WEREGARURUMON;
-      if (lineVariant == 1) return IDX_MERMAIMON;
-      return IDX_WHAMON;
+      if (lineVariant == 0) return IDX_MAULSTREAM;
+      if (lineVariant == 1) return IDX_BULWHARK;
+      return IDX_ABYSSIBYL;
     }
     int v = max(0, finalVariant);
     if (lineVariant == 0) {
-      static const uint8_t w0[] = { IDX_METALGARURUMON, IDX_CRESGARURUMON, IDX_SKULLMAMMON };
+      static const uint8_t w0[] = { IDX_LEVIACRUSH, IDX_LIGHTFIN, IDX_NIGHTMARE };
       return w0[v];
     }
     if (lineVariant == 1) {
-      static const uint8_t w1[] = { IDX_ANCIENTMERMAIMON, IDX_VIKEMON, IDX_SKULLMAMMON };
+      static const uint8_t w1[] = { IDX_TIDENAUGHT, IDX_VIKEMON, IDX_NIGHTMARE };
       return w1[v];
     }
-    static const uint8_t w2[] = { IDX_PLESIOMON, IDX_RYUGUMON, IDX_SKULLMAMMON };
+    static const uint8_t w2[] = { IDX_THALASSIBYL, IDX_RYUGUMON, IDX_NIGHTMARE };
     return w2[v];
   }
 }
@@ -2086,7 +2013,7 @@ void finalizeBattle() {
     // +5 HAP
     statHAP = min(100, statHAP + BATTLE_WIN_HAP);
     // +3 alla stat dominante del nemico
-    DigiStats en_base = getStatsFromRegistro(battleEnemyIdx);
+    PetStats en_base = getStatsFromRegistro(battleEnemyIdx);
     uint8_t dom_stat = 0;  // 0=ATK 1=SPA 2=DEF 3=HP
     if (en_base.spa > en_base.atk) dom_stat = 1;
     uint8_t maxV = max(en_base.atk, en_base.spa);
@@ -2130,99 +2057,88 @@ void enterBattleStateMain() {
   gScreen = SCR_MAIN;
 }
 
-// Helper: disegna una stringa centrata orizzontalmente sul display 128px
-// alla coordinata y data. Usa il font corrente già selezionato.
 void drawCenteredStr(int y, const char* s) {
-  int w = u8g2.getStrWidth(s);
-  int x = (128 - w) / 2;
-  if (x < 0) x = 0;
-  u8g2.drawStr(x, y, s);
+  int w = canvas.textWidth(s);
+  int x = max(0, (DISP_SIZE - w) / 2);
+  canvas.drawString(s, x, y);
 }
 
 // ── RENDERING BATTLE ──────────────────────────────────────────
 void drawBattleScreen(unsigned long now) {
-  u8g2.clearBuffer();
+  canvas.fillSprite(C_BG);
   unsigned long el = now - battleStateMs;
 
-  // Riga superiore: V/L dei clash
-  u8g2.setFont(u8g2_font_5x7_tr);
+  // Header: clash score
+  canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
   char buf[32];
-  sprintf(buf, "Clash %d/3   P:%d E:%d", min((int)battleClashIdx + 1, 3),
+  sprintf(buf, "Clash %d/3   P:%d  E:%d", min((int)battleClashIdx + 1, 3),
           battlePetWins, battleEnemyWins);
-  u8g2.drawStr(0, 7, buf);
-  u8g2.drawHLine(0, 9, 128);
+  drawCenteredStr(12, buf);
+  canvas.drawFastHLine(0, 32, DISP_SIZE, C_DIM);
 
-  // Sprite pet a sinistra, nemico a destra
+  // Indici sprite
   uint8_t petIdx = currentPetRegistroIdx();
   if (petIdx >= 32 || battleEnemyIdx >= 32) {
-    // Safety: indici invalidi, abortiamo
-    drawCenteredStr(62, "Battle error");
-    u8g2.sendBuffer();
+    canvas.setTextFont(2); canvas.setTextColor(C_STR, C_BG);
+    drawCenteredStr(115, "Battle error");
+    canvas.pushSprite(0, 0);
     enterBattleStateMain();
     return;
   }
-  const DigiSprites* petSpr = REGISTRO[petIdx].sprites;
-  const DigiSprites* enSpr  = REGISTRO[battleEnemyIdx].sprites;
+  const PetSprites* petSpr = REGISTRO[petIdx].sprites;
+  const PetSprites* enSpr  = REGISTRO[battleEnemyIdx].sprites;
   if (!petSpr || !enSpr) {
-    drawCenteredStr(62, "Sprite NULL");
-    u8g2.sendBuffer();
+    canvas.setTextFont(2); canvas.setTextColor(C_STR, C_BG);
+    drawCenteredStr(115, "Sprite NULL");
+    canvas.pushSprite(0, 0);
     enterBattleStateMain();
     return;
   }
 
-  int petX = 8;
-  int enX  = 128 - 8 - 32;  // sprite ×2 = 32px
-  int yPos = 14;
+  // Posizioni sprite battle: pet sx ×4 (64px), nemico dx ×4
+  const int bscale = 4;
+  const int bsz    = SPR_SIZE * bscale;  // 64
+  int petX = 14, enX = DISP_SIZE - 14 - bsz;
+  int yPos = 38;
 
-  // Animazione "sprint" verso il centro
   if (gState == STATE_BATTLE_INTRO) {
-    int progress = min((int)el, 800);  // 800ms
-    int offset = (progress * 16) / 800;
+    int progress = min((int)el, 800);
+    int offset = (progress * 30) / 800;
     petX += offset;
-    enX -= offset;
+    enX  -= offset;
     int idx0 = (now/200) % 3;
-    drawSpriteScaled(petX, yPos, 2, petSpr->idle[idx0], true /* mirror — guarda a destra */);
-    drawSpriteScaled(enX,  yPos, 2, enSpr->idle[idx0]);
-    u8g2.setFont(u8g2_font_6x10_tr);
-    drawCenteredStr(62, "VS");
+    drawSpriteScaled(petX, yPos, bscale, petSpr->idle[idx0], true);
+    drawSpriteScaled(enX,  yPos, bscale, enSpr->idle[idx0]);
+    canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
+    drawCenteredStr(115, "VS");
     if (el >= 1000) {
-      // Passa al primo clash
       gState = STATE_BATTLE_CLASH;
       battleStateMs = now;
-      cursorX = 0;
+      cursorX = 10;
       cursorDir = 1;
       petCritThisClash = false;
-      // Crit window posizionata in centro con piccola randomicità
-      critWindowStart = 64 - critWindowWidth / 2 + random(-10, 11);
-      if (critWindowStart < 5) critWindowStart = 5;
-      if (critWindowStart + critWindowWidth > 122) critWindowStart = 122 - critWindowWidth;
+      critWindowStart = 120 - critWindowWidth / 2 + random(-15, 16);
+      critWindowStart = constrain(critWindowStart, 12, 218 - critWindowWidth);
     }
   }
   else if (gState == STATE_BATTLE_CLASH) {
     int idx0 = (now / 250) % 2;
-    // Sprite stationari
-    drawSpriteScaled(petX, yPos, 2, petSpr->atk[idx0], true);
-    drawSpriteScaled(enX,  yPos, 2, enSpr->atk[idx0]);
+    drawSpriteScaled(petX, yPos, bscale, petSpr->atk[idx0], true);
+    drawSpriteScaled(enX,  yPos, bscale, enSpr->atk[idx0]);
 
-    // Barra timing-game in basso
-    u8g2.drawFrame(2, 50, 124, 10);
-    // Zona crit (highlight)
-    u8g2.drawBox(critWindowStart, 51, critWindowWidth, 8);
-    // Cursore mobile
-    cursorX += cursorDir * 5;  // velocità (era 3)
-    if (cursorX >= 122) { cursorX = 122; cursorDir = -1; }
-    if (cursorX <= 4)   { cursorX = 4;   cursorDir = 1; }
-    u8g2.setDrawColor(0);
-    u8g2.drawBox(cursorX, 51, 3, 8);
-    u8g2.setDrawColor(1);
-    u8g2.drawVLine(cursorX, 49, 12);
-    u8g2.drawVLine(cursorX + 2, 49, 12);
+    // Timing-game bar
+    canvas.drawRect(10, 180, 220, 20, C_FG);
+    canvas.fillRect(critWindowStart, 181, critWindowWidth, 18, C_ENG);
 
-    // Hint (sopra la barra timing)
-    u8g2.setFont(u8g2_font_5x7_tr);
-    drawCenteredStr(48, "B = colpo");
+    cursorX += cursorDir * 4;
+    if (cursorX >= 228) { cursorX = 228; cursorDir = -1; }
+    if (cursorX <= 10)  { cursorX = 10;  cursorDir =  1; }
+    canvas.fillRect(cursorX, 181, 4, 18, C_BG);
+    canvas.drawFastVLine(cursorX+1, 177, 26, C_FG);
 
-    // Timeout 4s → clash forzato senza crit
+    canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
+    drawCenteredStr(162, "B = colpo");
+
     if (el >= 4000) {
       petCritThisClash = false;
       gState = STATE_BATTLE_RESOLVE;
@@ -2230,20 +2146,16 @@ void drawBattleScreen(unsigned long now) {
     }
   }
   else if (gState == STATE_BATTLE_RESOLVE) {
-    // Mostra animazione attacco con flash
-    drawSpriteScaled(petX, yPos, 2, petSpr->atk[(now / 100) % 2], true);
-    drawSpriteScaled(enX,  yPos, 2, enSpr->atk[(now / 100) % 2]);
+    drawSpriteScaled(petX, yPos, bscale, petSpr->atk[(now/100)%2], true);
+    drawSpriteScaled(enX,  yPos, bscale, enSpr->atk[(now/100)%2]);
 
-    // Calcola il danno al primo frame
     static ClashResult lastResult;
-    if (el < 50) {
-      lastResult = resolveClash();
-    }
-    // Mostra danno
-    char dmg[24];
-    sprintf(dmg, "P:-%d  E:-%d", lastResult.enemy_dmg, lastResult.pet_dmg);
-    u8g2.setFont(u8g2_font_6x10_tr);
-    drawCenteredStr(62, dmg);
+    if (el < 50) lastResult = resolveClash();
+
+    char dmg[28];
+    sprintf(dmg, "P:-%d   E:-%d", lastResult.enemy_dmg, lastResult.pet_dmg);
+    canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
+    drawCenteredStr(170, dmg);
 
     if (el >= 1500) {
       battleClashIdx++;
@@ -2252,31 +2164,28 @@ void drawBattleScreen(unsigned long now) {
         finalizeBattle();
       } else {
         gState = STATE_BATTLE_CLASH;
-        cursorX = (cursorDir > 0) ? 4 : 122;
+        cursorX = (cursorDir > 0) ? 10 : 228;
         petCritThisClash = false;
-        critWindowStart = 64 - critWindowWidth / 2 + random(-10, 11);
-        if (critWindowStart < 5) critWindowStart = 5;
-        if (critWindowStart + critWindowWidth > 122) critWindowStart = 122 - critWindowWidth;
+        critWindowStart = 120 - critWindowWidth / 2 + random(-15, 16);
+        critWindowStart = constrain(critWindowStart, 12, 218 - critWindowWidth);
       }
       battleStateMs = now;
     }
   }
   else if (gState == STATE_BATTLE_RESULT) {
-    // Schermata finale 2.5 secondi, poi torna a Idle
     bool pet_won = (battlePetWins > battleEnemyWins) ||
                    (battlePetWins == battleEnemyWins &&
                     (float)battlePetDmgTaken / max((uint16_t)1, battlePetStats.hp) <
                     (float)battleEnemyDmgTaken / max((uint16_t)1, battleEnemyStats.hp));
-    drawSpriteScaled(petX, yPos, 2, pet_won ? petSpr->happy[(now/250)%2] : petSpr->sick[(now/400)%2], true);
-    drawSpriteScaled(enX,  yPos, 2, pet_won ? enSpr->sick[(now/400)%2]  : enSpr->happy[(now/250)%2]);
-    u8g2.setFont(u8g2_font_6x10_tr);
-    drawCenteredStr(62, pet_won ? "VITTORIA!" : "SCONFITTA");
-
-    if (el >= 2500) {
-      enterBattleStateMain();
-    }
+    drawSpriteScaled(petX, yPos, bscale, pet_won ? petSpr->happy[(now/250)%2] : petSpr->sick[(now/400)%2], true);
+    drawSpriteScaled(enX,  yPos, bscale, pet_won ? enSpr->sick[(now/400)%2]  : enSpr->happy[(now/250)%2]);
+    canvas.setTextFont(4);
+    canvas.setTextColor(pet_won ? C_HAP : C_STR, C_BG);
+    drawCenteredStr(170, pet_won ? "VITTORIA!" : "SCONFITTA");
+    if (el >= 2500) enterBattleStateMain();
   }
-  u8g2.sendBuffer();
+
+  canvas.pushSprite(0, 0);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2294,20 +2203,27 @@ void setup() {
   digitalWrite(LED, HIGH);
   randomSeed(analogRead(0));
 
-  u8g2.begin();
+  tft.init();
+  tft.setRotation(0);
+  tft.fillScreen(TFT_BLACK);
+  canvas.setColorDepth(16);
+  canvas.createSprite(DISP_SIZE, DISP_SIZE);
 
   // Splash
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_7x13B_tr);
-  u8g2.drawStr(20, 28, "PetCube");
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(24, 44, "v0.3  Loading...");
-  u8g2.sendBuffer();
+  canvas.fillSprite(C_BG);
+  canvas.setTextFont(4);
+  canvas.setTextColor(C_FG, C_BG);
+  canvas.drawString("PetCube", 80, 100);
+  canvas.setTextFont(2);
+  canvas.drawString("v0.3  Loading...", 55, 135);
+  canvas.pushSprite(0, 0);
 
   if (!mpu.begin()) {
-    u8g2.clearBuffer();
-    u8g2.drawStr(0, 20, "MPU non trovato!");
-    u8g2.sendBuffer();
+    canvas.fillSprite(C_BG);
+    canvas.setTextFont(2);
+    canvas.setTextColor(TFT_RED, C_BG);
+    canvas.drawString("MPU non trovato!", 30, 110);
+    canvas.pushSprite(0, 0);
     while (1);
   }
   mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
@@ -2475,7 +2391,7 @@ void loop() {
       gScreen    = SCR_MAIN;
       saveToNVS();
       // Segna il Baby I di partenza nel registro
-      registroMarkObtained(gElement == FIRE ? "Botamon" : "Punimon");
+      registroMarkObtained(gElement == FIRE ? "Kindlekin" : "Drowsea");
       tone(BUZZER,784,80); delay(90); tone(BUZZER,1047,200);
       delay(50);
     }
@@ -2621,7 +2537,7 @@ void loop() {
     // A non fa nulla in status
   }
   else if (gScreen == SCR_REGISTRO) {
-    // A: cicla tra i Digimon
+    // A: cicla tra le creature
     if (btnAPrev==HIGH && btnANow==LOW) {
       registroCursor = (registroCursor + 1) % REGISTRO_SIZE;
       tone(BUZZER, 660, 30);
