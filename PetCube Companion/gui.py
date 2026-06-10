@@ -42,6 +42,8 @@ from config_schema import (
     PLUGIN_ORDER,
     value_to_str as _value_to_str_impl,
     parse_field_value as _parse_field_value_impl,
+    generate_device_id,
+    device_tag,
 )
 from version import APP_VERSION
 from notification_packet import (
@@ -429,12 +431,23 @@ class CompanionGUI(ctk.CTk):
         device_cfg = self.config_data.get("device", {})
         device_fields = [
             ("ble_name",          "Nome BLE",          "text"),
+            ("username",          "Username",          "text"),
             ("wifi_fallback_url", "WiFi Fallback URL",  "text"),
         ]
         for row_idx, (key, label, _) in enumerate(device_fields):
             sv = ctk.StringVar(value=str(device_cfg.get(key, "")))
             self._sv_device[key] = sv
             self._build_field_row(dev_frame, row_idx, label, sv, "text")
+
+        self._device_id = device_cfg.get("device_id") or generate_device_id()
+        self._tag_label = ctk.CTkLabel(
+            dev_frame, text="", anchor="w",
+            text_color=TEXT_DIM, font=ctk.CTkFont(size=11),
+        )
+        self._tag_label.grid(row=len(device_fields), column=0, columnspan=2,
+                              padx=12, pady=(0, 8), sticky="w")
+        self._sv_device["username"].trace_add("write", lambda *_: self._update_tag_label())
+        self._update_tag_label()
 
         # Sezione Plugin
         self._build_section_header(scroll, "PLUGIN")
@@ -522,6 +535,10 @@ class CompanionGUI(ctk.CTk):
             font=ctk.CTkFont(size=13),
             command=self._open_setup_wizard,
         ).pack(side="left")
+
+    def _update_tag_label(self) -> None:
+        tag = device_tag(self._sv_device["username"].get(), self._device_id)
+        self._tag_label.configure(text=f"ID PetCube: {tag}")
 
     def _build_section_header(self, parent, title: str) -> None:
         ctk.CTkLabel(
@@ -630,6 +647,9 @@ class CompanionGUI(ctk.CTk):
         dev = raw.setdefault("device", {})
         for key, sv in self._sv_device.items():
             dev[key] = sv.get()
+        dev["device_id"] = dev.get("device_id") or self._device_id
+        self._device_id = dev["device_id"]
+        self._update_tag_label()
 
         # Plugins
         plugins_raw = raw.setdefault("plugins", {})
@@ -682,6 +702,8 @@ class CompanionGUI(ctk.CTk):
         device_cfg = raw.get("device", {})
         for key, sv in self._sv_device.items():
             sv.set(str(device_cfg.get(key, "")))
+        self._device_id = device_cfg.get("device_id") or generate_device_id()
+        self._update_tag_label()
 
         # Plugins
         plugins_cfg = raw.get("plugins", {})

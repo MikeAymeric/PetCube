@@ -111,6 +111,7 @@ Preferences prefs;
 #define BLE_CHAR_VERSION_UUID   "12345678-1234-5678-1234-56789abcdef2"
 #define BLE_CHAR_OTA_CTRL_UUID  "12345678-1234-5678-1234-56789abcdef3"
 #define BLE_CHAR_OTA_DATA_UUID  "12345678-1234-5678-1234-56789abcdef4"
+#define BLE_CHAR_IDENTITY_UUID  "12345678-1234-5678-1234-56789abcdef5"
 #define DISP_SIZE            240
 #define SPR_SCALE            7    // sprite 16×16 → 112×112
 #define SPR_SIZE             16
@@ -297,12 +298,17 @@ bool     petCritThisClash   = false;
 // Registro nemici battuti (32 flag, persistenti nel namespace 'registro')
 bool enemyKnown[32] = {false};
 
+// ID univoco multiplayer (formato "username#12345"), assegnato dalla Companion
+// App via BLE e persistito in NVS. Max 31 char + terminatore.
+String petTag = "";
+
 // ── 📡 BLE GATT server state ──────────────────────────────────
 BLEServer*        bleServer        = nullptr;
 BLECharacteristic* bleNotifChar    = nullptr;
 BLECharacteristic* bleVersionChar  = nullptr;
 BLECharacteristic* bleOtaCtrlChar  = nullptr;
 BLECharacteristic* bleOtaDataChar  = nullptr;
+BLECharacteristic* bleIdentityChar = nullptr;
 bool              bleAdvertising   = false;
 bool              bleClientConnected = false;
 bool              bleClientConnectedPrev = false;
@@ -639,6 +645,7 @@ void saveToNVS() {
   prefs.putULong("sickDec",  lastSickDecayMs);
   prefs.putInt("sickEp",     sickEpisodes);
   prefs.putUChar("streak",   battleStreak);
+  prefs.putString("tag",     petTag);
   prefs.end();
 }
 
@@ -670,6 +677,9 @@ bool loadFromNVS() {
     sickEpisodes  = prefs.getInt("sickEp",  0);
     battleStreak  = prefs.getUChar("streak", 0);
   }
+  // Tag identità multiplayer: caricato a prescindere, può essere stato scritto
+  // via BLE prima ancora di un primo salvataggio completo della partita.
+  petTag = prefs.getString("tag", "");
   prefs.end();
   return ok;
 }
@@ -1257,6 +1267,13 @@ void drawStatusScreen() {
   canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
   canvas.drawString(getCurrentName(), 20, 14);
 
+  // Tag identità multiplayer (es. "Mike#47213"), se assegnato dalla Companion App
+  if (petTag.length() > 0) {
+    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
+    int tw = canvas.textWidth(petTag);
+    canvas.drawString(petTag, DISP_SIZE - tw - 10, 18);
+  }
+
   const char* stageNames[] = {"Spark","Wisp","Sprite","Spirit","Avatar","Primal"};
   canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
   canvas.drawString(stageNames[min(evoStage,5)], 20, 50);
@@ -1487,6 +1504,22 @@ class PetCubeBLECharCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
+// Callback scrittura/lettura tag identità multiplayer ("username#12345").
+// La Companion App scrive il tag dopo la connessione; viene persistito in NVS
+// così sopravvive ai riavvii del cubo.
+class PetCubeIdentityCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* ch) override {
+    String value = ch->getValue();
+    if (value.length() > 31) value = value.substring(0, 31);
+    petTag = value;
+    ch->setValue(petTag.c_str());
+    prefs.begin("petcube", false);
+    prefs.putString("tag", petTag);
+    prefs.end();
+    Serial.printf("📡 Tag identità impostato: %s\n", petTag.c_str());
+  }
+};
+
 // ── OTA Callbacks ────────────────────────────────────────────
 
 // CTRL characteristic:
@@ -1602,6 +1635,14 @@ void bleInit() {
     BLECharacteristic::PROPERTY_WRITE_NR
   );
   bleOtaDataChar->setCallbacks(new PetCubeOtaDataCallbacks());
+
+  // Caratteristica IDENTITY — tag multiplayer "username#12345" (read + write)
+  bleIdentityChar = svc->createCharacteristic(
+    BLE_CHAR_IDENTITY_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ
+  );
+  bleIdentityChar->setCallbacks(new PetCubeIdentityCallbacks());
+  bleIdentityChar->setValue(petTag.c_str());
 
   svc->start();
 

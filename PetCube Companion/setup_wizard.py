@@ -18,6 +18,7 @@ import customtkinter as ctk
 from config_schema import (
     PLUGIN_FIELDS, PLUGIN_DISPLAY_NAME, PLUGIN_HELP, PLUGIN_ORDER,
     default_config, value_to_str, parse_field_value,
+    generate_device_id, device_tag,
 )
 
 # ── Dark theme palette (coerente con gui.py) ───────────────────
@@ -61,6 +62,9 @@ class WizardFrame(ctk.CTkFrame):
         firmware_cfg = self._config["firmware"]
 
         self._sv_ble_name = ctk.StringVar(value=device_cfg.get("ble_name", "PetCube"))
+        self._sv_username = ctk.StringVar(value=device_cfg.get("username", ""))
+        # ID univoco del dispositivo: generato una sola volta e mantenuto stabile
+        self._device_id: str = device_cfg.get("device_id") or generate_device_id()
         self._sv_wifi_url = ctk.StringVar(value=device_cfg.get("wifi_fallback_url", ""))
         self._sv_transport_prefer = ctk.StringVar(value=transport_cfg.get("prefer", "ble"))
         self._sv_transport_timeout = ctk.StringVar(value=str(transport_cfg.get("ble_scan_timeout_sec", 10)))
@@ -176,21 +180,38 @@ class WizardFrame(ctk.CTkFrame):
 
         self._field_row(frame, 0, "Nome BLE del cubo", self._sv_ble_name, "text",
                          "Deve corrispondere al nome advertito dal firmware (default \"PetCube\").")
-        self._field_row(frame, 1, "WiFi Fallback URL", self._sv_wifi_url, "text",
+
+        self._field_row(frame, 1, "Username", self._sv_username, "text",
+                         "Nome visibile in modalità multiplayer. Verrà combinato con un ID "
+                         "univoco nel formato \"username#12345\".")
+
+        self._tag_label = ctk.CTkLabel(
+            frame, text="", anchor="w",
+            text_color=TEXT_DIM, font=ctk.CTkFont(size=11),
+        )
+        self._tag_label.grid(row=2, column=1, padx=(0, 12), pady=(0, 6), sticky="w")
+        self._sv_username.trace_add("write", lambda *_: self._update_tag_label())
+        self._update_tag_label()
+
+        self._field_row(frame, 3, "WiFi Fallback URL", self._sv_wifi_url, "text",
                          "Opzionale: endpoint HTTP usato se il trasporto è \"wifi\".")
 
         ctk.CTkLabel(
             frame, text="Modalità trasporto", anchor="w",
             text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12), width=200,
-        ).grid(row=2, column=0, padx=(12, 8), pady=(10, 6), sticky="w")
+        ).grid(row=4, column=0, padx=(12, 8), pady=(10, 6), sticky="w")
         ctk.CTkOptionMenu(
             frame, values=["ble", "wifi", "auto"],
             variable=self._sv_transport_prefer,
             fg_color=BG_PRIMARY, button_color=ACCENT, button_hover_color=ACCENT_HOVER,
             font=ctk.CTkFont(size=12),
-        ).grid(row=2, column=1, padx=(0, 12), pady=(10, 6), sticky="w")
+        ).grid(row=4, column=1, padx=(0, 12), pady=(10, 6), sticky="w")
 
-        self._field_row(frame, 3, "BLE scan timeout (sec)", self._sv_transport_timeout, "int")
+        self._field_row(frame, 5, "BLE scan timeout (sec)", self._sv_transport_timeout, "int")
+
+    def _update_tag_label(self) -> None:
+        tag = device_tag(self._sv_username.get(), self._device_id)
+        self._tag_label.configure(text=f"ID PetCube: {tag}")
 
     def _build_page_plugins(self, page) -> None:
         ctk.CTkLabel(
@@ -380,6 +401,8 @@ class WizardFrame(ctk.CTkFrame):
         cfg = _merge_config(default_config(), self._config)
 
         cfg["device"]["ble_name"] = self._sv_ble_name.get().strip() or "PetCube"
+        cfg["device"]["username"] = self._sv_username.get().strip()
+        cfg["device"]["device_id"] = self._device_id
         cfg["device"]["wifi_fallback_url"] = self._sv_wifi_url.get().strip()
 
         cfg["transport"]["prefer"] = self._sv_transport_prefer.get()
@@ -411,6 +434,7 @@ class WizardFrame(ctk.CTkFrame):
         cfg = self._collect_config()
         lines = [
             f"Nome BLE:         {cfg['device']['ble_name']}",
+            f"ID PetCube:       {device_tag(cfg['device']['username'], cfg['device']['device_id'])}",
             f"Trasporto:        {cfg['transport']['prefer']}  (timeout {cfg['transport']['ble_scan_timeout_sec']}s)",
             f"Log level:        {cfg['logging']['level']}",
             f"Repo aggiornam.:  {cfg['firmware']['github_owner']}/{cfg['firmware']['github_repo']}",

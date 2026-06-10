@@ -1,6 +1,8 @@
 {
   "device": {
     "ble_name": "PetCube",
+    "username": "",
+    "device_id": "",
     "wifi_fallback_url": ""
   },
   "plugins": {

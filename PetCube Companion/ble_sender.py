@@ -14,9 +14,14 @@ import logging
 import time
 
 from notification_packet import NotifPacket, PACKET_SIZE
+from config_schema import device_tag
 
 
 logger = logging.getLogger(__name__)
+
+# Characteristic IDENTITY del firmware (vedi PetCube.ino BLE_CHAR_IDENTITY_UUID):
+# riceve il tag multiplayer "username#12345" assegnato dalla Companion App.
+DEFAULT_IDENTITY_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef5"
 
 
 class BLESender:
@@ -27,13 +32,17 @@ class BLESender:
     """
 
     def __init__(self, device_name: str, service_uuid: str, char_uuid: str,
-                 scan_timeout_sec: int = 10):
+                 scan_timeout_sec: int = 10,
+                 identity_char_uuid: str = DEFAULT_IDENTITY_CHAR_UUID):
         self.device_name = device_name
         self.service_uuid = service_uuid
         self.char_uuid = char_uuid
+        self.identity_char_uuid = identity_char_uuid
         self.scan_timeout = scan_timeout_sec
         self._client = None
         self._lock = asyncio.Lock()
+        self._identity_tag: str = ""
+        self._identity_sent = False
 
     async def _ensure_connected(self) -> bool:
         """Garantisce che il client BLE sia connesso. Re-scan se necessario."""
@@ -59,11 +68,34 @@ class BLESender:
         try:
             await self._client.connect()
             logger.info("Connesso al PetCube via BLE.")
+            self._identity_sent = False
+            await self._send_identity_if_needed()
             return True
         except Exception as e:
             logger.error(f"Connessione fallita: {e}")
             self._client = None
             return False
+
+    def set_identity_tag(self, tag: str) -> None:
+        """Imposta il tag multiplayer ('username#12345') da inviare al cubo."""
+        if tag != self._identity_tag:
+            self._identity_tag = tag
+            self._identity_sent = False
+
+    async def _send_identity_if_needed(self) -> None:
+        """Scrive il tag identità sulla characteristic dedicata (best-effort)."""
+        if not self._identity_tag or self._identity_sent:
+            return
+        if not (self._client and self._client.is_connected):
+            return
+        try:
+            await self._client.write_gatt_char(
+                self.identity_char_uuid, self._identity_tag.encode("utf-8")
+            )
+            self._identity_sent = True
+            logger.info(f"📡 Tag identità inviato al cubo: {self._identity_tag!r}")
+        except Exception as e:
+            logger.warning(f"Invio tag identità fallito: {e}")
 
     async def send(self, packet: NotifPacket) -> bool:
         """Invia un pacchetto. Ritorna True se inviato con successo."""
@@ -151,6 +183,12 @@ class Sender:
                 char_uuid=device_cfg.get("ble_char_uuid", ""),
                 scan_timeout_sec=transport_cfg.get("ble_scan_timeout_sec", 10),
             )
+            # Invia il tag solo se un device_id è già stato assegnato (wizard/impostazioni):
+            # evita di propagare al cubo un ID generato al volo e non persistito.
+            if device_cfg.get("device_id"):
+                self._ble.set_identity_tag(
+                    device_tag(device_cfg.get("username", ""), device_cfg["device_id"])
+                )
             self._wifi = WiFiFallbackSender(
                 url=device_cfg.get("wifi_fallback_url", "http://petcube.local:8080/notify")
             )

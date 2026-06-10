@@ -5,6 +5,7 @@ default per un nuovo config e helper di conversione valore <-> stringa.
 Usato sia da gui.py (tab Impostazioni) sia da setup_wizard.py.
 """
 import copy
+import random
 
 # (key, label, field_type)
 # field_type: "text" | "password" | "int" | "int_nullable" | "list_int" | "list_str"
@@ -161,11 +162,25 @@ _PLUGIN_DEFAULTS: dict[str, dict] = {
 }
 
 
+def generate_device_id() -> str:
+    """Genera un ID numerico a 5 cifre per il tag univoco del dispositivo (#12345)."""
+    return f"{random.randint(0, 99999):05d}"
+
+
+def device_tag(username: str, device_id: str) -> str:
+    """Combina username e ID nel formato 'username#12345' usato in modalità multiplayer."""
+    username = (username or "").strip() or "PetCube"
+    device_id = device_id or generate_device_id()
+    return f"{username}#{device_id}"
+
+
 def default_config() -> dict:
     """Ritorna un nuovo dict di config.json con valori di default ragionevoli."""
     return {
         "device": {
             "ble_name": "PetCube",
+            "username": "",
+            "device_id": "",
             "wifi_fallback_url": "",
         },
         "plugins": copy.deepcopy(_PLUGIN_DEFAULTS),
