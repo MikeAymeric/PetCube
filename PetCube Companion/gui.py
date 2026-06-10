@@ -31,6 +31,8 @@ except ImportError:
 
 from companion_engine import CompanionEngine, load_config
 import firmware_updater as fw_upd
+import app_updater as app_upd
+from version import APP_VERSION
 from notification_packet import (
     NotifPacket, NotifSource, NotifCategory, NotifPriority,
     compute_seed_hash,
@@ -211,6 +213,13 @@ class CompanionGUI(ctk.CTk):
         self._fw_log: Optional[ctk.CTkTextbox] = None
         self._fw_port_menu: Optional[ctk.CTkOptionMenu] = None
 
+        # Companion app self-update state
+        self._app_release_info: Optional[app_upd.AppReleaseInfo] = None
+        self._app_lbl_version: Optional[ctk.CTkLabel] = None
+        self._app_lbl_release: Optional[ctk.CTkLabel] = None
+        self._app_btn_check: Optional[ctk.CTkButton] = None
+        self._app_btn_update: Optional[ctk.CTkButton] = None
+
         # Settings widget state
         self._sv_device: dict[str, ctk.StringVar] = {}
         self._sv_plugins: dict[str, dict[str, ctk.Variable]] = {}
@@ -359,7 +368,7 @@ class CompanionGUI(ctk.CTk):
         self.stat_uptime_label.pack(fill="x", padx=10, pady=(2, 8))
 
         ctk.CTkLabel(
-            sidebar, text="v0.1 • Lemon Loop Studio",
+            sidebar, text=f"v{APP_VERSION} • Lemon Loop Studio",
             text_color=TEXT_DIM, font=ctk.CTkFont(size=10),
         ).pack(side="bottom", pady=10)
 
@@ -375,7 +384,7 @@ class CompanionGUI(ctk.CTk):
         dash_tab = tabview.add("Dashboard")
         settings_tab = tabview.add("Impostazioni")
         test_tab = tabview.add("Test")
-        fw_tab = tabview.add("Firmware")
+        fw_tab = tabview.add("Aggiornamenti")
 
         self._build_dashboard_tab(dash_tab)
         self._build_settings_tab(settings_tab)
@@ -969,7 +978,7 @@ class CompanionGUI(ctk.CTk):
 
     def _build_firmware_tab(self, parent) -> None:
         parent.grid_columnconfigure(0, weight=1)
-        parent.grid_rowconfigure(3, weight=1)
+        parent.grid_rowconfigure(4, weight=1)
 
         # ── 1. Dispositivo (BLE scan + versione corrente) ──
         ble_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
@@ -1034,9 +1043,48 @@ class CompanionGUI(ctk.CTk):
         )
         self._fw_btn_ota.grid(row=1, column=2, padx=(20, 12), pady=(0, 10), sticky="e")
 
-        # ── 3. Progress bar (download + OTA transfer) ──
+        # ── 3. Companion App self-update ──
+        app_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        app_card.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+        app_card.grid_columnconfigure(2, weight=1)
+
+        ctk.CTkLabel(
+            app_card, text="COMPANION APP",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=TEXT_DIM, anchor="w",
+        ).grid(row=0, column=0, columnspan=4, sticky="ew", padx=15, pady=(10, 6))
+
+        self._app_lbl_version = ctk.CTkLabel(
+            app_card, text=f"Versione installata:  v{APP_VERSION}",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12), anchor="w",
+        )
+        self._app_lbl_version.grid(row=1, column=0, padx=(15, 12), pady=(0, 10), sticky="w")
+
+        self._app_btn_check = ctk.CTkButton(
+            app_card, text="☁  Controlla aggiornamenti", width=200,
+            fg_color=ACCENT, hover_color=ACCENT_HOVER, font=ctk.CTkFont(size=12),
+            command=self._app_on_check,
+        )
+        self._app_btn_check.grid(row=1, column=1, padx=(0, 8), pady=(0, 10), sticky="w")
+
+        self._app_lbl_release = ctk.CTkLabel(
+            app_card, text="Ultima release:  —",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12), anchor="w",
+        )
+        self._app_lbl_release.grid(row=1, column=2, padx=4, pady=(0, 10), sticky="w")
+
+        self._app_btn_update = ctk.CTkButton(
+            app_card, text="⬇  Aggiorna e riavvia", width=180,
+            fg_color="#5a3a00", hover_color="#7a5010",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            state="disabled",
+            command=self._app_on_update,
+        )
+        self._app_btn_update.grid(row=1, column=3, padx=(20, 12), pady=(0, 10), sticky="e")
+
+        # ── 4. Progress bar (download + OTA transfer / app update) ──
         prog_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
-        prog_card.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+        prog_card.grid(row=3, column=0, sticky="ew", pady=(0, 6))
         prog_card.grid_columnconfigure(0, weight=1)
 
         self._fw_progressbar = ctk.CTkProgressBar(
@@ -1052,9 +1100,9 @@ class CompanionGUI(ctk.CTk):
         )
         self._fw_lbl_progress.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 8))
 
-        # ── 4. Log + USB fallback ──
+        # ── 5. Log + USB fallback ──
         log_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
-        log_card.grid(row=3, column=0, sticky="nsew")
+        log_card.grid(row=4, column=0, sticky="nsew")
         log_card.grid_columnconfigure(0, weight=1)
         log_card.grid_rowconfigure(2, weight=1)
 
@@ -1166,7 +1214,8 @@ class CompanionGUI(ctk.CTk):
 
     def _fw_buttons_lock(self, locked: bool) -> None:
         state = "disabled" if locked else "normal"
-        for btn in (self._fw_btn_scan, self._fw_btn_check_gh, self._fw_btn_flash):
+        for btn in (self._fw_btn_scan, self._fw_btn_check_gh, self._fw_btn_flash,
+                    self._app_btn_check):
             if btn:
                 btn.configure(state=state)
         if self._fw_btn_ota:
@@ -1179,6 +1228,15 @@ class CompanionGUI(ctk.CTk):
                     and self._fw_github_info is not None
                 )
                 self._fw_btn_ota.configure(state="normal" if can_ota else "disabled")
+        if self._app_btn_update:
+            if locked:
+                self._app_btn_update.configure(state="disabled")
+            else:
+                can_update = (
+                    self._app_release_info is not None
+                    and app_upd.is_update_available(self._app_release_info)
+                )
+                self._app_btn_update.configure(state="normal" if can_update else "disabled")
 
     # ── BLE Scan ─────────────────────────────────────────────
 
@@ -1385,6 +1443,107 @@ class CompanionGUI(ctk.CTk):
             self._fw_update_status_label()
         else:
             self._fw_log_append("✗ Flash USB fallito.")
+
+    # ── Companion App self-update ─────────────────────────────
+
+    def _app_on_check(self) -> None:
+        self._fw_buttons_lock(True)
+        self._app_btn_check.configure(text="Controllo...")
+        self._app_lbl_release.configure(text="Ultima release:  connessione a GitHub...", text_color=TEXT_DIM)
+        self._fw_log_append("Controllo aggiornamenti companion su GitHub...")
+
+        cfg_fw = self.config_data.get("firmware", {})
+        owner = cfg_fw.get("github_owner", "MikeAymeric")
+        repo  = cfg_fw.get("github_repo",  "PetCube")
+
+        def run():
+            try:
+                info = app_upd.check_app_release(owner, repo)
+                self.after(0, lambda: self._app_check_done(info))
+            except Exception as e:
+                self.after(0, lambda: self._app_check_done(None, str(e)))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _app_check_done(self, info: Optional[app_upd.AppReleaseInfo], err: str = "") -> None:
+        self._app_btn_check.configure(text="☁  Controlla aggiornamenti")
+        self._app_release_info = info
+        self._fw_buttons_lock(False)
+
+        if err:
+            self._app_lbl_release.configure(text=f"Ultima release:  errore ({err})", text_color=ERROR)
+            self._fw_log_append(f"GitHub non raggiungibile: {err}")
+            return
+        if not info:
+            self._app_lbl_release.configure(
+                text="Ultima release:  nessuna release 'companion-v*' trovata", text_color=WARNING
+            )
+            self._fw_log_append("Nessuna release companion compatibile trovata su GitHub.")
+            return
+
+        if app_upd.is_update_available(info):
+            self._app_lbl_release.configure(
+                text=f"Ultima release:  {info.label()}  —  aggiornamento disponibile!",
+                text_color=WARNING,
+            )
+            self._fw_log_append(f"Nuova versione companion disponibile: v{info.version} (attuale v{APP_VERSION})")
+        else:
+            self._app_lbl_release.configure(
+                text=f"Ultima release:  {info.label()}  —  già aggiornato",
+                text_color=SUCCESS,
+            )
+            self._fw_log_append(f"Companion già aggiornata (v{APP_VERSION}).")
+
+    def _app_on_update(self) -> None:
+        info = self._app_release_info
+        if not info or not app_upd.is_update_available(info):
+            return
+
+        self._fw_buttons_lock(True)
+        self._app_btn_update.configure(text="Aggiornamento...")
+        self._fw_log_append(f"Avvio aggiornamento companion: v{APP_VERSION} → v{info.version}")
+        self._fw_set_progress(0, 1, "Download")
+
+        def run():
+            try:
+                tmp_dir = Path("_companion_update")
+                tmp_dir.mkdir(exist_ok=True)
+                dest = tmp_dir / info.asset_name
+
+                def dl_progress(done, total):
+                    self.after(0, lambda d=done, t=total: self._fw_set_progress(d, t, "Download"))
+
+                app_upd.download_update(info.download_url, dest, progress_cb=dl_progress)
+                self.after(0, lambda: self._fw_log_append(f"Download completato: {dest.name}"))
+
+                log_cb = lambda m: self.after(0, lambda msg=m: self._fw_log_append(msg))
+
+                if info.is_exe:
+                    app_upd.apply_exe_update_and_restart(dest, log_cb=log_cb)
+                    self.after(0, lambda: self._app_update_done(True, restart_exe=True))
+                else:
+                    app_upd.apply_source_update(dest, Path("."), log_cb=log_cb)
+                    self.after(0, lambda: self._app_update_done(True, restart_exe=False))
+            except Exception as e:
+                self.after(0, lambda: self._app_update_done(False, err=str(e)))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _app_update_done(self, ok: bool, restart_exe: bool = False, err: str = "") -> None:
+        if not ok:
+            self._app_btn_update.configure(text="⬇  Aggiorna e riavvia")
+            self._fw_buttons_lock(False)
+            self._fw_set_progress(0, 1, "")
+            self._fw_log_append(f"✗ Aggiornamento fallito: {err}")
+            return
+
+        self._fw_set_progress(1, 1, "Completato")
+        if restart_exe:
+            self._fw_log_append("✓ Aggiornamento scaricato. L'app si riavvierà a breve...")
+            self.after(1000, self._real_quit)
+        else:
+            self._fw_log_append("✓ Aggiornamento applicato. Riavvio dell'app...")
+            self.after(500, app_upd.restart_from_source)
 
     # ═══════════════════════════════════════════════════════════
     # Engine control
