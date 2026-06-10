@@ -27,6 +27,10 @@ instagrapi>=2.0.0
 # Utility
 python-dateutil>=2.8.2
 
+# Firmware OTA
+esptool>=4.7.0
+pyserial>=3.5
+
 # GUI (opzionale, solo per gui.py — se non installati main.py CLI funziona uguale)
 customtkinter>=5.2.0
 pystray>=0.19.5
