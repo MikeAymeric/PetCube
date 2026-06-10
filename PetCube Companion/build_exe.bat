@@ -4,7 +4,7 @@ REM Esegui una volta: pip install pyinstaller
 
 cd /d "%~dp0"
 
-pyinstaller ^
+python -m PyInstaller ^
   --onefile ^
   --windowed ^
   --name "PetCube Companion" ^
@@ -17,6 +17,13 @@ pyinstaller ^
   --hidden-import esptool ^
   --hidden-import serial ^
   --hidden-import serial.tools.list_ports ^
+  --hidden-import plugins.base ^
+  --hidden-import plugins.calendar_plugin ^
+  --hidden-import plugins.gmail_plugin ^
+  --hidden-import plugins.hacknplan_plugin ^
+  --hidden-import plugins.discord_plugin ^
+  --hidden-import plugins.telegram_plugin ^
+  --hidden-import plugins.whatsapp_plugin ^
   gui.py
 
 echo.

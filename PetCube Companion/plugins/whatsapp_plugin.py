@@ -6,6 +6,9 @@ Setup richiesto (una tantum):
   1. Installa dipendenze:
        pip install playwright
        playwright install chromium
+     Se usi PetCube Companion.exe, esegui invece 'install_playwright.bat'
+     (i browser vengono salvati in %LOCALAPPDATA%\PetCube Companion\playwright-browsers,
+     vedi playwright_env.py — la cartella _MEI temporanea dell'exe non persiste).
   2. Prima esecuzione: imposta headless=false in config.json e avvia la companion
      → Chromium si apre su WhatsApp Web → scansiona il QR col telefono
      → la sessione viene salvata nella cartella 'session_dir'

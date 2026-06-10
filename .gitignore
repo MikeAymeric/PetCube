@@ -13,3 +13,6 @@ history
 /PetCube Companion/_companion_update/
 /PetCube Companion/_petcube_update.bat
 /PetCube Companion/firmware/
+/PetCube Companion/build/
+/PetCube Companion/dist/
+/PetCube Companion/*.spec

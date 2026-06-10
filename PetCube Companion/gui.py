@@ -20,6 +20,9 @@ from pathlib import Path
 from tkinter import filedialog
 from typing import Optional
 
+from playwright_env import setup_playwright_browsers_path
+setup_playwright_browsers_path()
+
 import customtkinter as ctk
 
 try:
