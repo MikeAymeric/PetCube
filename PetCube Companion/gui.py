@@ -32,6 +32,14 @@ except ImportError:
 from companion_engine import CompanionEngine, load_config
 import firmware_updater as fw_upd
 import app_updater as app_upd
+import setup_wizard
+from config_schema import (
+    PLUGIN_FIELDS as _PLUGIN_FIELDS,
+    PLUGIN_DISPLAY_NAME as _PLUGIN_DISPLAY_NAME,
+    PLUGIN_ORDER,
+    value_to_str as _value_to_str_impl,
+    parse_field_value as _parse_field_value_impl,
+)
 from version import APP_VERSION
 from notification_packet import (
     NotifPacket, NotifSource, NotifCategory, NotifPriority,
@@ -77,49 +85,6 @@ CATEGORY_LABEL = {
     NotifCategory.CRISI:       "Crisi",
 }
 
-# (key, label, field_type)
-# field_type: "text" | "password" | "int" | "int_nullable" | "list_int" | "list_str"
-_PLUGIN_FIELDS: dict[str, list[tuple[str, str, str]]] = {
-    "calendar": [
-        ("poll_interval_sec",  "Polling (sec)",       "int"),
-        ("lookahead_minutes",  "Preavviso (min)",      "int"),
-        ("credentials_file",   "File credenziali",    "text"),
-    ],
-    "discord": [
-        ("bot_token",          "Bot Token",            "password"),
-        ("user_id",            "User ID (o vuoto)",    "int_nullable"),
-        ("poll_interval_sec",  "Polling (sec)",        "int"),
-        ("monitor_channel_ids","Channel IDs (virgola)","list_int"),
-    ],
-    "gmail": [
-        ("poll_interval_sec",  "Polling (sec)",        "int"),
-        ("credentials_file",   "File credenziali",    "text"),
-        ("login_hint",         "Login hint (email)",  "text"),
-    ],
-    "hacknplan": [
-        ("poll_interval_sec",  "Polling (sec)",        "int"),
-        ("lookahead_hours",    "Preavviso (ore)",      "int"),
-        ("api_key",            "API Key",              "password"),
-        ("target_user_id",     "Target User ID (o vuoto)", "int_nullable"),
-    ],
-    "telegram": [
-        ("api_id",            "API ID (my.telegram.org)",  "int"),
-        ("api_hash",          "API Hash",                  "password"),
-        ("phone_number",      "Numero di telefono",        "text"),
-        ("session_file",      "File sessione",             "text"),
-        ("poll_interval_sec", "Polling (sec)",             "int"),
-        ("monitor_chat_ids",  "Chat IDs extra (virgola)",  "list_int"),
-    ],
-    "whatsapp": [
-        ("session_dir",       "Dir sessione browser",                     "text"),
-        ("poll_interval_sec", "Polling (sec)",                            "int"),
-        ("monitor_chats",     "Chat da monitorare (virgola, vuoto=tutte)", "list_str"),
-    ],
-    "slack":   [],
-    "github":  [],
-    "trello":  [],
-}
-
 # ── Test console mappings ──────────────────────────────────────
 _TEST_SOURCES = ["Discord", "Gmail", "Calendar", "Slack", "HacknPlan", "GitHub",
                  "Telegram", "WhatsApp", "Generic"]
@@ -152,18 +117,6 @@ _TEST_PRIORITY_MAP: dict[str, NotifPriority] = {
     "Low":    NotifPriority.LOW,
     "Normal": NotifPriority.NORMAL,
     "High":   NotifPriority.HIGH,
-}
-
-_PLUGIN_DISPLAY_NAME = {
-    "calendar":  "Calendar",
-    "discord":   "Discord",
-    "gmail":     "Gmail",
-    "hacknplan": "HacknPlan",
-    "slack":     "Slack",
-    "github":    "GitHub",
-    "trello":    "Trello",
-    "telegram":  "Telegram",
-    "whatsapp":  "WhatsApp",
 }
 
 
@@ -483,12 +436,7 @@ class CompanionGUI(ctk.CTk):
         # Sezione Plugin
         self._build_section_header(scroll, "PLUGIN")
         plugins_cfg = self.config_data.get("plugins", {})
-        plugin_order = [
-            "calendar", "discord", "gmail", "hacknplan",
-            "telegram", "whatsapp",
-            "slack", "github", "trello",
-        ]
-        for plugin_name in plugin_order:
+        for plugin_name in PLUGIN_ORDER:
             pcfg = plugins_cfg.get(plugin_name, {})
             self._build_plugin_card(scroll, plugin_name, pcfg)
 
@@ -563,6 +511,13 @@ class CompanionGUI(ctk.CTk):
             fg_color=BG_TERTIARY, hover_color="#444",
             font=ctk.CTkFont(size=13),
             command=self._settings_reload,
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            btn_row, text="🧙  Wizard di configurazione", width=210,
+            fg_color=BG_TERTIARY, hover_color="#444",
+            font=ctk.CTkFont(size=13),
+            command=self._open_setup_wizard,
         ).pack(side="left")
 
     def _build_section_header(self, parent, title: str) -> None:
@@ -657,50 +612,8 @@ class CompanionGUI(ctk.CTk):
     # Settings persistence helpers
     # ═══════════════════════════════════════════════════════════
 
-    @staticmethod
-    def _value_to_str(val, field_type: str) -> str:
-        if val is None:
-            return ""
-        if field_type in ("list_int", "list_str"):
-            if isinstance(val, list):
-                return ", ".join(str(v) for v in val)
-            return str(val)
-        return str(val)
-
-    @staticmethod
-    def _parse_field_value(raw: str, field_type: str):
-        raw = raw.strip()
-        if field_type == "int":
-            try:
-                return int(raw)
-            except ValueError:
-                return 0
-        if field_type == "int_nullable":
-            if not raw:
-                return None
-            try:
-                return int(raw)
-            except ValueError:
-                return None
-        if field_type == "list_int":
-            if not raw:
-                return []
-            result = []
-            for part in raw.split(","):
-                part = part.strip()
-                if part:
-                    try:
-                        result.append(int(part))
-                    except ValueError:
-                        pass
-            return result
-        if field_type == "list_str":
-            if not raw:
-                return []
-            return [part.strip().strip("\"'") for part in raw.split(",")
-                    if part.strip().strip("\"'")]
-        # text / password
-        return raw
+    _value_to_str = staticmethod(_value_to_str_impl)
+    _parse_field_value = staticmethod(_parse_field_value_impl)
 
     def _settings_save(self) -> None:
         try:
@@ -799,6 +712,14 @@ class CompanionGUI(ctk.CTk):
         self._sv_log_level.set(raw.get("logging", {}).get("level", "INFO"))
 
         self._show_settings_message("↺ Configurazione ricaricata.", TEXT_PRIMARY)
+
+    def _open_setup_wizard(self) -> None:
+        def on_done(new_config: dict) -> None:
+            self.config_data = new_config
+            self._settings_reload()
+            self._show_settings_message("✓ Configurazione aggiornata dal wizard.", SUCCESS)
+
+        setup_wizard.open_wizard(self, self.config_data, on_done)
 
     def _show_settings_message(self, msg: str, color: str) -> None:
         if self._settings_msg_label:
@@ -1809,11 +1730,19 @@ def main() -> None:
         handlers=[logging.StreamHandler(sys.stdout)],
     )
 
-    try:
-        config = load_config(Path("config.json"))
-    except FileNotFoundError as e:
-        print(f"❌ {e}", file=sys.stderr)
-        sys.exit(1)
+    config_path = Path("config.json")
+    if not config_path.exists():
+        print("ℹ config.json non trovato — avvio wizard di configurazione iniziale...")
+        config = setup_wizard.run_first_setup()
+        if config is None:
+            print("Configurazione annullata.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        try:
+            config = load_config(config_path)
+        except FileNotFoundError as e:
+            print(f"❌ {e}", file=sys.stderr)
+            sys.exit(1)
 
     app = CompanionGUI(config)
     app.mainloop()
