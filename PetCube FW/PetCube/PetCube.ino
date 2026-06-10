@@ -46,7 +46,8 @@
 // ═══════════════════════════════════════════════════════════════
 
 #include <Wire.h>
-#include <TFT_eSPI.h>
+#include <LovyanGFX.hpp>
+#include "LGFX_Config.h"
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Preferences.h>
@@ -59,8 +60,8 @@
 // OTA over-the-air update
 #include <Update.h>
 
-TFT_eSPI   tft;
-TFT_eSprite canvas(&tft);
+LGFX        display;
+LGFX_Sprite canvas(&display);
 Adafruit_MPU6050 mpu;
 Preferences prefs;
 
@@ -126,21 +127,36 @@ Preferences prefs;
 #define EVOLVE_ANIM_MS       3000
 
 // ── Colori ────────────────────────────────────────────────────
-#define C_BG    TFT_BLACK
-#define C_FG    TFT_WHITE
-#define C_HAP   TFT_GREEN
-#define C_STR   TFT_RED
-#define C_INT   TFT_BLUE
-#define C_ENG   TFT_YELLOW
-#define C_TIMER TFT_ORANGE
-#define C_CYAN  0x07FFu
-#define C_DIM   0x39C7u
-#define C_POOP  0x6200u
-#define C_MAGENTA TFT_MAGENTA
+// Converte RGB888 → uint16_t RGB565.
+// LovyanGFX interpreta int/uint32_t come colori 24-bit: passare
+// sempre uint16_t per avere il colore corretto sul display.
+// Macro (non funzione) per non spostare il punto in cui l'IDE Arduino
+// genera i prototipi delle funzioni (vedi nota su FrameLabel sotto).
+#define fc(r, g, b) ((uint16_t)((((uint16_t)(r) >> 3) << 11) | (((uint16_t)(g) >> 2) << 5) | ((uint16_t)(b) >> 3)))
+
+constexpr uint16_t C_BG      = (uint16_t)TFT_BLACK;
+constexpr uint16_t C_FG      = (uint16_t)TFT_WHITE;
+constexpr uint16_t C_HAP     = (uint16_t)TFT_GREEN;
+constexpr uint16_t C_STR     = (uint16_t)TFT_RED;
+constexpr uint16_t C_INT     = (uint16_t)TFT_BLUE;
+constexpr uint16_t C_ENG     = (uint16_t)TFT_YELLOW;
+constexpr uint16_t C_TIMER   = (uint16_t)TFT_ORANGE;
+constexpr uint16_t C_CYAN    = 0x07FFu;
+constexpr uint16_t C_DIM     = 0x39C7u;
+constexpr uint16_t C_POOP    = 0x6200u;
+constexpr uint16_t C_MAGENTA = (uint16_t)TFT_MAGENTA;
 
 // Build di prova senza sprite: mostra nome + nome frame animazione al posto
 // del bitmap. Da rimuovere quando le sprite definitive saranno pronte.
 #define SPRITES_PLACEHOLDER  1
+
+#if SPRITES_PLACEHOLDER
+// Definito qui (e non vicino a getFrameLabel) perché l'IDE Arduino genera i
+// prototipi delle funzioni prima delle definizioni di struct che compaiono
+// più avanti nel file: getFrameLabel andrebbe altrimenti dichiarata prima
+// che FrameLabel sia un tipo noto, causando un errore di compilazione.
+struct FrameLabel { const char* name; uint16_t color; };
+#endif
 
 const int EVO_THRESH[] = { 0, 2, 6, 14, 26, 42 };
 
@@ -575,8 +591,6 @@ const unsigned char* getFrame(const PetSprites* spr, unsigned long now) {
 // Frame d'animazione corrente come testo (placeholder finché le sprite non
 // sono pronte), con colore in base allo stato: idle=giallo, angry=magenta,
 // happy=verde, sick=arancio, sleep=blu.
-struct FrameLabel { const char* name; uint16_t color; };
-
 FrameLabel getFrameLabel(unsigned long now) {
   if (isSick) {
     int f = (now / 600) % 2;
@@ -980,10 +994,10 @@ void updateDisplayRotation(Orientation ori) {
   if (ori == lastDisplayOri) return;
   lastDisplayOri = ori;
   switch (ori) {
-    case ORI_LEFT:        tft.setRotation(1); break;
-    case ORI_RIGHT:       tft.setRotation(3); break;
-    case ORI_UPSIDE_DOWN: tft.setRotation(2); break;
-    default:              tft.setRotation(0); break;
+    case ORI_LEFT:        display.setRotation(1); break;
+    case ORI_RIGHT:       display.setRotation(3); break;
+    case ORI_UPSIDE_DOWN: display.setRotation(2); break;
+    default:              display.setRotation(0); break;
   }
 }
 
@@ -2343,9 +2357,9 @@ void setup() {
   digitalWrite(LED, HIGH);
   randomSeed(analogRead(0));
 
-  tft.init();
-  tft.setRotation(0);
-  tft.fillScreen(TFT_BLACK);
+  display.init();
+  display.setRotation(0);
+  display.fillScreen(C_BG);
   canvas.setColorDepth(16);
   canvas.createSprite(DISP_SIZE, DISP_SIZE);
 
@@ -2361,7 +2375,7 @@ void setup() {
   if (!mpu.begin()) {
     canvas.fillSprite(C_BG);
     canvas.setTextFont(2);
-    canvas.setTextColor(TFT_RED, C_BG);
+    canvas.setTextColor(C_STR, C_BG);
     canvas.drawString("MPU non trovato!", 30, 110);
     canvas.pushSprite(0, 0);
     while (1);

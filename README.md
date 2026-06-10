@@ -108,7 +108,7 @@ PetCube/
 │       ├── PetCube.ino              # Main firmware sketch
 │       ├── petcube_sprites.h        # 32 creatures × 12 frames
 │       ├── petcube_battle.h         # Battle system (stats, enemy selection, clash logic)
-│       └── User_Setup.h             # TFT_eSPI pin configuration (GC9A01)
+│       └── LGFX_Config.h            # LovyanGFX display configuration (GC9A01)
 ├── PetCube Companion/
 │   ├── main.py                     # CLI entry point
 │   ├── gui.py                      # CustomTkinter dashboard + tray icon
@@ -143,7 +143,7 @@ PetCube/
 - ESP32 board package by Espressif Systems (≥ 3.0.0)
 - Board selected: **XIAO_ESP32S3**
 - Libraries:
-  - `TFT_eSPI` by Bodmer (copy `PetCube FW/PetCube/User_Setup.h` into the library folder before compiling)
+  - `LovyanGFX` by lovyan03 (display configuration is in `PetCube FW/PetCube/LGFX_Config.h`, no extra setup needed)
   - `Adafruit MPU6050`
   - `Adafruit Unified Sensor`
   - `Adafruit BusIO`
@@ -345,7 +345,7 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 - **Concept, design, firmware, companion app**: Michael Maneia
 - **Inspiration**: Tamagotchi (Bandai), pomodoro technique (Francesco Cirillo)
 - **Libraries used**:
-  - Firmware: [TFT_eSPI](https://github.com/Bodmer/TFT_eSPI), [Adafruit MPU6050](https://github.com/adafruit/Adafruit_MPU6050), ESP32 Arduino core
+  - Firmware: [LovyanGFX](https://github.com/lovyan03/LovyanGFX), [Adafruit MPU6050](https://github.com/adafruit/Adafruit_MPU6050), ESP32 Arduino core
   - Companion: [bleak](https://github.com/hbldh/bleak), [spaCy](https://spacy.io/), [Google API Python Client](https://github.com/googleapis/google-api-python-client), [discord.py](https://github.com/Rapptz/discord.py), [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter), [pystray](https://github.com/moses-palmer/pystray)
 
 
