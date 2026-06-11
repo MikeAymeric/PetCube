@@ -20804,3 +20804,82 @@ static const unsigned char spr_ryugumon_atk2_mask[32] PROGMEM = {
   0xC2, 0x23,
   0x3E, 0x3C,
 };
+
+// ══════════════════════════════════════════════════════════════
+//  📡 ICONE NOTIFICATION SOURCE 12×12 (XBM, LSB-first)
+// ══════════════════════════════════════════════════════════════
+// Disegnate da Mike. 12×12 pixel, formato XBM compatibile con u8g2.drawXBM().
+// Vengono renderizzate nel main screen come piccola icona accanto al pet
+// quando una notifica è pendente in Idle.
+
+static const unsigned char ICON_CALENDAR[] PROGMEM = {
+  0xFE, 0x07, 0xFF, 0x0F, 0xFF, 0x0F, 0xFF, 0x0F,
+  0x01, 0x08, 0x9D, 0x09, 0x51, 0x0A, 0x49, 0x0A,
+  0x51, 0x0A, 0x9D, 0x09, 0x01, 0x08, 0xFE, 0x07
+};
+
+static const unsigned char ICON_GMAIL[] PROGMEM = {
+  0x00, 0x00, 0x00, 0x00, 0xFE, 0x07, 0x03, 0x0C,
+  0x05, 0x0A, 0x99, 0x09, 0x61, 0x08, 0x01, 0x08,
+  0x01, 0x08, 0xFE, 0x07, 0x00, 0x00, 0x00, 0x00
+};
+
+// NOTA: questa icona rappresenta HacknPlan. Visto che HacknPlan invia
+// notifiche con source=SRC_TRELLO (riusando l'enum esistente), questa icona
+// viene mostrata quando arriva una notifica TRELLO. Se in futuro userai
+// veramente Trello, dovremo aggiungere SRC_HACKNPLAN al firmware.
+static const unsigned char ICON_HACKNPLAN[] PROGMEM = {
+  0x60, 0x00, 0xF8, 0x01, 0xFE, 0x07, 0x07, 0x0E,
+  0xF7, 0x0E, 0xF7, 0x0E, 0xF7, 0x0E, 0x07, 0x0E,
+  0xE7, 0x0F, 0xFE, 0x07, 0xF8, 0x01, 0x60, 0x00
+};
+
+// Aeroplano di carta puntato a destra (logo Telegram).
+// Muso: pixel singolo in alto-destra → ala larga → timone che si assottiglia in basso.
+static const unsigned char ICON_TELEGRAM[] PROGMEM = {
+  0x00, 0x08,  // . . . . . . . . . . . X  ← punta muso
+  0x00, 0x0C,  // . . . . . . . . . . X X
+  0xFE, 0x0F,  // . X X X X X X X X X X X  ← ala superiore
+  0xFF, 0x0F,  // X X X X X X X X X X X X  ← corpo
+  0xFF, 0x0F,  // X X X X X X X X X X X X  ← corpo
+  0xFE, 0x0F,  // . X X X X X X X X X X X  ← ala inferiore
+  0xF0, 0x0F,  // . . . . X X X X X X X X  ← timone
+  0x00, 0x0F,  // . . . . . . . . X X X X
+  0x00, 0x0C,  // . . . . . . . . . . X X
+  0x00, 0x08,  // . . . . . . . . . . . X  ← punta coda
+  0x00, 0x00,
+  0x00, 0x00
+};
+
+// Fumetto di chat con tre puntini di digitazione (logo WhatsApp).
+// Contorno aperto, coda in basso-sinistra.
+static const unsigned char ICON_WHATSAPP[] PROGMEM = {
+  0xFC, 0x03,  // . . X X X X X X X X . .   (arco superiore)
+  0x02, 0x04,  // . X . . . . . . . . X .   (lati)
+  0x01, 0x08,  // X . . . . . . . . . . X
+  0x25, 0x09,  // X . X . . X . . X . . X  ← tre puntini (. . .)
+  0x01, 0x08,  // X . . . . . . . . . . X
+  0x01, 0x08,  // X . . . . . . . . . . X
+  0x02, 0x04,  // . X . . . . . . . . X .   (lati)
+  0xFC, 0x03,  // . . X X X X X X X X . .   (arco inferiore)
+  0x0C, 0x00,  // . . X X . . . . . . . .   (coda fumetto)
+  0x04, 0x00,  // . . X . . . . . . . . .   (punta coda)
+  0x00, 0x00,
+  0x00, 0x00
+};
+
+// Clyde semplificato: blob arrotondato, due occhi 2×2, sorriso, due piedi.
+static const unsigned char ICON_DISCORD[] PROGMEM = {
+  0xFC, 0x03,  // . . X X X X X X X X . .
+  0xFE, 0x07,  // . X X X X X X X X X X .
+  0x03, 0x0C,  // X X . . . . . . . . X X
+  0x9B, 0x0D,  // X X . X X . . X X . X X  ← occhi
+  0x9B, 0x0D,  // X X . X X . . X X . X X  ← occhi
+  0x03, 0x0C,  // X X . . . . . . . . X X
+  0x0B, 0x0D,  // X X . X . . . . X . X X  ← angoli bocca
+  0xF3, 0x0C,  // X X . . X X X X . . X X  ← bocca
+  0xFE, 0x07,  // . X X X X X X X X X X .
+  0x9C, 0x03,  // . . X X X . . X X X . .  ← piedi
+  0x00, 0x00,  // . . . . . . . . . . . .
+  0x00, 0x00   // . . . . . . . . . . . .
+};
