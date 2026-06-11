@@ -91,18 +91,23 @@ def check_github_release(owner: str, repo: str) -> Optional[FirmwareInfo]:
     data = r.json()
     tag = data.get("tag_name", "")
 
-    # Estrai numero versione dal tag (es. "v15" → 15)
-    m = re.search(r"(\d+)", tag)
+    bin_assets = [a for a in data.get("assets", []) if a["name"].endswith(".bin")]
+    if not bin_assets:
+        return None
+
+    # Per l'OTA via BLE serve solo l'immagine della partizione app
+    # (bootloader/partition table non vengono aggiornati a runtime).
+    asset = next((a for a in bin_assets if "_app" in a["name"].lower()), bin_assets[0])
+
+    # Estrai numero versione dal nome dell'asset (es. "PetCube_FW_v15_app.bin" → 15)
+    m = re.search(r"v(\d+)", asset["name"], re.IGNORECASE)
     ver = int(m.group(1)) if m else 0
 
-    for asset in data.get("assets", []):
-        if asset["name"].endswith(".bin"):
-            return FirmwareInfo(
-                version=ver,
-                download_url=asset["browser_download_url"],
-                tag_name=tag,
-            )
-    return None
+    return FirmwareInfo(
+        version=ver,
+        download_url=asset["browser_download_url"],
+        tag_name=tag,
+    )
 
 
 def download_firmware(

@@ -2,8 +2,9 @@
 app_updater.py
 Self-update della Companion App da GitHub Releases.
 
-Convenzione release: tag "companion-vX.Y.Z" con un asset allegato:
-  - PetCubeCompanion.exe   → usato quando l'app gira come eseguibile (PyInstaller)
+Convenzione release: tag "vX.Y.Z" (o, per compatibilità, "companion-vX.Y.Z")
+con un asset allegato:
+  - *.exe                   → usato quando l'app gira come eseguibile (PyInstaller)
   - *.zip (codice sorgente) → usato quando l'app gira da sorgente Python
 
 L'asset .zip deve contenere i file della cartella "PetCube Companion"
@@ -46,6 +47,9 @@ class AppReleaseInfo:
         return f"v{self.version}  ({self.asset_name})"
 
 
+_TAG_RE = re.compile(r"^(?:companion-)?v?\d+\.\d+\.\d+$", re.IGNORECASE)
+
+
 def _parse_version(text: str) -> tuple:
     m = re.search(r"(\d+)\.(\d+)\.(\d+)", text)
     if not m:
@@ -74,7 +78,7 @@ def check_app_release(owner: str, repo: str) -> Optional[AppReleaseInfo]:
 
     for release in r.json():
         tag = release.get("tag_name", "")
-        if not tag.lower().startswith("companion-v"):
+        if not _TAG_RE.match(tag):
             continue
 
         ver_tuple = _parse_version(tag)
