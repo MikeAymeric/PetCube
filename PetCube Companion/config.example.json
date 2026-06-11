@@ -1,0 +1,75 @@
+{
+  "device": {
+    "ble_name": "PetCube",
+    "ble_service_uuid": "12345678-1234-5678-1234-56789abcdef0",
+    "ble_char_uuid": "12345678-1234-5678-1234-56789abcdef1",
+    "username": "",
+    "device_id": "",
+    "wifi_fallback_url": ""
+  },
+  "plugins": {
+    "calendar": {
+      "enabled": false,
+      "poll_interval_sec": 60,
+      "lookahead_minutes": 15,
+      "credentials_file": "credentials.json",
+      "exclude_calendars": []
+    },
+    "discord": {
+      "enabled": false,
+      "bot_token": "",
+      "user_id": null,
+      "poll_interval_sec": 30,
+      "monitor_channel_ids": []
+    },
+    "gmail": {
+      "enabled": false,
+      "poll_interval_sec": 600,
+      "credentials_file": "credentials.json",
+      "login_hint": "",
+      "max_recent": 20
+    },
+    "hacknplan": {
+      "enabled": false,
+      "poll_interval_sec": 7200,
+      "lookahead_hours": 48,
+      "api_key": "",
+      "target_user_id": null
+    },
+    "telegram": {
+      "enabled": false,
+      "api_id": 0,
+      "api_hash": "",
+      "phone_number": "",
+      "session_file": "telegram_session",
+      "poll_interval_sec": 30,
+      "monitor_chat_ids": []
+    },
+    "whatsapp": {
+      "enabled": false,
+      "session_dir": "whatsapp_session",
+      "poll_interval_sec": 30,
+      "monitor_chats": []
+    },
+    "slack": {
+      "enabled": false
+    },
+    "github": {
+      "enabled": false
+    },
+    "trello": {
+      "enabled": false
+    }
+  },
+  "transport": {
+    "prefer": "ble",
+    "ble_scan_timeout_sec": 10
+  },
+  "logging": {
+    "level": "INFO"
+  },
+  "firmware": {
+    "github_owner": "MikeAymeric",
+    "github_repo": "PetCube"
+  }
+}

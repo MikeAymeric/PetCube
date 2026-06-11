@@ -12,6 +12,9 @@ import signal
 import sys
 from pathlib import Path
 
+from playwright_env import setup_playwright_browsers_path
+setup_playwright_browsers_path()
+
 from plugin_manager import PluginManager
 from ble_sender import Sender
 from notification_packet import NotifPacket
