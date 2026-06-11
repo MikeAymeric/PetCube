@@ -9,6 +9,8 @@ python -m PyInstaller ^
   --windowed ^
   --name "PetCube Companion" ^
   --add-data "config.json;." ^
+  --collect-all spacy ^
+  --collect-all it_core_news_sm ^
   --hidden-import bleak ^
   --hidden-import bleak.backends.winrt ^
   --hidden-import customtkinter ^
