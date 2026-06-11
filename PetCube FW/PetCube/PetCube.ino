@@ -102,6 +102,7 @@
 #include <Adafruit_Sensor.h>
 #include <Preferences.h>
 #include "petcube_sprites.h"
+#include "petcube_backgrounds.h"
 #include "petcube_battle.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -383,6 +384,7 @@ int      cursorX            = 0;   // posizione cursore 0..127
 int      cursorDir          = 1;   // +1 / -1
 int      critWindowStart    = 0;
 int      critWindowWidth    = 16;  // larghezza zona crit (verrà variata da seed_length)
+#define  BATTLE_CURSOR_SPEED 12     // px per frame (era 4: troppo lento, battaglie facili)
 bool     petCritThisClash   = false;
 
 // Registro nemici battuti (32 flag, persistenti nel namespace 'registro')
@@ -1271,7 +1273,16 @@ void drawSetupScreen(unsigned long now) {
 }
 
 void drawMainScreen(unsigned long now) {
-  canvas.fillSprite(C_BG);
+  // Sfondo ambientale per Idle/Sleep/DND/Work/Study/Training; le altre
+  // schermate (Session, Dead, ecc.) restano a sfondo nero.
+  bool useBg = (gState == STATE_IDLE   || gState == STATE_SLEEP ||
+                gState == STATE_DND    || gState == STATE_WORK  ||
+                gState == STATE_STUDY  || gState == STATE_TRAINING);
+  if (useBg) {
+    canvas.pushImage(0, 0, DISP_SIZE, DISP_SIZE, BG_NORMAL);
+  } else {
+    canvas.fillSprite(C_BG);
+  }
   const PetSprites* spr = getCurrentSprites();
 
   // ── DEAD ──────────────────────────────────────────────────────
@@ -1290,17 +1301,20 @@ void drawMainScreen(unsigned long now) {
   }
 
   // ── Label stato ───────────────────────────────────────────────
+  // In Idle/Sleep lo sfondo ambientale sostituisce la label di stato.
   const char* stateLabel = "Idle";
   uint16_t labelColor = C_DIM;
+  bool showLabel = true;
   if (isSick) {
     stateLabel = ((now/400)%2) ? "SICK!" : "";
     labelColor = C_STR;
   } else {
     switch (gState) {
+      case STATE_IDLE:     showLabel = false; break;
       case STATE_TRAINING: stateLabel = "Training"; labelColor = C_STR;   break;
       case STATE_STUDY:    stateLabel = "Study";    labelColor = C_INT;   break;
       case STATE_WORK:     stateLabel = "Work";     labelColor = C_ENG;   break;
-      case STATE_SLEEP:    stateLabel = "Sleep";    labelColor = C_CYAN;  break;
+      case STATE_SLEEP:    stateLabel = "Sleep";    labelColor = C_CYAN;  showLabel = false; break;
       case STATE_DND:      stateLabel = "DND";      labelColor = C_DIM;   break;
       case STATE_SESSION:
         if (pomoPhase == POMO_RUN_REST) {
@@ -1313,9 +1327,17 @@ void drawMainScreen(unsigned long now) {
     }
   }
 
-  canvas.setTextFont(2); canvas.setTextColor(labelColor, C_BG);
-  int lw = canvas.textWidth(stateLabel);
-  canvas.drawString(stateLabel, (DISP_SIZE - lw) / 2, 14);
+  if (showLabel && stateLabel[0] != '\0') {
+    canvas.setTextFont(2);
+    int lw = canvas.textWidth(stateLabel);
+    int lx = (DISP_SIZE - lw) / 2;
+    if (useBg) {
+      // Targhetta scura dietro il testo per restare leggibile sullo sfondo.
+      canvas.fillRoundRect(lx - 6, 4, lw + 12, 18, 4, C_BG);
+    }
+    canvas.setTextColor(labelColor, C_BG);
+    canvas.drawString(stateLabel, lx, 14);
+  }
 
   // ── Setup pomodoro/riposo ────────────────────────────────────────
   if (pomoPhase == POMO_SET_WORK || pomoPhase == POMO_SET_REST) {
@@ -2397,7 +2419,7 @@ void drawBattleScreen(unsigned long now) {
     canvas.drawRect(35, 180, 170, 20, C_FG);
     canvas.fillRect(critWindowStart, 181, critWindowWidth, 18, C_ENG);
 
-    cursorX += cursorDir * 4;
+    cursorX += cursorDir * BATTLE_CURSOR_SPEED;
     if (cursorX >= 200) { cursorX = 200; cursorDir = -1; }
     if (cursorX <= 36)  { cursorX = 36;  cursorDir =  1; }
     canvas.fillRect(cursorX, 181, 4, 18, C_BG);
@@ -2475,6 +2497,10 @@ void setup() {
   display.fillScreen(C_BG);
   canvas.setColorDepth(16);
   canvas.createSprite(DISP_SIZE, DISP_SIZE);
+  // Gli array di sfondo (petcube_backgrounds.h) sono in formato rgb565_t
+  // nativo: pushImage richiede setSwapBytes(true) per interpretarli
+  // correttamente (default e' swap565_t).
+  canvas.setSwapBytes(true);
 
   // Splash
   canvas.fillSprite(C_BG);
