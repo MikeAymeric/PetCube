@@ -35,6 +35,15 @@
 //  Libreria richiesta (oltre alle solite):
 //    BLE built-in di ESP32 Arduino Core (NO install separata richiesta)
 //
+//  ── CHANGELOG v17 → v18 ───────────────────────────────────────
+//  🖼️  Sfondo ambientale (Sprite/BG_Normal.png) su Idle, Sleep, DND,
+//      Work, Study, Training; le altre schermate restano a sfondo nero
+//  🏷️  Label di stato nascosta su Idle/Sleep, mantenuta e resa
+//      leggibile (badge scuro) sulle altre schermate
+//  ⚔️  Cursore del minigioco di battaglia molto più veloce
+//      (4 → 12 px/frame)
+//  • Bump FW_VERSION a 18, migrazione NVS automatica (reset totale)
+//
 //  ── CHANGELOG v16 → v17 ───────────────────────────────────────
 //  🍅  Sistema pomodoro configurabile:
 //      - Rimossa la meccanica "Feed" (menu, cooldown, bonus)
@@ -102,6 +111,7 @@
 #include <Adafruit_Sensor.h>
 #include <Preferences.h>
 #include "petcube_sprites.h"
+#include "petcube_backgrounds.h"
 #include "petcube_battle.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -158,7 +168,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           17   // bump al cambio struttura NVS
+#define FW_VERSION           18   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -237,22 +247,31 @@ enum PomoPhase {
 enum Element { FIRE, WATER };
 
 // ── SPRITE TABLE ──────────────────────────────────────────────
-struct PetSprites {
-  const unsigned char* idle[3];
-  const unsigned char* happy[2];
-  const unsigned char* sleep[2];
-  const unsigned char* atk[2];
-  const unsigned char* angry;
-  const unsigned char* sick[2];
+// Frame a colori: pixel RGB565 + maschera di visibilità (16x16, vedi
+// petcube_sprites.h).
+struct SprFrame {
+  const uint16_t* px;
+  const unsigned char* mask;
 };
 
+struct PetSprites {
+  SprFrame idle[3];
+  SprFrame happy[2];
+  SprFrame sleep[2];
+  SprFrame atk[2];
+  SprFrame angry;
+  SprFrame sick[2];
+};
+
+#define MK_FRAME(n, f) { spr_##n##_##f##_px, spr_##n##_##f##_mask }
+
 #define MAKE_SPR(n) { \
-  { spr_##n##_idle1, spr_##n##_idle2, spr_##n##_idle3 }, \
-  { spr_##n##_happy1, spr_##n##_happy2 }, \
-  { spr_##n##_sleep1, spr_##n##_sleep2 }, \
-  { spr_##n##_atk1,   spr_##n##_atk2   }, \
-  spr_##n##_angry1, \
-  { spr_##n##_sick1,  spr_##n##_sick2  } \
+  { MK_FRAME(n, idle1), MK_FRAME(n, idle2), MK_FRAME(n, idle3) }, \
+  { MK_FRAME(n, happy1), MK_FRAME(n, happy2) }, \
+  { MK_FRAME(n, sleep1), MK_FRAME(n, sleep2) }, \
+  { MK_FRAME(n, atk1),   MK_FRAME(n, atk2)   }, \
+  MK_FRAME(n, angry1), \
+  { MK_FRAME(n, sick1),  MK_FRAME(n, sick2)  } \
 }
 
 const PetSprites SPR_KINDLEKIN      = MAKE_SPR(kindlekin);
@@ -374,6 +393,7 @@ int      cursorX            = 0;   // posizione cursore 0..127
 int      cursorDir          = 1;   // +1 / -1
 int      critWindowStart    = 0;
 int      critWindowWidth    = 16;  // larghezza zona crit (verrà variata da seed_length)
+#define  BATTLE_CURSOR_SPEED 12     // px per frame (era 4: troppo lento, battaglie facili)
 bool     petCritThisClash   = false;
 
 // Registro nemici battuti (32 flag, persistenti nel namespace 'registro')
@@ -623,7 +643,7 @@ const char* getCurrentName() {
   }
 }
 
-const unsigned char* getFrame(const PetSprites* spr, unsigned long now) {
+SprFrame getFrame(const PetSprites* spr, unsigned long now) {
   if (isSick)
     return spr->sick[(now / 600) % 2];
   switch (gState) {
@@ -722,16 +742,16 @@ bool getIdleMirror(unsigned long now) {
 }
 
 void drawSpriteScaled(int x, int y, int scale,
-                      const unsigned char* bmp, bool mirror = false,
-                      uint16_t color = C_FG) {
+                      const SprFrame& frame, bool mirror = false) {
   for (int row = 0; row < SPR_SIZE; row++) {
-    uint8_t b0 = pgm_read_byte(&bmp[row * 2]);
-    uint8_t b1 = pgm_read_byte(&bmp[row * 2 + 1]);
+    uint8_t b0 = pgm_read_byte(&frame.mask[row * 2]);
+    uint8_t b1 = pgm_read_byte(&frame.mask[row * 2 + 1]);
     uint16_t rowbits = (uint16_t)b0 | ((uint16_t)b1 << 8);
     for (int col = 0; col < SPR_SIZE; col++) {
       if (rowbits & (1 << col)) {
         int drawCol = mirror ? (SPR_SIZE - 1 - col) : col;
-        canvas.fillRect(x + drawCol*scale, y + row*scale, scale, scale, color);
+        uint16_t px = pgm_read_word(&frame.px[row * SPR_SIZE + col]);
+        canvas.fillRect(x + drawCol*scale, y + row*scale, scale, scale, px);
       }
     }
   }
@@ -1173,7 +1193,7 @@ void drawRegistroScreen(unsigned long now) {
   } else {
     // Sprite spostata a (28,50): a (14,40) l'angolo superiore sinistro
     // finiva fuori dall'area circolare visibile.
-    const unsigned char* frame = e.sprites->idle[(now/ANIM_IDLE_MS)%3];
+    const SprFrame& frame = e.sprites->idle[(now/ANIM_IDLE_MS)%3];
     drawSpriteScaled(28, 50, 4, frame);
 
     // Nome in font2 (anziché font4) e spostato a destra della sprite,
@@ -1235,8 +1255,8 @@ void drawSetupScreen(unsigned long now) {
   canvas.drawFastHLine(20, 40, 200, C_DIM);
 
   int frame = (now / 400) % 2;
-  const unsigned char* botaFrame = SPR_KINDLEKIN.idle[frame];
-  const unsigned char* puniFrame = SPR_DROWSEA.idle[frame];
+  const SprFrame& botaFrame = SPR_KINDLEKIN.idle[frame];
+  const SprFrame& puniFrame = SPR_DROWSEA.idle[frame];
 
   // Fire a sinistra, Water a destra (sprite ×5 = 80×80)
   const int sz = 5;
@@ -1244,8 +1264,8 @@ void drawSetupScreen(unsigned long now) {
   if (setupChoice == 0) canvas.drawRect(lx-4, sy-4, SPR_SIZE*sz+8, SPR_SIZE*sz+8, C_TIMER);
   else                  canvas.drawRect(rx-4, sy-4, SPR_SIZE*sz+8, SPR_SIZE*sz+8, C_CYAN);
 
-  drawSpriteScaled(lx, sy, sz, botaFrame, false, setupChoice==0 ? C_TIMER : C_DIM);
-  drawSpriteScaled(rx, sy, sz, puniFrame, false, setupChoice==1 ? C_CYAN  : C_DIM);
+  drawSpriteScaled(lx, sy, sz, botaFrame);
+  drawSpriteScaled(rx, sy, sz, puniFrame);
 
   canvas.setTextFont(2);
   canvas.setTextColor(setupChoice==0 ? C_TIMER : C_DIM, C_BG);
@@ -1262,7 +1282,16 @@ void drawSetupScreen(unsigned long now) {
 }
 
 void drawMainScreen(unsigned long now) {
-  canvas.fillSprite(C_BG);
+  // Sfondo ambientale per Idle/Sleep/DND/Work/Study/Training; le altre
+  // schermate (Session, Dead, ecc.) restano a sfondo nero.
+  bool useBg = (gState == STATE_IDLE   || gState == STATE_SLEEP ||
+                gState == STATE_DND    || gState == STATE_WORK  ||
+                gState == STATE_STUDY  || gState == STATE_TRAINING);
+  if (useBg) {
+    canvas.pushImage(0, 0, DISP_SIZE, DISP_SIZE, BG_NORMAL);
+  } else {
+    canvas.fillSprite(C_BG);
+  }
   const PetSprites* spr = getCurrentSprites();
 
   // ── DEAD ──────────────────────────────────────────────────────
@@ -1281,17 +1310,20 @@ void drawMainScreen(unsigned long now) {
   }
 
   // ── Label stato ───────────────────────────────────────────────
+  // In Idle/Sleep lo sfondo ambientale sostituisce la label di stato.
   const char* stateLabel = "Idle";
   uint16_t labelColor = C_DIM;
+  bool showLabel = true;
   if (isSick) {
     stateLabel = ((now/400)%2) ? "SICK!" : "";
     labelColor = C_STR;
   } else {
     switch (gState) {
+      case STATE_IDLE:     showLabel = false; break;
       case STATE_TRAINING: stateLabel = "Training"; labelColor = C_STR;   break;
       case STATE_STUDY:    stateLabel = "Study";    labelColor = C_INT;   break;
       case STATE_WORK:     stateLabel = "Work";     labelColor = C_ENG;   break;
-      case STATE_SLEEP:    stateLabel = "Sleep";    labelColor = C_CYAN;  break;
+      case STATE_SLEEP:    stateLabel = "Sleep";    labelColor = C_CYAN;  showLabel = false; break;
       case STATE_DND:      stateLabel = "DND";      labelColor = C_DIM;   break;
       case STATE_SESSION:
         if (pomoPhase == POMO_RUN_REST) {
@@ -1304,9 +1336,17 @@ void drawMainScreen(unsigned long now) {
     }
   }
 
-  canvas.setTextFont(2); canvas.setTextColor(labelColor, C_BG);
-  int lw = canvas.textWidth(stateLabel);
-  canvas.drawString(stateLabel, (DISP_SIZE - lw) / 2, 14);
+  if (showLabel && stateLabel[0] != '\0') {
+    canvas.setTextFont(2);
+    int lw = canvas.textWidth(stateLabel);
+    int lx = (DISP_SIZE - lw) / 2;
+    if (useBg) {
+      // Targhetta scura dietro il testo per restare leggibile sullo sfondo.
+      canvas.fillRoundRect(lx - 6, 4, lw + 12, 18, 4, C_BG);
+    }
+    canvas.setTextColor(labelColor, C_BG);
+    canvas.drawString(stateLabel, lx, 14);
+  }
 
   // ── Setup pomodoro/riposo ────────────────────────────────────────
   if (pomoPhase == POMO_SET_WORK || pomoPhase == POMO_SET_REST) {
@@ -1351,10 +1391,9 @@ void drawMainScreen(unsigned long now) {
 #if SPRITES_PLACEHOLDER
   drawSpritePlaceholder(SPR_X, SPR_Y, SPR_DRAW_SIZE, SPR_DRAW_SIZE, now);
 #else
-  const unsigned char* frame = getFrame(spr, now);
+  SprFrame frame = getFrame(spr, now);
   bool mirrorX = (gState == STATE_IDLE && !isSick) ? getIdleMirror(now) : false;
-  uint16_t sprColor = isSick ? 0x07E0 : C_FG;  // verde se malato
-  drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, frame, mirrorX, sprColor);
+  drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, frame, mirrorX);
 #endif
 
   // ── Escrementi ───────────────────────────────────────────────
@@ -1432,7 +1471,7 @@ void drawMenuScreen(unsigned long now) {
   drawSpritePlaceholder(88, 10, 64, 64, now);
 #else
   const PetSprites* spr = getCurrentSprites();
-  const unsigned char* frame = getFrame(spr, now);
+  SprFrame frame = getFrame(spr, now);
   drawSpriteScaled(88, 10, 4, frame);
 #endif
 
@@ -2389,7 +2428,7 @@ void drawBattleScreen(unsigned long now) {
     canvas.drawRect(35, 180, 170, 20, C_FG);
     canvas.fillRect(critWindowStart, 181, critWindowWidth, 18, C_ENG);
 
-    cursorX += cursorDir * 4;
+    cursorX += cursorDir * BATTLE_CURSOR_SPEED;
     if (cursorX >= 200) { cursorX = 200; cursorDir = -1; }
     if (cursorX <= 36)  { cursorX = 36;  cursorDir =  1; }
     canvas.fillRect(cursorX, 181, 4, 18, C_BG);
@@ -2467,6 +2506,10 @@ void setup() {
   display.fillScreen(C_BG);
   canvas.setColorDepth(16);
   canvas.createSprite(DISP_SIZE, DISP_SIZE);
+  // Gli array di sfondo (petcube_backgrounds.h) sono in formato rgb565_t
+  // nativo: pushImage richiede setSwapBytes(true) per interpretarli
+  // correttamente (default e' swap565_t).
+  canvas.setSwapBytes(true);
 
   // Splash
   canvas.fillSprite(C_BG);
