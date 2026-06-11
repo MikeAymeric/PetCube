@@ -35,6 +35,15 @@
 //  Libreria richiesta (oltre alle solite):
 //    BLE built-in di ESP32 Arduino Core (NO install separata richiesta)
 //
+//  ── CHANGELOG v17 → v18 ───────────────────────────────────────
+//  🖼️  Sfondo ambientale (Sprite/BG_Normal.png) su Idle, Sleep, DND,
+//      Work, Study, Training; le altre schermate restano a sfondo nero
+//  🏷️  Label di stato nascosta su Idle/Sleep, mantenuta e resa
+//      leggibile (badge scuro) sulle altre schermate
+//  ⚔️  Cursore del minigioco di battaglia molto più veloce
+//      (4 → 12 px/frame)
+//  • Bump FW_VERSION a 18, migrazione NVS automatica (reset totale)
+//
 //  ── CHANGELOG v16 → v17 ───────────────────────────────────────
 //  🍅  Sistema pomodoro configurabile:
 //      - Rimossa la meccanica "Feed" (menu, cooldown, bonus)
@@ -159,7 +168,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           17   // bump al cambio struttura NVS
+#define FW_VERSION           18   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
