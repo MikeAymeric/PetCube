@@ -29,28 +29,24 @@
 #define IDX_SHIELDMANE      7
 #define IDX_FORTIFIRE      8
 #define IDX_CITADELLION         9
-#define IDX_MITAMAMON       10
-#define IDX_AUROVULP         11
-#define IDX_VULPYRE    12
-#define IDX_ELDERVULP       13
-#define IDX_LUCEMON         14
-#define IDX_NOXFORTRESS     15
-#define IDX_DROWSEA         16
-#define IDX_GLOOMFIN        17
-#define IDX_FANGLURE         18
-#define IDX_RIPTALON       19
-#define IDX_MAULSTREAM   20
-#define IDX_LEVIACRUSH  21
-#define IDX_LIGHTFIN   22
-#define IDX_BALEGUARD       23
-#define IDX_BULWHARK       24
-#define IDX_TIDENAUGHT 25
-#define IDX_VIKEMON         26
-#define IDX_SIRENLURE         27
-#define IDX_ABYSSIBYL          28
-#define IDX_THALASSIBYL       29
-#define IDX_RYUGUMON        30
-#define IDX_NIGHTMARE     31
+#define IDX_AUROVULP         10
+#define IDX_VULPYRE    11
+#define IDX_ELDERVULP       12
+#define IDX_NOXFORTRESS     13
+#define IDX_DROWSEA         14
+#define IDX_GLOOMFIN        15
+#define IDX_FANGLURE         16
+#define IDX_RIPTALON       17
+#define IDX_MAULSTREAM   18
+#define IDX_LEVIACRUSH  19
+#define IDX_LIGHTFIN   20
+#define IDX_BALEGUARD       21
+#define IDX_BULWHARK       22
+#define IDX_TIDENAUGHT 23
+#define IDX_SIRENLURE         24
+#define IDX_ABYSSIBYL          25
+#define IDX_THALASSIBYL       26
+#define IDX_NIGHTMARE     27
 
 // ── STAT BASE DELLE 32 CREATURE ──────────────────────────────────
 // Formato: { ATK, SPA, DEF, HP }
@@ -75,33 +71,29 @@ const PetStats PET_STATS[] PROGMEM = {
   /*  7 Shieldmane    */ { 58, 50, 50, 42 },
   /*  8 Fortifire    */ { 72, 68, 70, 60 },
   /*  9 Citadellion       */ { 85, 80, 82, 73 },
-  /* 10 Mitamamon     */ { 70, 88, 78, 84 },
   // Fire linea INT
-  /* 11 Aurovulp       */ { 42, 65, 35, 58 },
-  /* 12 Vulpyre  */ { 60, 78, 55, 77 },
-  /* 13 Eldervulp     */ { 92, 85, 70, 73 },
-  /* 14 Lucemon       */ { 78, 95, 68, 79 },
-  /* 15 Noxfortress   */ { 88, 75, 90, 67 },
+  /* 10 Aurovulp       */ { 42, 65, 35, 58 },
+  /* 11 Vulpyre  */ { 60, 78, 55, 77 },
+  /* 12 Eldervulp     */ { 92, 85, 70, 73 },
+  /* 13 Noxfortress   */ { 88, 75, 90, 67 },
   // Water condivisi + linea STR
-  /* 16 Drowsea       */ {  8, 10, 12, 10 },
-  /* 17 Gloomfin      */ { 21, 12, 17, 20 },
-  /* 18 Fanglure       */ { 32, 28, 30, 30 },
-  /* 19 Riptalon     */ { 55, 45, 50, 50 },
-  /* 20 Maulstream */ { 80, 55, 60, 75 },
-  /* 21 Leviacrush*/ { 88, 82, 78, 72 },
-  /* 22 Lightfin */ { 82, 80, 76, 82 },
+  /* 14 Drowsea       */ {  8, 10, 12, 10 },
+  /* 15 Gloomfin      */ { 21, 12, 17, 20 },
+  /* 16 Fanglure       */ { 32, 28, 30, 30 },
+  /* 17 Riptalon     */ { 55, 45, 50, 50 },
+  /* 18 Maulstream */ { 80, 55, 60, 75 },
+  /* 19 Leviacrush*/ { 88, 82, 78, 72 },
+  /* 20 Lightfin */ { 82, 80, 76, 82 },
   // Water linea ENG
-  /* 23 Baleguard     */ { 50, 48, 52, 50 },
-  /* 24 Bulwhark     */ { 65, 68, 60, 77 },
-  /* 25 Tidenaught    */ { 75, 92, 75, 78 },
-  /* 26 Vikemon       */ { 90, 72, 88, 70 },
+  /* 21 Baleguard     */ { 50, 48, 52, 50 },
+  /* 22 Bulwhark     */ { 65, 68, 60, 77 },
+  /* 23 Tidenaught    */ { 75, 92, 75, 78 },
   // Water linea INT
-  /* 27 Sirenlure       */ { 45, 60, 38, 57 },
-  /* 28 Abyssibyl        */ { 55, 65, 75, 75 },
-  /* 29 Thalassibyl     */ { 78, 85, 82, 75 },
-  /* 30 Ryugumon      */ { 70, 92, 78, 80 },
+  /* 24 Sirenlure       */ { 45, 60, 38, 57 },
+  /* 25 Abyssibyl        */ { 55, 65, 75, 75 },
+  /* 26 Thalassibyl     */ { 78, 85, 82, 75 },
   // Water Dark (linea STR)
-  /* 31 Nightmare   */ { 90, 70, 92, 68 },
+  /* 27 Nightmare   */ { 90, 70, 92, 68 },
 };
 
 inline PetStats getStatsFromRegistro(uint8_t idx) {
@@ -264,7 +256,7 @@ inline uint8_t enemyCandidates(uint8_t pet_stage,
   // Per categorie Light/Dark a questi stadi, pesco da tutte e 3 le linee come fallback
   if (pet_stage == 3) {
     if (enemy_element == BE_FIRE) {
-      // STR=Blazebrand (3), ENG=Shieldmane (7), INT=Aurovulp (11)
+      // STR=Blazebrand (3), ENG=Shieldmane (7), INT=Aurovulp (10)
       switch (category) {
         case CAT_SCADENZA:                              // STR
           candidates[count++] = IDX_BLAZEBRAND; break;
@@ -278,7 +270,7 @@ inline uint8_t enemyCandidates(uint8_t pet_stage,
           candidates[count++] = IDX_AUROVULP;
       }
     } else {
-      // STR=Riptalon (19), ENG=Baleguard (23), INT=Sirenlure (27)
+      // STR=Riptalon (17), ENG=Baleguard (21), INT=Sirenlure (24)
       switch (category) {
         case CAT_SCADENZA:                              // STR
           candidates[count++] = IDX_RIPTALON; break;
@@ -297,7 +289,7 @@ inline uint8_t enemyCandidates(uint8_t pet_stage,
 
   if (pet_stage == 4) {
     if (enemy_element == BE_FIRE) {
-      // STR=Mightforge(4), ENG=Fortifire(8), INT=Vulpyre(12)
+      // STR=Mightforge(4), ENG=Fortifire(8), INT=Vulpyre(11)
       switch (category) {
         case CAT_SCADENZA:    candidates[count++] = IDX_MIGHTFORGE; break;
         case CAT_OPPORTUNITA: candidates[count++] = IDX_FORTIFIRE; break;
@@ -309,7 +301,7 @@ inline uint8_t enemyCandidates(uint8_t pet_stage,
           candidates[count++] = IDX_VULPYRE;
       }
     } else {
-      // STR=Maulstream(20), ENG=Bulwhark(24), INT=Abyssibyl(28)
+      // STR=Maulstream(18), ENG=Bulwhark(22), INT=Abyssibyl(25)
       switch (category) {
         case CAT_SCADENZA:    candidates[count++] = IDX_MAULSTREAM; break;
         case CAT_OPPORTUNITA: candidates[count++] = IDX_BULWHARK; break;
@@ -326,12 +318,10 @@ inline uint8_t enemyCandidates(uint8_t pet_stage,
 
   // Primal (5): tutti gli Std/Light/Dark esistono
   if (enemy_element == BE_FIRE) {
-    // Fire Primal: Flameforge(5), Seraphyre(6), Citadellion(9), Mitamamon(10), Eldervulp(13), Lucemon(14), Noxfortress(15)
+    // Fire Primal: Flameforge(5), Seraphyre(6), Citadellion(9), Eldervulp(12), Noxfortress(13)
     switch (category) {
       case CAT_LODE:                                                // Light
         candidates[count++] = IDX_SERAPHYRE;
-        candidates[count++] = IDX_MITAMAMON;
-        candidates[count++] = IDX_LUCEMON;
         break;
       case CAT_CRITICA: case CAT_CRISI:                             // Dark
         candidates[count++] = IDX_NOXFORTRESS;
@@ -353,8 +343,6 @@ inline uint8_t enemyCandidates(uint8_t pet_stage,
     switch (category) {
       case CAT_LODE:
         candidates[count++] = IDX_LIGHTFIN;
-        candidates[count++] = IDX_VIKEMON;
-        candidates[count++] = IDX_RYUGUMON;
         break;
       case CAT_CRITICA: case CAT_CRISI:
         candidates[count++] = IDX_NIGHTMARE;  // Dark condiviso tutte le linee Water
