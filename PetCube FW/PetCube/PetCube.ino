@@ -1,17 +1,31 @@
 ﻿// ═══════════════════════════════════════════════════════════════
-//  PetCube — Firmware v0.16
+//  PetCube — Firmware v0.17
 //  Schermata principale: solo sprite (×3) + stato pomodoro in alto
-//  Menu testuale: Status / Feed / Clean / Heal / Registro
-//  Escrementi, malattia, morte, nutrizione
+//  Menu testuale: Status / Clean / Heal / Registro
+//  Escrementi, malattia, morte
 //  ⚔️  Sistema battaglie con notifiche da Companion App PC
 //  📡  Server BLE GATT per ricezione notifiche dalla Companion
 //
 //  Controlli schermata principale:
 //    A = apri menu
-//    B = avvia sessione (tipo da orientamento); se Idle → orologio CEST
+//    B = in Training/Study/Work avvia il setup pomodoro (vedi sotto);
+//        se Idle → orologio CEST
 //        Long-press B (5s) con notifica pendente → battle!
-//    C = annulla sessione in corso (penalità -2 HAP); se orologio → chiudi
+//    C = annulla pomodoro/riposo in corso (penalità -2 HAP); se orologio → chiudi
 //        Long-press C (5s) con notifica pendente → dismiss volontario
+//
+//  Setup pomodoro (in Training/Study/Work):
+//    1° B → imposta durata pomodoro (default 25 min):
+//           A = +5 min, C = -5 min
+//    2° B → imposta durata riposo (default 5 min):
+//           A = +1 min, C = -1 min
+//    3° B → avvia il pomodoro
+//    Cambiare orientamento durante il setup (fasi 1-2) annulla tutto
+//    SENZA penalità. Cambiare orientamento (o premere C) durante il
+//    pomodoro o il riposo già avviati annulla con penalità -2 HAP.
+//    Al completamento del pomodoro: stat e sessioni aumentano ogni
+//    25 min completati; al completamento del riposo: aumenta la
+//    felicità (HAP).
 //
 //  File necessari nella stessa cartella:
 //    PetCube.ino
@@ -20,6 +34,21 @@
 //
 //  Libreria richiesta (oltre alle solite):
 //    BLE built-in di ESP32 Arduino Core (NO install separata richiesta)
+//
+//  ── CHANGELOG v16 → v17 ───────────────────────────────────────
+//  🍅  Sistema pomodoro configurabile:
+//      - Rimossa la meccanica "Feed" (menu, cooldown, bonus)
+//      - In Training/Study/Work, B apre il setup pomodoro (durata
+//        lavoro +5/-5 min con A/C, durata riposo +1/-1 min con A/C),
+//        un terzo B avvia il timer
+//      - Cambio orientamento durante il setup annulla tutto SENZA
+//        penalità; durante pomodoro/riposo già avviati la penalità
+//        HAP (CANCEL_HAP_MALUS) resta invariata
+//      - Stat e sessioni totali/attive aumentano in proporzione ogni
+//        25 min di pomodoro completati; HAP aumenta al completamento
+//        del riposo
+//      - Durate pomodoro/riposo persistite in NVS
+//  • Bump FW_VERSION a 17, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v15 → v16 ───────────────────────────────────────
 //  📡  BLE sempre raggiungibile:
@@ -107,15 +136,20 @@ Preferences prefs;
 #define LED    LED_BUILTIN
 
 // ── COSTANTI ──────────────────────────────────────────────────
-#define SESSION_MS           (25UL * 60 * 1000)
+#define POMO_UNIT_MS         (25UL * 60 * 1000)   // unità di ricompensa pomodoro
+#define POMO_DEFAULT_MS      (25UL * 60 * 1000)
+#define POMO_STEP_MS         (5UL  * 60 * 1000)
+#define POMO_MIN_MS          (5UL  * 60 * 1000)
+#define POMO_MAX_MS          (120UL * 60 * 1000)
+#define REST_DEFAULT_MS      (5UL  * 60 * 1000)
+#define REST_STEP_MS         (1UL  * 60 * 1000)
+#define REST_MIN_MS          (1UL  * 60 * 1000)
+#define REST_MAX_MS          (30UL * 60 * 1000)
 #define DECAY_WINDOW_MS      (4UL  * 60 * 60 * 1000)
 #define DECAY_AMOUNT         10
 #define HAP_PER_SESSION      8
 #define STAT_PER_SESSION     10
 #define ORIENT_THRESHOLD     7.0f
-#define FEED_COOLDOWN_MS     (60UL * 60 * 1000)
-#define FEED_HAP_BONUS       15
-#define FEED_STAT_BONUS      5
 #define POOP_HAP_MALUS       2
 #define POOP_MEGA_MALUS      5
 #define POOP_SICK_MALUS      10
@@ -123,8 +157,8 @@ Preferences prefs;
 #define SICK_DEATH_MS        (2UL * 60 * 60 * 1000)
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
-#define CANCEL_HAP_MALUS     2    // penalità HAP per cancel sessione
-#define FW_VERSION           16   // bump al cambio struttura NVS
+#define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
+#define FW_VERSION           17   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -196,6 +230,9 @@ enum Screen { SCR_MAIN, SCR_MENU, SCR_STATUS, SCR_CLOCK, SCR_BOOT, SCR_REGISTRO,
 enum Orientation {
   ORI_NORMAL, ORI_LEFT, ORI_RIGHT,
   ORI_FACE_UP, ORI_UPSIDE_DOWN, ORI_FACE_DOWN
+};
+enum PomoPhase {
+  POMO_NONE, POMO_SET_WORK, POMO_SET_REST, POMO_RUN_WORK, POMO_RUN_REST
 };
 enum Element { FIRE, WATER };
 
@@ -289,8 +326,10 @@ unsigned long lastSessionMs   = 0;
 unsigned long lastDecayMs     = 0;
 unsigned long evolveStartMs   = 0;
 
-// Feed
-unsigned long lastFeedMs    = 0;
+// Pomodoro
+PomoPhase     pomoPhase   = POMO_NONE;
+unsigned long pomodoroMs  = POMO_DEFAULT_MS;
+unsigned long restMs      = REST_DEFAULT_MS;
 
 // Escrementi
 int  poopCount              = 0;   // 0..4 normali, 5=mega, poi sick
@@ -403,8 +442,8 @@ bool bootHasData = false;
 
 // Menu
 int  menuCursor   = 0;
-const int MENU_ITEMS = 5;
-const char* MENU_LABELS[] = { "Status", "Feed", "Clean", "Heal", "Registro" };
+const int MENU_ITEMS = 4;
+const char* MENU_LABELS[] = { "Status", "Clean", "Heal", "Registro" };
 
 
 // ── REGISTRO ──────────────────────────────────────────────────
@@ -734,8 +773,9 @@ void saveToNVS() {
   prefs.putInt("bLost",   battlesLost);
   prefs.putULong("lastSes",  lastSessionMs);
   prefs.putULong("lastDec",  lastDecayMs);
-  prefs.putULong("lastFeed", lastFeedMs);
   prefs.putULong("nextPoop", nextPoopMs);
+  prefs.putUInt("pomoMin",   pomodoroMs / 60000);
+  prefs.putUInt("restMin",   restMs     / 60000);
   prefs.putULong("sickMs",   sickStartMs);
   prefs.putULong("sickDec",  lastSickDecayMs);
   prefs.putInt("sickEp",     sickEpisodes);
@@ -765,8 +805,9 @@ bool loadFromNVS() {
     battlesLost   = prefs.getInt("bLost",  0);
     lastSessionMs = prefs.getULong("lastSes",  0);
     lastDecayMs   = prefs.getULong("lastDec",  0);
-    lastFeedMs    = prefs.getULong("lastFeed", 0);
     nextPoopMs    = prefs.getULong("nextPoop", 0);
+    pomodoroMs    = prefs.getUInt("pomoMin", POMO_DEFAULT_MS / 60000) * 60000UL;
+    restMs        = prefs.getUInt("restMin", REST_DEFAULT_MS / 60000) * 60000UL;
     sickStartMs   = prefs.getULong("sickMs",   0);
     lastSickDecayMs = prefs.getULong("sickDec",0);
     sickEpisodes  = prefs.getInt("sickEp",  0);
@@ -857,39 +898,86 @@ void checkEvolution() {
   saveToNVS();
 }
 
-// ── SESSIONE ──────────────────────────────────────────────────
-void startSession(GameState type) {
-  sessionType    = type;
-  gState         = STATE_SESSION;
-  sessionRunning = true;
-  sessionStartMs = millis();  // impostato DOPO i tone per evitare underflow
+// ── POMODORO ──────────────────────────────────────────────────
+// 1° B in Training/Study/Work: apre il setup durata pomodoro
+void beginPomodoroSetup(GameState type) {
+  sessionType = type;
+  gState      = STATE_SESSION;
+  pomoPhase   = POMO_SET_WORK;
   tone(BUZZER, 880, 80);
 }
 
-void completeSession() {
-  sessionRunning = false;
-  lastSessionMs  = millis();
-  sessTotal++;
-  switch (sessionType) {
-    case STATE_TRAINING: statSTR = min(100, statSTR+STAT_PER_SESSION); sessActive++; break;
-    case STATE_STUDY:    statINT = min(100, statINT+STAT_PER_SESSION); sessActive++; break;
-    default:             statENG = min(100, statENG+STAT_PER_SESSION); sessActive++; break;
+// A/C durante POMO_SET_WORK: regola la durata pomodoro di ±5 min
+void adjustPomodoroWorkMs(bool increase) {
+  long ms = (long)pomodoroMs + (increase ? (long)POMO_STEP_MS : -(long)POMO_STEP_MS);
+  pomodoroMs = (unsigned long)constrain(ms, (long)POMO_MIN_MS, (long)POMO_MAX_MS);
+  tone(BUZZER, 660, 30);
+}
+
+// A/C durante POMO_SET_REST: regola la durata riposo di ±1 min
+void adjustPomodoroRestMs(bool increase) {
+  long ms = (long)restMs + (increase ? (long)REST_STEP_MS : -(long)REST_STEP_MS);
+  restMs = (unsigned long)constrain(ms, (long)REST_MIN_MS, (long)REST_MAX_MS);
+  tone(BUZZER, 660, 30);
+}
+
+// 2° B: passa al setup durata riposo. 3° B: avvia il pomodoro.
+void advancePomodoroSetup() {
+  if (pomoPhase == POMO_SET_WORK) {
+    pomoPhase = POMO_SET_REST;
+    tone(BUZZER, 988, 80);
+  } else if (pomoPhase == POMO_SET_REST) {
+    pomoPhase      = POMO_RUN_WORK;
+    sessionRunning = true;
+    sessionStartMs = millis();  // impostato DOPO i tone per evitare underflow
+    tone(BUZZER, 1175, 120);
   }
-  statHAP = min(100, statHAP + HAP_PER_SESSION);
+}
+
+// Pomodoro completato: stat/sessioni in proporzione ai 25min completati,
+// poi avvia automaticamente il riposo.
+void completePomodoroWork() {
+  lastSessionMs = millis();
+  unsigned long units = pomodoroMs / POMO_UNIT_MS;
+  if (units > 0) {
+    sessTotal  += units;
+    sessActive += units;
+    switch (sessionType) {
+      case STATE_TRAINING: statSTR = min(100, statSTR + STAT_PER_SESSION*(int)units); break;
+      case STATE_STUDY:    statINT = min(100, statINT + STAT_PER_SESSION*(int)units); break;
+      default:             statENG = min(100, statENG + STAT_PER_SESSION*(int)units); break;
+    }
+  }
   tone(BUZZER,1047,80); delay(90);
   tone(BUZZER,1319,80); delay(90);
   tone(BUZZER,1568,200);
   checkEvolution();
   saveToNVS();
+  pomoPhase      = POMO_RUN_REST;
+  sessionStartMs = millis();  // impostato DOPO i tone per evitare underflow
+}
+
+// Riposo completato: aumenta la felicità e chiude il pomodoro.
+void completePomodoroRest() {
+  statHAP = min(100, statHAP + HAP_PER_SESSION);
+  tone(BUZZER,1568,80); delay(90);
+  tone(BUZZER,1319,80); delay(90);
+  tone(BUZZER,1047,200);
+  saveToNVS();
+  sessionRunning = false;
+  pomoPhase      = POMO_NONE;
   // Imposta lo stato in base all'orientamento corrente, non torna di default a IDLE
   if (gState != STATE_EVOLVING) enterStateFromOri(gOrient);
 }
 
-void cancelSession() {
+// Annulla setup/pomodoro/riposo in corso. Penalità HAP solo se il
+// pomodoro o il riposo erano già avviati (non durante il setup).
+void cancelPomodoro() {
+  if (pomoPhase == POMO_RUN_WORK || pomoPhase == POMO_RUN_REST) {
+    statHAP = max(0, statHAP - CANCEL_HAP_MALUS);
+  }
   sessionRunning = false;
-  // Penalità sessione fallita
-  statHAP  = max(0, statHAP - CANCEL_HAP_MALUS);
-  sessTotal++;  // conta come sessione totale ma non come attiva
+  pomoPhase      = POMO_NONE;
   gState = STATE_IDLE;
   tone(BUZZER, 440, 150);
   saveToNVS();
@@ -995,19 +1083,6 @@ void healPet() {
 }
 
 // ── FEED ──────────────────────────────────────────────────────
-void feedPet(unsigned long now) {
-  lastFeedMs = now;
-  statHAP    = min(100, statHAP + FEED_HAP_BONUS);
-  int stat   = random(3);
-  if      (stat == 0) statSTR = min(100, statSTR + FEED_STAT_BONUS);
-  else if (stat == 1) statINT = min(100, statINT + FEED_STAT_BONUS);
-  else                statENG = min(100, statENG + FEED_STAT_BONUS);
-  tone(BUZZER, 659, 80); delay(90);
-  tone(BUZZER, 784, 80); delay(90);
-  tone(BUZZER, 1047, 150);
-  saveToNVS();
-}
-
 // ── TRANSIZIONE STATO DA ORIENTAMENTO ────────────────────────
 Orientation lastDisplayOri = ORI_NORMAL;
 
@@ -1025,9 +1100,10 @@ void updateDisplayRotation(Orientation ori) {
 void enterStateFromOri(Orientation ori) {
   if (gState == STATE_EVOLVING || gState == STATE_SETUP ||
       gState == STATE_DEAD) return;
-  // Se c'è una sessione in corso e cambia orientamento: annulla
-  if (gState == STATE_SESSION && sessionRunning) {
-    cancelSession();
+  // Se è in corso un setup/pomodoro/riposo e cambia orientamento: annulla
+  // senza penalità
+  if (gState == STATE_SESSION && pomoPhase != POMO_NONE) {
+    cancelPomodoro();
   }
   updateDisplayRotation(ori);
   switch (ori) {
@@ -1218,7 +1294,9 @@ void drawMainScreen(unsigned long now) {
       case STATE_SLEEP:    stateLabel = "Sleep";    labelColor = C_CYAN;  break;
       case STATE_DND:      stateLabel = "DND";      labelColor = C_DIM;   break;
       case STATE_SESSION:
-        if (sessionType==STATE_TRAINING)      { stateLabel="Training"; labelColor=C_STR; }
+        if (pomoPhase == POMO_RUN_REST) {
+          stateLabel = "Rest"; labelColor = C_HAP;
+        } else if (sessionType==STATE_TRAINING)      { stateLabel="Training"; labelColor=C_STR; }
         else if (sessionType==STATE_STUDY)    { stateLabel="Study";    labelColor=C_INT; }
         else                                  { stateLabel="Work";     labelColor=C_ENG; }
         break;
@@ -1230,16 +1308,30 @@ void drawMainScreen(unsigned long now) {
   int lw = canvas.textWidth(stateLabel);
   canvas.drawString(stateLabel, (DISP_SIZE - lw) / 2, 14);
 
-  // ── Timer sessione ────────────────────────────────────────────
-  if (sessionRunning) {
+  // ── Setup pomodoro/riposo ────────────────────────────────────────
+  if (pomoPhase == POMO_SET_WORK || pomoPhase == POMO_SET_REST) {
+    unsigned long ms = (pomoPhase == POMO_SET_WORK) ? pomodoroMs : restMs;
+    char buf[12];
+    sprintf(buf, "%lu min", ms / 60000);
+    canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
+    int tw = canvas.textWidth(buf);
+    canvas.drawString(buf, (DISP_SIZE - tw) / 2, 36);
+    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
+    const char* hint = (pomoPhase == POMO_SET_WORK) ? "Pomodoro: A+ C-  B=ok" : "Riposo: A+ C-  B=ok";
+    int hw = canvas.textWidth(hint);
+    canvas.drawString(hint, (DISP_SIZE - hw) / 2, 56);
+  }
+  // ── Timer pomodoro/riposo ─────────────────────────────────────
+  else if (sessionRunning) {
+    unsigned long total   = (pomoPhase == POMO_RUN_REST) ? restMs : pomodoroMs;
     unsigned long elapsed = now - sessionStartMs;
-    unsigned long remain  = SESSION_MS > elapsed ? SESSION_MS - elapsed : 0;
+    unsigned long remain  = total > elapsed ? total - elapsed : 0;
     char buf[8];
     sprintf(buf, "%02lu:%02lu", remain/60000, (remain%60000)/1000);
     canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
     int tw = canvas.textWidth(buf);
     canvas.drawString(buf, (DISP_SIZE - tw) / 2, 36);
-    int prog = (int)((unsigned long)elapsed * 180 / SESSION_MS);
+    int prog = total > 0 ? (int)((unsigned long)elapsed * 180 / total) : 0;
     canvas.drawRect(30, 50, 180, 6, C_DIM);
     if (prog > 0) canvas.fillRect(31, 51, min(prog, 178), 4, C_TIMER);
   }
@@ -1346,7 +1438,6 @@ void drawMenuScreen(unsigned long now) {
 
   canvas.drawFastHLine(20, 82, 200, C_DIM);
 
-  unsigned long now_ = millis();
   for (int i = 0; i < MENU_ITEMS; i++) {
     int y = 90 + i * 26;
 
@@ -1354,15 +1445,8 @@ void drawMenuScreen(unsigned long now) {
     strcpy(label, MENU_LABELS[i]);
 
     bool enabled = true;
-    if (i == 1) {
-      if (lastFeedMs > 0 && now_ - lastFeedMs < FEED_COOLDOWN_MS) {
-        unsigned long wait = (FEED_COOLDOWN_MS - (now_ - lastFeedMs)) / 60000 + 1;
-        sprintf(label, "Feed(%lum)", wait);
-        enabled = false;
-      }
-    }
-    if (i == 2) enabled = (poopCount > 0 || poopMega);
-    if (i == 3) enabled = isSick;
+    if (i == 1) enabled = (poopCount > 0 || poopMega);
+    if (i == 2) enabled = isSick;
 
     uint16_t c = !enabled ? C_DIM : (i == menuCursor ? C_TIMER : C_FG);
     if (i == menuCursor) canvas.fillRect(20, y-2, 200, 22, 0x1082);
@@ -1568,25 +1652,19 @@ void executeMenuItem(unsigned long now) {
     case 0: // Status
       gScreen = SCR_STATUS;
       break;
-    case 1: // Feed
-      if (lastFeedMs == 0 || now - lastFeedMs >= FEED_COOLDOWN_MS) {
-        feedPet(now);
-        gScreen = SCR_MAIN;
-      }
-      break;
-    case 2: // Clean
+    case 1: // Clean
       if (poopCount > 0 || poopMega) {
         cleanPoop(now);
         gScreen = SCR_MAIN;
       }
       break;
-    case 3: // Heal
+    case 2: // Heal
       if (isSick) {
         healPet();
         gScreen = SCR_MAIN;
       }
       break;
-    case 4: // Registro
+    case 3: // Registro
       registroCursor = 0;
       gScreen = SCR_REGISTRO;
       break;
@@ -2522,8 +2600,9 @@ void loop() {
         statSTR=statINT=statENG=0; statHAP=50;
         sessTotal=sessActive=0; evoStage=0; finalVariant=-1; lineVariant=0;
         battlesWon=battlesLost=0; poopCount=0; poopMega=false;
-        isSick=false; sickStartMs=0; lastFeedMs=0;
+        isSick=false; sickStartMs=0;
         sickEpisodes=0;
+        pomoPhase=POMO_NONE; pomodoroMs=POMO_DEFAULT_MS; restMs=REST_DEFAULT_MS;
         lastSessionMs=0; lastDecayMs=now;
         nextPoopMs = now + randomPoopInterval();
         clockSet=false; clockOffsetSec=0;
@@ -2632,19 +2711,28 @@ void loop() {
     }
 
     // A: apri menu — solo in IDLE
+    //    durante il setup pomodoro/riposo: incrementa la durata
     if (btnAPrev==HIGH && btnANow==LOW) {
-      if (!sessionRunning && gState == STATE_IDLE) {
+      if (pomoPhase == POMO_SET_WORK) {
+        adjustPomodoroWorkMs(true);
+      } else if (pomoPhase == POMO_SET_REST) {
+        adjustPomodoroRestMs(true);
+      } else if (!sessionRunning && gState == STATE_IDLE) {
         gScreen    = SCR_MENU;
         menuCursor = 0;
         tone(BUZZER, 660, 30);
       }
       delay(50);
     }
-    // B: avvia sessione in Training/Study/Work
+    // B: in Training/Study/Work avvia/avanza il setup pomodoro
+    //    (1° B = setup durata pomodoro, 2° B = setup durata riposo,
+    //    3° B = avvio pomodoro)
     //    in Idle → apri orologio (a meno che ci sia una notifica pendente)
     //    in Sleep/DND → niente
     if (btnBPrev==HIGH && btnBNow==LOW) {
-      if (!sessionRunning) {
+      if (pomoPhase == POMO_SET_WORK || pomoPhase == POMO_SET_REST) {
+        advancePomodoroSetup();
+      } else if (!sessionRunning) {
         if (gState == STATE_IDLE) {
           // Se c'è una notifica pendente, NON aprire l'orologio:
           // l'utente potrebbe star iniziando un long-press B per battle.
@@ -2657,15 +2745,22 @@ void loop() {
         } else if (gState == STATE_TRAINING ||
                    gState == STATE_STUDY    ||
                    gState == STATE_WORK) {
-          startSession(gState);
+          beginPomodoroSetup(gState);
         }
         // Sleep / DND / Dead → B non fa niente
       }
       delay(50);
     }
-    // C: annulla sessione in corso
+    // C: durante il setup pomodoro/riposo decrementa la durata,
+    //    altrimenti annulla il pomodoro/riposo in corso (nessuna penalità)
     if (btnCPrev==HIGH && btnCNow==LOW) {
-      if (sessionRunning) cancelSession();
+      if (pomoPhase == POMO_SET_WORK) {
+        adjustPomodoroWorkMs(false);
+      } else if (pomoPhase == POMO_SET_REST) {
+        adjustPomodoroRestMs(false);
+      } else if (sessionRunning) {
+        cancelPomodoro();
+      }
       delay(50);
     }
   }
@@ -2738,9 +2833,11 @@ void loop() {
   // Ricalcola now dopo i delay dei bottoni per evitare underflow del timer
   now = millis();
 
-  // ── Timer sessione ────────────────────────────────────────────
-  if (sessionRunning && now - sessionStartMs >= SESSION_MS) {
-    completeSession();
+  // ── Timer pomodoro/riposo ─────────────────────────────────────
+  if (sessionRunning && pomoPhase == POMO_RUN_WORK && now - sessionStartMs >= pomodoroMs) {
+    completePomodoroWork();
+  } else if (sessionRunning && pomoPhase == POMO_RUN_REST && now - sessionStartMs >= restMs) {
+    completePomodoroRest();
   }
 
   // ── Logiche background ────────────────────────────────────────
