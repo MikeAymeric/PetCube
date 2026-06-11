@@ -183,18 +183,31 @@ async def ota_update_ble(
             offset += len(chunk)
             if progress_cb:
                 progress_cb(offset, total)
-            # Piccola pausa ogni 32 chunk per non saturare il buffer BLE dell'ESP32
-            if (offset // chunk_size) % 32 == 0:
-                await asyncio.sleep(0.01)
+            # "write without response" su Windows viene solo accodato dallo
+            # stack BLE, non trasmesso subito. Senza una pausa qui il loop
+            # "finisce" molto prima che i dati siano davvero arrivati al cubo,
+            # e il successivo COMMIT (write con risposta) resta bloccato dietro
+            # un enorme backlog di pacchetti non ancora inviati, causando un
+            # timeout silenzioso prima che l'ESP32 riceva il comando di commit.
+            await asyncio.sleep(0.015)
 
         _log(f"✓ Trasferiti {total:,} bytes. Commit in corso...")
 
         # ── COMMIT ──
-        await client.write_gatt_char(BLE_CHAR_OTA_CTRL_UUID, bytes([OTA_CMD_COMMIT]), response=True)
+        # Update.end(true) sull'ESP32 verifica l'immagine (SHA256 sull'intera
+        # partizione) prima di rispondere: può richiedere qualche secondo.
+        try:
+            await asyncio.wait_for(
+                client.write_gatt_char(BLE_CHAR_OTA_CTRL_UUID, bytes([OTA_CMD_COMMIT]), response=True),
+                timeout=15.0,
+            )
+        except Exception as e:
+            _log(f"✗ Commit non confermato dal dispositivo ({e}). OTA non completata.")
+            return False
 
         try:
             ack = await asyncio.wait_for(
-                client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=5.0
+                client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=10.0
             )
             if ack and ack[0] == OTA_ACK_OK:
                 _log("✓ Commit OK — il dispositivo si riavvierà con il nuovo firmware.")

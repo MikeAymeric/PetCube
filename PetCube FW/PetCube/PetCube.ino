@@ -1,5 +1,5 @@
 ﻿// ═══════════════════════════════════════════════════════════════
-//  PetCube — Firmware v0.15
+//  PetCube — Firmware v0.16
 //  Schermata principale: solo sprite (×3) + stato pomodoro in alto
 //  Menu testuale: Status / Feed / Clean / Heal / Registro
 //  Escrementi, malattia, morte, nutrizione
@@ -20,6 +20,18 @@
 //
 //  Libreria richiesta (oltre alle solite):
 //    BLE built-in di ESP32 Arduino Core (NO install separata richiesta)
+//
+//  ── CHANGELOG v15 → v16 ───────────────────────────────────────
+//  📡  BLE sempre raggiungibile:
+//      - Advertising attivo in QUALSIASI stato (non solo Idle), così la
+//        Companion App può inviare notifiche anche fuori da Idle
+//      - Fix bug: dopo la prima connessione il cubo restava "invisibile"
+//        per sempre (flag bleAdvertising non veniva riallineato allo stop
+//        automatico dell'advertising da parte dello stack BLE su connect)
+//  🔕  Sleep/DND silenziosi: il beep di notifica BLE non suona più in
+//      stato Sleep o DND (la notifica resta comunque in coda, gestibile
+//      al rientro in Idle, nessuna penalità per notifiche ignorate)
+//  • Bump FW_VERSION a 16, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v14 → v15 ───────────────────────────────────────
 //  🖥️  Migrazione display da TFT_eSPI a LovyanGFX:
@@ -112,7 +124,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP per cancel sessione
-#define FW_VERSION           15   // bump al cambio struttura NVS
+#define FW_VERSION           16   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -1592,13 +1604,17 @@ void onNotificationReceived(const NotifPacket& pkt);
 class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* server) override {
     bleClientConnected = true;
+    // Lo stack BLE dell'ESP32 ferma l'advertising automaticamente alla
+    // connessione: allineiamo il flag, altrimenti bleUpdateState() penserà
+    // che sia ancora attivo e non lo riavvierà più dopo la disconnessione.
+    bleAdvertising = false;
     // Il main loop suonerà il beep di connessione vedendo il cambio di stato
     // (qui non chiamiamo tone() perché siamo in un task BLE, meglio non bloccare)
   }
   void onDisconnect(BLEServer* server) override {
     bleClientConnected = false;
     // ESP32 BLE non riavvia l'advertising automaticamente dopo disconnessione
-    // Lo riavvieremo dal main loop quando rientriamo in Idle
+    // Lo riavvieremo dal main loop in bleUpdateState()
   }
 };
 
@@ -1806,19 +1822,21 @@ void bleDisconnectClient() {
 
 // Mantenimento dello stato BLE in base allo stato del cubo.
 // Chiamato dal main loop. Garantisce che:
-//   - in Idle: advertising attivo (visibile ai PC)
-//   - in altri stati: advertising spento
+//   - sempre (in qualunque stato): advertising attivo se non c'è un client
+//     connesso, così il cubo è sempre raggiungibile dalla Companion App
+//     per inviare notifiche, anche fuori da Idle
+//   - con un client connesso: advertising spento
 //
 // IMPORTANTE: NON forziamo la disconnessione del client durante stati transitori.
 // Il client se ne andrà da solo se non riceve risposta, o resterà connesso
 // silente. Forzare la disconnessione durante l'avvio di una battle può causare
 // race condition con il task BLE.
 void bleUpdateState() {
-  bool shouldAdvertise = (gState == STATE_IDLE) && !bleClientConnected;
+  bool shouldAdvertise = !bleClientConnected;
 
   if (shouldAdvertise && !bleAdvertising) {
     bleStartAdvertising();
-  } else if (!shouldAdvertise && bleAdvertising && gState != STATE_IDLE) {
+  } else if (!shouldAdvertise && bleAdvertising) {
     bleStopAdvertising();
   }
 
@@ -2733,9 +2751,13 @@ void loop() {
   bleUpdateState();          // 📡  gestisce advertising on/off e beep connessione
 
   // Suono notifica BLE (chiamato dal main loop perché il callback è in task BLE)
+  // In Sleep/DND il cubo resta silenzioso: la notifica viene comunque
+  // accodata e gestibile una volta tornati in Idle.
   if (pendingNotifBeep) {
     pendingNotifBeep = false;
-    tone(BUZZER, 1200, 80);
+    if (gState != STATE_SLEEP && gState != STATE_DND) {
+      tone(BUZZER, 1200, 80);
+    }
   }
 
   // ── Display ───────────────────────────────────────────────────
