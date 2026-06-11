@@ -47,6 +47,11 @@
 //      (Mitamamon/Lucemon/Vikemon/Ryugumon): restano solo Seraphyre
 //      (Fuoco) e Lightfin (Acqua) come evoluzioni Light, REGISTRO
 //      ridotto da 32 a 28 creature
+//  ✏️  Fix badge etichetta stato (Work/Study/DND/Training) disallineato
+//      dal testo, DND ora in magenta per leggibilità; suggerimento
+//      comandi setup pomodoro ingrandito e spostato sotto la sprite
+//  ⚔️  Battaglia: barra timing/VS/danni/esito spostati in alto, sprite
+//      in basso e leggermente ingrandite (×5), proiettili più grandi
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -1287,6 +1292,11 @@ void drawSetupScreen(unsigned long now) {
   canvas.pushSprite(0, 0);
 }
 
+// Prototipo esplicito: la generazione automatica di Arduino non gestisce
+// correttamente i parametri di default e altrimenti non lo troverebbe
+// nelle chiamate precedenti alla definizione (vicino a drawBattleScreen).
+void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX = 6, int padY = 2);
+
 void drawMainScreen(unsigned long now) {
   // Sfondo ambientale per Idle/Sleep/DND/Work/Study/Training/Session
   // (pomodoro+riposo); solo Dead resta a sfondo nero.
@@ -1331,9 +1341,9 @@ void drawMainScreen(unsigned long now) {
       case STATE_STUDY:    stateLabel = "Study";    labelColor = C_INT;   break;
       case STATE_WORK:     stateLabel = "Work";     labelColor = C_ENG;   break;
       case STATE_SLEEP:    stateLabel = "Sleep";    labelColor = C_CYAN;  showLabel = false; break;
-      case STATE_DND:      stateLabel = "DND";      labelColor = C_DIM;   break;
+      case STATE_DND:      stateLabel = "DND";      labelColor = C_MAGENTA; break;
       case STATE_SESSION:
-        if (pomoPhase == POMO_RUN_REST) {
+        if (pomoPhase == POMO_RUN_REST || pomoPhase == POMO_SET_REST) {
           stateLabel = "Rest"; labelColor = C_HAP;
         } else if (sessionType==STATE_TRAINING)      { stateLabel="Training"; labelColor=C_STR; }
         else if (sessionType==STATE_STUDY)    { stateLabel="Study";    labelColor=C_INT; }
@@ -1345,14 +1355,15 @@ void drawMainScreen(unsigned long now) {
 
   if (showLabel && stateLabel[0] != '\0') {
     canvas.setTextFont(2);
-    int lw = canvas.textWidth(stateLabel);
-    int lx = (DISP_SIZE - lw) / 2;
     if (useBg) {
       // Targhetta scura dietro il testo per restare leggibile sullo sfondo.
-      canvas.fillRoundRect(lx - 6, 4, lw + 12, 18, 4, C_BG);
+      drawBadgedCenteredStr(14, stateLabel, labelColor);
+    } else {
+      int lw = canvas.textWidth(stateLabel);
+      int lx = (DISP_SIZE - lw) / 2;
+      canvas.setTextColor(labelColor, C_BG);
+      canvas.drawString(stateLabel, lx, 14);
     }
-    canvas.setTextColor(labelColor, C_BG);
-    canvas.drawString(stateLabel, lx, 14);
   }
 
   // ── Setup pomodoro/riposo ────────────────────────────────────────
@@ -1362,17 +1373,24 @@ void drawMainScreen(unsigned long now) {
     sprintf(buf, "%lu min", ms / 60000);
     canvas.setTextFont(2);
     int tw = canvas.textWidth(buf);
-    canvas.setTextFont(1); canvas.setTextSize(1);
-    const char* hint = (pomoPhase == POMO_SET_WORK) ? "Pomodoro: A+ C-  B=ok" : "Riposo: A+ C-  B=ok";
-    int hw = canvas.textWidth(hint);
     if (useBg) {
       canvas.fillRoundRect((DISP_SIZE - tw) / 2 - 6, 32, tw + 12, 18, 4, C_BG);
-      canvas.fillRoundRect((DISP_SIZE - hw) / 2 - 6, 52, hw + 12, 12, 3, C_BG);
     }
-    canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
+    canvas.setTextColor(C_TIMER, C_BG);
     canvas.drawString(buf, (DISP_SIZE - tw) / 2, 36);
-    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
-    canvas.drawString(hint, (DISP_SIZE - hw) / 2, 56);
+
+    // Suggerimento comandi: spostato sotto la sprite e ingrandito
+    // (font1 size2) con colore C_FG per restare leggibile sullo sfondo.
+    canvas.setTextFont(1); canvas.setTextSize(2);
+    const char* hint = "A+  C-  B=OK";
+    if (useBg) {
+      drawBadgedCenteredStr(190, hint, C_FG);
+    } else {
+      int hw = canvas.textWidth(hint);
+      canvas.setTextColor(C_FG, C_BG);
+      canvas.drawString(hint, (DISP_SIZE - hw) / 2, 190);
+    }
+    canvas.setTextSize(1);
   }
   // ── Timer pomodoro/riposo ─────────────────────────────────────
   else if (sessionRunning) {
@@ -2377,7 +2395,7 @@ void drawCenteredStr(int y, const char* s) {
 }
 
 // Disegna un'etichetta centrata su un badge scuro (per leggibilità sullo sfondo).
-void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX = 6, int padY = 2) {
+void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX, int padY) {
   int w = canvas.textWidth(s);
   int h = canvas.fontHeight();
   int x = max(0, (DISP_SIZE - w) / 2);
@@ -2389,11 +2407,11 @@ void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX = 6, i
 // Proiettile vincitore->perdente: fiammella rossa/gialla (Fire) o goccia azzurra (Water).
 void drawProjectile(int x, int y, BattleElement elem) {
   if (elem == BE_FIRE) {
-    canvas.fillCircle(x, y, 6, C_STR);
-    canvas.fillCircle(x, y - 1, 3, C_ENG);
+    canvas.fillCircle(x, y, 8, C_STR);
+    canvas.fillCircle(x, y - 1, 4, C_ENG);
   } else {
-    canvas.fillCircle(x, y + 2, 5, C_CYAN);
-    canvas.fillTriangle(x, y - 6, x - 4, y + 2, x + 4, y + 2, C_CYAN);
+    canvas.fillCircle(x, y + 3, 7, C_CYAN);
+    canvas.fillTriangle(x, y - 8, x - 5, y + 3, x + 5, y + 3, C_CYAN);
   }
 }
 
@@ -2430,13 +2448,14 @@ void drawBattleScreen(unsigned long now) {
     return;
   }
 
-  // Posizioni sprite battle: pet sx ×4 (64px), nemico dx ×4.
-  // x=28/y=44 (anziché 14/38): a 14/38 l'angolo esterno delle sprite
-  // finiva fuori dall'area circolare visibile.
-  const int bscale = 4;
-  const int bsz    = SPR_SIZE * bscale;  // 64
+  // Posizioni sprite battle: pet sx ×5 (80px), nemico dx ×5, in basso.
+  // Bar/VS/esito stanno nella fascia in alto (32-110), le sprite sotto
+  // (110-190): a y=110/190 l'angolo esterno resta entro l'area circolare
+  // visibile (verificato per petX=28/enX=132).
+  const int bscale = 5;
+  const int bsz    = SPR_SIZE * bscale;  // 80
   int petX = 28, enX = DISP_SIZE - 28 - bsz;
-  int yPos = 44;
+  int yPos = 110;
 
   if (gState == STATE_BATTLE_INTRO) {
     int progress = min((int)el, 800);
@@ -2447,7 +2466,7 @@ void drawBattleScreen(unsigned long now) {
     drawSpriteScaled(petX, yPos, bscale, petSpr->idle[idx0], true);
     drawSpriteScaled(enX,  yPos, bscale, enSpr->idle[idx0]);
     canvas.setTextFont(4);
-    drawBadgedCenteredStr(115, "VS", C_FG);
+    drawBadgedCenteredStr(58, "VS", C_FG);
     if (el >= 1000) {
       gState = STATE_BATTLE_CLASH;
       battleStateMs = now;
@@ -2467,18 +2486,18 @@ void drawBattleScreen(unsigned long now) {
     // (x:10-230) le estremità finivano fuori dall'area circolare visibile.
     // Sfondo opaco dietro la barra: sullo sfondo immagine, drawRect da solo
     // disegna solo il bordo e lascerebbe l'interno trasparente.
-    canvas.fillRect(36, 181, 168, 18, C_BG);
-    canvas.fillRect(critWindowStart, 181, critWindowWidth, 18, C_ENG);
+    canvas.fillRect(36, 44, 168, 18, C_BG);
+    canvas.fillRect(critWindowStart, 44, critWindowWidth, 18, C_ENG);
 
     cursorX += cursorDir * BATTLE_CURSOR_SPEED;
     if (cursorX >= 200) { cursorX = 200; cursorDir = -1; }
     if (cursorX <= 36)  { cursorX = 36;  cursorDir =  1; }
-    canvas.fillRect(cursorX, 181, 4, 18, C_BG);
-    canvas.drawFastVLine(cursorX+1, 177, 26, C_FG);
-    canvas.drawRect(35, 180, 170, 20, C_FG);
+    canvas.fillRect(cursorX, 44, 4, 18, C_BG);
+    canvas.drawFastVLine(cursorX+1, 40, 26, C_FG);
+    canvas.drawRect(35, 43, 170, 20, C_FG);
 
     canvas.setTextFont(2);
-    drawBadgedCenteredStr(162, "B = colpo", C_DIM);
+    drawBadgedCenteredStr(72, "B = colpo", C_DIM);
 
     if (el >= 4000) {
       petCritThisClash = false;
@@ -2509,14 +2528,14 @@ void drawBattleScreen(unsigned long now) {
       }
       float t = (float)el / PROJECTILE_MS;
       int px = fromX + (int)((toX - fromX) * t);
-      int py = cy - (int)(20 * sinf(t * PI));  // piccolo arco verticale
+      int py = cy - (int)(25 * sinf(t * PI));  // piccolo arco verticale
       drawProjectile(px, py, winnerElem);
     }
 
     char dmg[28];
     sprintf(dmg, "P:-%d   E:-%d", lastResult.enemy_dmg, lastResult.pet_dmg);
     canvas.setTextFont(2);
-    drawBadgedCenteredStr(170, dmg, C_TIMER);
+    drawBadgedCenteredStr(50, dmg, C_TIMER);
 
     if (el >= 1500) {
       battleClashIdx++;
@@ -2541,7 +2560,7 @@ void drawBattleScreen(unsigned long now) {
     drawSpriteScaled(petX, yPos, bscale, pet_won ? petSpr->happy[(now/250)%2] : petSpr->sick[(now/400)%2], true);
     drawSpriteScaled(enX,  yPos, bscale, pet_won ? enSpr->sick[(now/400)%2]  : enSpr->happy[(now/250)%2]);
     canvas.setTextFont(4);
-    drawBadgedCenteredStr(170, pet_won ? "VITTORIA!" : "SCONFITTA", pet_won ? C_HAP : C_STR);
+    drawBadgedCenteredStr(55, pet_won ? "VITTORIA!" : "SCONFITTA", pet_won ? C_HAP : C_STR);
     if (el >= 2500) enterBattleStateMain();
   }
 
