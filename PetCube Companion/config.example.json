@@ -1,6 +1,8 @@
 {
   "device": {
     "ble_name": "PetCube",
+    "ble_service_uuid": "12345678-1234-5678-1234-56789abcdef0",
+    "ble_char_uuid": "12345678-1234-5678-1234-56789abcdef1",
     "username": "",
     "device_id": "",
     "wifi_fallback_url": ""
