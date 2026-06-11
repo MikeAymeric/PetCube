@@ -237,22 +237,31 @@ enum PomoPhase {
 enum Element { FIRE, WATER };
 
 // ── SPRITE TABLE ──────────────────────────────────────────────
-struct PetSprites {
-  const unsigned char* idle[3];
-  const unsigned char* happy[2];
-  const unsigned char* sleep[2];
-  const unsigned char* atk[2];
-  const unsigned char* angry;
-  const unsigned char* sick[2];
+// Frame a colori: pixel RGB565 + maschera di visibilità (16x16, vedi
+// petcube_sprites.h).
+struct SprFrame {
+  const uint16_t* px;
+  const unsigned char* mask;
 };
 
+struct PetSprites {
+  SprFrame idle[3];
+  SprFrame happy[2];
+  SprFrame sleep[2];
+  SprFrame atk[2];
+  SprFrame angry;
+  SprFrame sick[2];
+};
+
+#define MK_FRAME(n, f) { spr_##n##_##f##_px, spr_##n##_##f##_mask }
+
 #define MAKE_SPR(n) { \
-  { spr_##n##_idle1, spr_##n##_idle2, spr_##n##_idle3 }, \
-  { spr_##n##_happy1, spr_##n##_happy2 }, \
-  { spr_##n##_sleep1, spr_##n##_sleep2 }, \
-  { spr_##n##_atk1,   spr_##n##_atk2   }, \
-  spr_##n##_angry1, \
-  { spr_##n##_sick1,  spr_##n##_sick2  } \
+  { MK_FRAME(n, idle1), MK_FRAME(n, idle2), MK_FRAME(n, idle3) }, \
+  { MK_FRAME(n, happy1), MK_FRAME(n, happy2) }, \
+  { MK_FRAME(n, sleep1), MK_FRAME(n, sleep2) }, \
+  { MK_FRAME(n, atk1),   MK_FRAME(n, atk2)   }, \
+  MK_FRAME(n, angry1), \
+  { MK_FRAME(n, sick1),  MK_FRAME(n, sick2)  } \
 }
 
 const PetSprites SPR_KINDLEKIN      = MAKE_SPR(kindlekin);
@@ -623,7 +632,7 @@ const char* getCurrentName() {
   }
 }
 
-const unsigned char* getFrame(const PetSprites* spr, unsigned long now) {
+SprFrame getFrame(const PetSprites* spr, unsigned long now) {
   if (isSick)
     return spr->sick[(now / 600) % 2];
   switch (gState) {
@@ -722,16 +731,16 @@ bool getIdleMirror(unsigned long now) {
 }
 
 void drawSpriteScaled(int x, int y, int scale,
-                      const unsigned char* bmp, bool mirror = false,
-                      uint16_t color = C_FG) {
+                      const SprFrame& frame, bool mirror = false) {
   for (int row = 0; row < SPR_SIZE; row++) {
-    uint8_t b0 = pgm_read_byte(&bmp[row * 2]);
-    uint8_t b1 = pgm_read_byte(&bmp[row * 2 + 1]);
+    uint8_t b0 = pgm_read_byte(&frame.mask[row * 2]);
+    uint8_t b1 = pgm_read_byte(&frame.mask[row * 2 + 1]);
     uint16_t rowbits = (uint16_t)b0 | ((uint16_t)b1 << 8);
     for (int col = 0; col < SPR_SIZE; col++) {
       if (rowbits & (1 << col)) {
         int drawCol = mirror ? (SPR_SIZE - 1 - col) : col;
-        canvas.fillRect(x + drawCol*scale, y + row*scale, scale, scale, color);
+        uint16_t px = pgm_read_word(&frame.px[row * SPR_SIZE + col]);
+        canvas.fillRect(x + drawCol*scale, y + row*scale, scale, scale, px);
       }
     }
   }
@@ -1173,7 +1182,7 @@ void drawRegistroScreen(unsigned long now) {
   } else {
     // Sprite spostata a (28,50): a (14,40) l'angolo superiore sinistro
     // finiva fuori dall'area circolare visibile.
-    const unsigned char* frame = e.sprites->idle[(now/ANIM_IDLE_MS)%3];
+    const SprFrame& frame = e.sprites->idle[(now/ANIM_IDLE_MS)%3];
     drawSpriteScaled(28, 50, 4, frame);
 
     // Nome in font2 (anziché font4) e spostato a destra della sprite,
@@ -1235,8 +1244,8 @@ void drawSetupScreen(unsigned long now) {
   canvas.drawFastHLine(20, 40, 200, C_DIM);
 
   int frame = (now / 400) % 2;
-  const unsigned char* botaFrame = SPR_KINDLEKIN.idle[frame];
-  const unsigned char* puniFrame = SPR_DROWSEA.idle[frame];
+  const SprFrame& botaFrame = SPR_KINDLEKIN.idle[frame];
+  const SprFrame& puniFrame = SPR_DROWSEA.idle[frame];
 
   // Fire a sinistra, Water a destra (sprite ×5 = 80×80)
   const int sz = 5;
@@ -1244,8 +1253,8 @@ void drawSetupScreen(unsigned long now) {
   if (setupChoice == 0) canvas.drawRect(lx-4, sy-4, SPR_SIZE*sz+8, SPR_SIZE*sz+8, C_TIMER);
   else                  canvas.drawRect(rx-4, sy-4, SPR_SIZE*sz+8, SPR_SIZE*sz+8, C_CYAN);
 
-  drawSpriteScaled(lx, sy, sz, botaFrame, false, setupChoice==0 ? C_TIMER : C_DIM);
-  drawSpriteScaled(rx, sy, sz, puniFrame, false, setupChoice==1 ? C_CYAN  : C_DIM);
+  drawSpriteScaled(lx, sy, sz, botaFrame);
+  drawSpriteScaled(rx, sy, sz, puniFrame);
 
   canvas.setTextFont(2);
   canvas.setTextColor(setupChoice==0 ? C_TIMER : C_DIM, C_BG);
@@ -1351,10 +1360,9 @@ void drawMainScreen(unsigned long now) {
 #if SPRITES_PLACEHOLDER
   drawSpritePlaceholder(SPR_X, SPR_Y, SPR_DRAW_SIZE, SPR_DRAW_SIZE, now);
 #else
-  const unsigned char* frame = getFrame(spr, now);
+  SprFrame frame = getFrame(spr, now);
   bool mirrorX = (gState == STATE_IDLE && !isSick) ? getIdleMirror(now) : false;
-  uint16_t sprColor = isSick ? 0x07E0 : C_FG;  // verde se malato
-  drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, frame, mirrorX, sprColor);
+  drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, frame, mirrorX);
 #endif
 
   // ── Escrementi ───────────────────────────────────────────────
@@ -1432,7 +1440,7 @@ void drawMenuScreen(unsigned long now) {
   drawSpritePlaceholder(88, 10, 64, 64, now);
 #else
   const PetSprites* spr = getCurrentSprites();
-  const unsigned char* frame = getFrame(spr, now);
+  SprFrame frame = getFrame(spr, now);
   drawSpriteScaled(88, 10, 4, frame);
 #endif
 
