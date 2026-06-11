@@ -52,6 +52,9 @@
 //      comandi setup pomodoro ingrandito e spostato sotto la sprite
 //  ⚔️  Battaglia: barra timing/VS/danni/esito spostati in alto, sprite
 //      in basso e leggermente ingrandite (×5), proiettili più grandi
+//  🖼️  Sfondi dedicati per Work/Study/Training/Sleep (DND riusa lo
+//      sfondo Sleep); rimosse le etichette di stato (Work/Study/DND/
+//      Training/Rest), ora rappresentate solo dallo sfondo
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -1299,13 +1302,36 @@ void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX = 6, i
 
 void drawMainScreen(unsigned long now) {
   // Sfondo ambientale per Idle/Sleep/DND/Work/Study/Training/Session
-  // (pomodoro+riposo); solo Dead resta a sfondo nero.
+  // (pomodoro+riposo); solo Dead resta a sfondo nero. Ogni stato ha il
+  // proprio sfondo (DND riusa quello di Sleep); durante una sessione lo
+  // sfondo segue il tipo di sessione (Training/Study/Work), o quello di
+  // Sleep durante il riposo.
   bool useBg = (gState == STATE_IDLE   || gState == STATE_SLEEP ||
                 gState == STATE_DND    || gState == STATE_WORK  ||
                 gState == STATE_STUDY  || gState == STATE_TRAINING ||
                 gState == STATE_SESSION);
   if (useBg) {
-    canvas.pushImage(0, 0, DISP_SIZE, DISP_SIZE, BG_NORMAL);
+    const uint16_t* bg = BG_NORMAL;
+    switch (gState) {
+      case STATE_SLEEP:
+      case STATE_DND:      bg = BG_SLEEP;    break;
+      case STATE_WORK:     bg = BG_WORK;     break;
+      case STATE_STUDY:    bg = BG_STUDY;    break;
+      case STATE_TRAINING: bg = BG_TRAINING; break;
+      case STATE_SESSION:
+        if (pomoPhase == POMO_RUN_REST || pomoPhase == POMO_SET_REST) {
+          bg = BG_NORMAL;
+        } else if (sessionType == STATE_TRAINING) {
+          bg = BG_TRAINING;
+        } else if (sessionType == STATE_STUDY) {
+          bg = BG_STUDY;
+        } else {
+          bg = BG_WORK;
+        }
+        break;
+      default: break;
+    }
+    canvas.pushImage(0, 0, DISP_SIZE, DISP_SIZE, bg);
   } else {
     canvas.fillSprite(C_BG);
   }
@@ -1326,43 +1352,19 @@ void drawMainScreen(unsigned long now) {
     return;
   }
 
-  // ── Label stato ───────────────────────────────────────────────
-  // In Idle/Sleep lo sfondo ambientale sostituisce la label di stato.
-  const char* stateLabel = "Idle";
-  uint16_t labelColor = C_DIM;
-  bool showLabel = true;
-  if (isSick) {
-    stateLabel = ((now/400)%2) ? "SICK!" : "";
-    labelColor = C_STR;
-  } else {
-    switch (gState) {
-      case STATE_IDLE:     showLabel = false; break;
-      case STATE_TRAINING: stateLabel = "Training"; labelColor = C_STR;   break;
-      case STATE_STUDY:    stateLabel = "Study";    labelColor = C_INT;   break;
-      case STATE_WORK:     stateLabel = "Work";     labelColor = C_ENG;   break;
-      case STATE_SLEEP:    stateLabel = "Sleep";    labelColor = C_CYAN;  showLabel = false; break;
-      case STATE_DND:      stateLabel = "DND";      labelColor = C_MAGENTA; break;
-      case STATE_SESSION:
-        if (pomoPhase == POMO_RUN_REST || pomoPhase == POMO_SET_REST) {
-          stateLabel = "Rest"; labelColor = C_HAP;
-        } else if (sessionType==STATE_TRAINING)      { stateLabel="Training"; labelColor=C_STR; }
-        else if (sessionType==STATE_STUDY)    { stateLabel="Study";    labelColor=C_INT; }
-        else                                  { stateLabel="Work";     labelColor=C_ENG; }
-        break;
-      default: break;
-    }
-  }
-
-  if (showLabel && stateLabel[0] != '\0') {
+  // ── Avviso malattia ───────────────────────────────────────────
+  // Le etichette di stato (Work/Study/DND/Training/Rest) sono state rimosse:
+  // lo sfondo ambientale identifica già lo stato. "SICK!" resta come avviso.
+  if (isSick && (now/400)%2) {
+    const char* sickLabel = "SICK!";
     canvas.setTextFont(2);
     if (useBg) {
-      // Targhetta scura dietro il testo per restare leggibile sullo sfondo.
-      drawBadgedCenteredStr(14, stateLabel, labelColor);
+      drawBadgedCenteredStr(14, sickLabel, C_STR);
     } else {
-      int lw = canvas.textWidth(stateLabel);
+      int lw = canvas.textWidth(sickLabel);
       int lx = (DISP_SIZE - lw) / 2;
-      canvas.setTextColor(labelColor, C_BG);
-      canvas.drawString(stateLabel, lx, 14);
+      canvas.setTextColor(C_STR, C_BG);
+      canvas.drawString(sickLabel, lx, 14);
     }
   }
 
