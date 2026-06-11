@@ -35,6 +35,20 @@
 //  Libreria richiesta (oltre alle solite):
 //    BLE built-in di ESP32 Arduino Core (NO install separata richiesta)
 //
+//  ── CHANGELOG v18 → v19 ───────────────────────────────────────
+//  🖼️  Sfondo ambientale esteso anche a Session (pomodoro/riposo) e a
+//      tutte le schermate di battaglia
+//  ⚔️  UI battaglia ridisegnata per restare leggibile sullo sfondo
+//      (badge scuri dietro punteggio, VS, barra timing, danni, esito)
+//  💥  Nuovo feedback visivo nel clash: proiettile dal vincitore della
+//      fase verso il perdente (fiammella rossa/gialla per i tipo Fuoco,
+//      goccia azzurra per i tipo Acqua)
+//  🗑️  Rimosse le evoluzioni "Light" duplicate con nomi Digimon
+//      (Mitamamon/Lucemon/Vikemon/Ryugumon): restano solo Seraphyre
+//      (Fuoco) e Lightfin (Acqua) come evoluzioni Light, REGISTRO
+//      ridotto da 32 a 28 creature
+//  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
+//
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
 //  🖼️  Sfondo ambientale (Sprite/BG_Normal.png) su Idle, Sleep, DND,
 //      Work, Study, Training; le altre schermate restano a sfondo nero
@@ -168,7 +182,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           18   // bump al cambio struttura NVS
+#define FW_VERSION           19   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -294,19 +308,15 @@ const PetSprites SPR_NIGHTMARE    = MAKE_SPR(nightmare);
 const PetSprites SPR_SHIELDMANE        = MAKE_SPR(shieldmane);
 const PetSprites SPR_FORTIFIRE        = MAKE_SPR(fortifire);
 const PetSprites SPR_CITADELLION           = MAKE_SPR(citadellion);
-const PetSprites SPR_MITAMAMON         = MAKE_SPR(mitamamon);
 const PetSprites SPR_AUROVULP           = MAKE_SPR(aurovulp);
 const PetSprites SPR_VULPYRE      = MAKE_SPR(vulpyre);
 const PetSprites SPR_ELDERVULP         = MAKE_SPR(eldervulp);
-const PetSprites SPR_LUCEMON           = MAKE_SPR(lucemon);
 const PetSprites SPR_BALEGUARD         = MAKE_SPR(baleguard);
 const PetSprites SPR_BULWHARK         = MAKE_SPR(bulwhark);
 const PetSprites SPR_TIDENAUGHT  = MAKE_SPR(tidenaught);
-const PetSprites SPR_VIKEMON           = MAKE_SPR(vikemon);
 const PetSprites SPR_SIRENLURE           = MAKE_SPR(sirenlure);
 const PetSprites SPR_ABYSSIBYL            = MAKE_SPR(abyssibyl);
 const PetSprites SPR_THALASSIBYL         = MAKE_SPR(thalassibyl);
-const PetSprites SPR_RYUGUMON          = MAKE_SPR(ryugumon);
 
 // lineVariant: 0=STR, 1=ENG, 2=INT
 // Stadi 0-2 condivisi, stadi 3-4 e Ultimate dipendono da lineVariant
@@ -396,8 +406,8 @@ int      critWindowWidth    = 16;  // larghezza zona crit (verrà variata da see
 #define  BATTLE_CURSOR_SPEED 12     // px per frame (era 4: troppo lento, battaglie facili)
 bool     petCritThisClash   = false;
 
-// Registro nemici battuti (32 flag, persistenti nel namespace 'registro')
-bool enemyKnown[32] = {false};
+// Registro nemici battuti (28 flag = REGISTRO_SIZE, persistenti nel namespace 'registro')
+bool enemyKnown[28] = {false};
 
 // ID univoco multiplayer (formato "username#12345"), assegnato dalla Companion
 // App via BLE e persistito in NVS. Max 31 char + terminatore.
@@ -496,12 +506,10 @@ PetEntry REGISTRO[] = {
   { "Shieldmane",   "Fire",  &SPR_SHIELDMANE,     2,1,3,2, 0 },
   { "Fortifire",   "Fire",  &SPR_FORTIFIRE,     2,2,3,2, 0 },
   { "Citadellion",      "Fire",  &SPR_CITADELLION,        3,2,3,2, 0 },
-  { "Mitamamon",    "Light", &SPR_MITAMAMON,      2,3,3,3, 0 },
   // ── Fire linea INT ──────────────────────────────────────────
   { "Aurovulp",      "Fire",  &SPR_AUROVULP,        1,3,2,2, 0 },
   { "Vulpyre", "Fire",  &SPR_VULPYRE,   2,3,2,2, 0 },
   { "Eldervulp",    "Fire",  &SPR_ELDERVULP,      2,3,2,1, 0 },
-  { "Lucemon",      "Light", &SPR_LUCEMON,        1,3,1,3, 0 },
   // ── Noxfortress (Dark condiviso Fire) ───────────────────────
   { "Noxfortress",  "Dark",  &SPR_NOXFORTRESS,    3,1,3,1, 0 },
   // ── Water condivisi ─────────────────────────────────────────
@@ -517,16 +525,14 @@ PetEntry REGISTRO[] = {
   { "Baleguard",       "Water", &SPR_BALEGUARD,        2,1,3,2, 0 },
   { "Bulwhark",       "Water", &SPR_BULWHARK,        2,2,3,2, 0 },
   { "Tidenaught","Water", &SPR_TIDENAUGHT, 2,2,3,2, 0 },
-  { "Vikemon",         "Light", &SPR_VIKEMON,          3,2,2,3, 0 },
   // ── Water linea INT ─────────────────────────────────────────
   { "Sirenlure",      "Water", &SPR_SIRENLURE,        1,3,2,2, 0 },
   { "Abyssibyl",       "Water", &SPR_ABYSSIBYL,         1,3,2,2, 0 },
   { "Thalassibyl",    "Water", &SPR_THALASSIBYL,      1,3,2,3, 0 },
-  { "Ryugumon",     "Light", &SPR_RYUGUMON,       1,3,1,3, 0 },
   // ── Nightmare (Dark condiviso Water) ──────────────────
   { "Nightmare","Dark",&SPR_NIGHTMARE,     3,1,3,1, 0 },
 };
-const int REGISTRO_SIZE = 32;
+const int REGISTRO_SIZE = 28;
 int registroCursor = 0;  // Creatura corrente nel registro
 
 // Aggiorna ottenuto nel registro quando evolve
@@ -583,11 +589,11 @@ const PetSprites* getCurrentSprites() {
       return f0[v];
     }
     if (lineVariant == 1) {
-      const PetSprites* f1[] = { &SPR_CITADELLION,    &SPR_MITAMAMON,  &SPR_NOXFORTRESS };
+      const PetSprites* f1[] = { &SPR_CITADELLION,    &SPR_SERAPHYRE,  &SPR_NOXFORTRESS };
       return f1[v];
     }
     // INT line
-    const PetSprites* f2[] = { &SPR_ELDERVULP,    &SPR_LUCEMON,    &SPR_NOXFORTRESS };
+    const PetSprites* f2[] = { &SPR_ELDERVULP,    &SPR_SERAPHYRE,    &SPR_NOXFORTRESS };
     return f2[v];
   } else {
     if (evoStage == 0) return &SPR_DROWSEA;
@@ -609,11 +615,11 @@ const PetSprites* getCurrentSprites() {
       return w0[v];
     }
     if (lineVariant == 1) {
-      const PetSprites* w1[] = { &SPR_TIDENAUGHT, &SPR_VIKEMON,       &SPR_NIGHTMARE };
+      const PetSprites* w1[] = { &SPR_TIDENAUGHT, &SPR_LIGHTFIN,       &SPR_NIGHTMARE };
       return w1[v];
     }
     // INT line
-    const PetSprites* w2[] = { &SPR_THALASSIBYL,        &SPR_RYUGUMON,      &SPR_NIGHTMARE };
+    const PetSprites* w2[] = { &SPR_THALASSIBYL,        &SPR_LIGHTFIN,      &SPR_NIGHTMARE };
     return w2[v];
   }
 }
@@ -1282,11 +1288,12 @@ void drawSetupScreen(unsigned long now) {
 }
 
 void drawMainScreen(unsigned long now) {
-  // Sfondo ambientale per Idle/Sleep/DND/Work/Study/Training; le altre
-  // schermate (Session, Dead, ecc.) restano a sfondo nero.
+  // Sfondo ambientale per Idle/Sleep/DND/Work/Study/Training/Session
+  // (pomodoro+riposo); solo Dead resta a sfondo nero.
   bool useBg = (gState == STATE_IDLE   || gState == STATE_SLEEP ||
                 gState == STATE_DND    || gState == STATE_WORK  ||
-                gState == STATE_STUDY  || gState == STATE_TRAINING);
+                gState == STATE_STUDY  || gState == STATE_TRAINING ||
+                gState == STATE_SESSION);
   if (useBg) {
     canvas.pushImage(0, 0, DISP_SIZE, DISP_SIZE, BG_NORMAL);
   } else {
@@ -1353,12 +1360,18 @@ void drawMainScreen(unsigned long now) {
     unsigned long ms = (pomoPhase == POMO_SET_WORK) ? pomodoroMs : restMs;
     char buf[12];
     sprintf(buf, "%lu min", ms / 60000);
-    canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
+    canvas.setTextFont(2);
     int tw = canvas.textWidth(buf);
-    canvas.drawString(buf, (DISP_SIZE - tw) / 2, 36);
-    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
+    canvas.setTextFont(1); canvas.setTextSize(1);
     const char* hint = (pomoPhase == POMO_SET_WORK) ? "Pomodoro: A+ C-  B=ok" : "Riposo: A+ C-  B=ok";
     int hw = canvas.textWidth(hint);
+    if (useBg) {
+      canvas.fillRoundRect((DISP_SIZE - tw) / 2 - 6, 32, tw + 12, 18, 4, C_BG);
+      canvas.fillRoundRect((DISP_SIZE - hw) / 2 - 6, 52, hw + 12, 12, 3, C_BG);
+    }
+    canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
+    canvas.drawString(buf, (DISP_SIZE - tw) / 2, 36);
+    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
     canvas.drawString(hint, (DISP_SIZE - hw) / 2, 56);
   }
   // ── Timer pomodoro/riposo ─────────────────────────────────────
@@ -1368,8 +1381,13 @@ void drawMainScreen(unsigned long now) {
     unsigned long remain  = total > elapsed ? total - elapsed : 0;
     char buf[8];
     sprintf(buf, "%02lu:%02lu", remain/60000, (remain%60000)/1000);
-    canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
+    canvas.setTextFont(2);
     int tw = canvas.textWidth(buf);
+    if (useBg) {
+      canvas.fillRoundRect((DISP_SIZE - tw) / 2 - 6, 32, tw + 12, 18, 4, C_BG);
+      canvas.fillRoundRect(24, 46, 192, 16, 4, C_BG);
+    }
+    canvas.setTextColor(C_TIMER, C_BG);
     canvas.drawString(buf, (DISP_SIZE - tw) / 2, 36);
     int prog = total > 0 ? (int)((unsigned long)elapsed * 180 / total) : 0;
     canvas.drawRect(30, 50, 180, 6, C_DIM);
@@ -1999,8 +2017,8 @@ uint8_t registroEntryVariant(uint8_t idx) {
 BattleElement registroEntryElement(uint8_t idx) {
   const char* e = REGISTRO[idx].element;
   // Light/Dark sono "morale", l'elemento di battaglia segue il pool:
-  // Kindlekin..Noxfortress (0..15) = Fire, Drowsea..Nightmare (16..31) = Water
-  if (idx <= 15) return BE_FIRE;
+  // Kindlekin..Noxfortress (0..13) = Fire, Drowsea..Nightmare (14..27) = Water
+  if (idx <= 13) return BE_FIRE;
   return BE_WATER;
 }
 
@@ -2091,7 +2109,7 @@ int firstActiveNotif() {
 
 // ── REGISTRO: aggiungi nemico come 'silhouette+nome' ────────
 void markEnemyKnown(uint8_t idx) {
-  if (idx >= 32 || enemyKnown[idx]) return;
+  if (idx >= REGISTRO_SIZE || enemyKnown[idx]) return;
   enemyKnown[idx] = true;
   // Persisto nel namespace 'registro'
   char key[8];
@@ -2104,7 +2122,7 @@ void markEnemyKnown(uint8_t idx) {
 
 void loadEnemyKnown() {
   prefs.begin("registro", true);
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0; i < REGISTRO_SIZE; i++) {
     char key[8];
     sprintf(key, "k%d", i);
     enemyKnown[i] = prefs.getBool(key, false);
@@ -2138,10 +2156,10 @@ uint8_t currentPetRegistroIdx() {
       return f0[v];
     }
     if (lineVariant == 1) {
-      static const uint8_t f1[] = { IDX_CITADELLION, IDX_MITAMAMON, IDX_NOXFORTRESS };
+      static const uint8_t f1[] = { IDX_CITADELLION, IDX_SERAPHYRE, IDX_NOXFORTRESS };
       return f1[v];
     }
-    static const uint8_t f2[] = { IDX_ELDERVULP, IDX_LUCEMON, IDX_NOXFORTRESS };
+    static const uint8_t f2[] = { IDX_ELDERVULP, IDX_SERAPHYRE, IDX_NOXFORTRESS };
     return f2[v];
   } else {
     if (evoStage == 0) return IDX_DROWSEA;
@@ -2163,10 +2181,10 @@ uint8_t currentPetRegistroIdx() {
       return w0[v];
     }
     if (lineVariant == 1) {
-      static const uint8_t w1[] = { IDX_TIDENAUGHT, IDX_VIKEMON, IDX_NIGHTMARE };
+      static const uint8_t w1[] = { IDX_TIDENAUGHT, IDX_LIGHTFIN, IDX_NIGHTMARE };
       return w1[v];
     }
-    static const uint8_t w2[] = { IDX_THALASSIBYL, IDX_RYUGUMON, IDX_NIGHTMARE };
+    static const uint8_t w2[] = { IDX_THALASSIBYL, IDX_LIGHTFIN, IDX_NIGHTMARE };
     return w2[v];
   }
 }
@@ -2187,7 +2205,7 @@ void startBattle(int notifIdx) {
 
   // 1. Pet stats
   uint8_t petIdx = currentPetRegistroIdx();
-  if (petIdx >= 32) {
+  if (petIdx >= REGISTRO_SIZE) {
     Serial.printf("⚠️  Invalid petIdx=%d, abort battle\n", petIdx);
     return;
   }
@@ -2196,7 +2214,7 @@ void startBattle(int notifIdx) {
   // 2. Enemy selection
   BattleElement petElem = (gElement == FIRE) ? BE_FIRE : BE_WATER;
   battleEnemyIdx = selectEnemy(pkt, evoStage, petElem, getDayOfWeek());
-  if (battleEnemyIdx >= 32) {
+  if (battleEnemyIdx >= REGISTRO_SIZE) {
     Serial.printf("⚠️  Invalid enemyIdx=%d, abort battle\n", battleEnemyIdx);
     return;
   }
@@ -2358,12 +2376,34 @@ void drawCenteredStr(int y, const char* s) {
   canvas.drawString(s, x, y);
 }
 
+// Disegna un'etichetta centrata su un badge scuro (per leggibilità sullo sfondo).
+void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX = 6, int padY = 2) {
+  int w = canvas.textWidth(s);
+  int h = canvas.fontHeight();
+  int x = max(0, (DISP_SIZE - w) / 2);
+  canvas.fillRoundRect(x - padX, y - padY, w + padX * 2, h + padY * 2, 4, C_BG);
+  canvas.setTextColor(color, C_BG);
+  canvas.drawString(s, x, y);
+}
+
+// Proiettile vincitore->perdente: fiammella rossa/gialla (Fire) o goccia azzurra (Water).
+void drawProjectile(int x, int y, BattleElement elem) {
+  if (elem == BE_FIRE) {
+    canvas.fillCircle(x, y, 6, C_STR);
+    canvas.fillCircle(x, y - 1, 3, C_ENG);
+  } else {
+    canvas.fillCircle(x, y + 2, 5, C_CYAN);
+    canvas.fillTriangle(x, y - 6, x - 4, y + 2, x + 4, y + 2, C_CYAN);
+  }
+}
+
 // ── RENDERING BATTLE ──────────────────────────────────────────
 void drawBattleScreen(unsigned long now) {
-  canvas.fillSprite(C_BG);
+  canvas.pushImage(0, 0, DISP_SIZE, DISP_SIZE, BG_NORMAL);
   unsigned long el = now - battleStateMs;
 
-  // Header: clash score
+  // Banda scura in alto: leggibilità del punteggio sullo sfondo.
+  canvas.fillRect(0, 0, DISP_SIZE, 32, C_BG);
   canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
   char buf[32];
   sprintf(buf, "Clash %d/3   P:%d  E:%d", min((int)battleClashIdx + 1, 3),
@@ -2373,7 +2413,7 @@ void drawBattleScreen(unsigned long now) {
 
   // Indici sprite
   uint8_t petIdx = currentPetRegistroIdx();
-  if (petIdx >= 32 || battleEnemyIdx >= 32) {
+  if (petIdx >= REGISTRO_SIZE || battleEnemyIdx >= REGISTRO_SIZE) {
     canvas.setTextFont(2); canvas.setTextColor(C_STR, C_BG);
     drawCenteredStr(115, "Battle error");
     canvas.pushSprite(0, 0);
@@ -2406,8 +2446,8 @@ void drawBattleScreen(unsigned long now) {
     int idx0 = (now/200) % 3;
     drawSpriteScaled(petX, yPos, bscale, petSpr->idle[idx0], true);
     drawSpriteScaled(enX,  yPos, bscale, enSpr->idle[idx0]);
-    canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
-    drawCenteredStr(115, "VS");
+    canvas.setTextFont(4);
+    drawBadgedCenteredStr(115, "VS", C_FG);
     if (el >= 1000) {
       gState = STATE_BATTLE_CLASH;
       battleStateMs = now;
@@ -2425,7 +2465,9 @@ void drawBattleScreen(unsigned long now) {
 
     // Timing-game bar ristretta a 170px (centrata, x:35-205): a 220px
     // (x:10-230) le estremità finivano fuori dall'area circolare visibile.
-    canvas.drawRect(35, 180, 170, 20, C_FG);
+    // Sfondo opaco dietro la barra: sullo sfondo immagine, drawRect da solo
+    // disegna solo il bordo e lascerebbe l'interno trasparente.
+    canvas.fillRect(36, 181, 168, 18, C_BG);
     canvas.fillRect(critWindowStart, 181, critWindowWidth, 18, C_ENG);
 
     cursorX += cursorDir * BATTLE_CURSOR_SPEED;
@@ -2433,9 +2475,10 @@ void drawBattleScreen(unsigned long now) {
     if (cursorX <= 36)  { cursorX = 36;  cursorDir =  1; }
     canvas.fillRect(cursorX, 181, 4, 18, C_BG);
     canvas.drawFastVLine(cursorX+1, 177, 26, C_FG);
+    canvas.drawRect(35, 180, 170, 20, C_FG);
 
-    canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
-    drawCenteredStr(162, "B = colpo");
+    canvas.setTextFont(2);
+    drawBadgedCenteredStr(162, "B = colpo", C_DIM);
 
     if (el >= 4000) {
       petCritThisClash = false;
@@ -2450,10 +2493,30 @@ void drawBattleScreen(unsigned long now) {
     static ClashResult lastResult;
     if (el < 50) lastResult = resolveClash();
 
+    // Proiettile: viaggia dalla sprite del vincitore della fase verso il
+    // perdente. Colore/forma in base al tipo del vincitore (Fire/Water).
+    const unsigned long PROJECTILE_MS = 900;
+    if (el < PROJECTILE_MS) {
+      int petCx = petX + bsz / 2, enCx = enX + bsz / 2, cy = yPos + bsz / 2;
+      int fromX, toX;
+      BattleElement winnerElem;
+      if (lastResult.pet_won) {
+        fromX = petCx; toX = enCx;
+        winnerElem = (gElement == FIRE) ? BE_FIRE : BE_WATER;
+      } else {
+        fromX = enCx; toX = petCx;
+        winnerElem = battleEnemyElem;
+      }
+      float t = (float)el / PROJECTILE_MS;
+      int px = fromX + (int)((toX - fromX) * t);
+      int py = cy - (int)(20 * sinf(t * PI));  // piccolo arco verticale
+      drawProjectile(px, py, winnerElem);
+    }
+
     char dmg[28];
     sprintf(dmg, "P:-%d   E:-%d", lastResult.enemy_dmg, lastResult.pet_dmg);
-    canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
-    drawCenteredStr(170, dmg);
+    canvas.setTextFont(2);
+    drawBadgedCenteredStr(170, dmg, C_TIMER);
 
     if (el >= 1500) {
       battleClashIdx++;
@@ -2478,8 +2541,7 @@ void drawBattleScreen(unsigned long now) {
     drawSpriteScaled(petX, yPos, bscale, pet_won ? petSpr->happy[(now/250)%2] : petSpr->sick[(now/400)%2], true);
     drawSpriteScaled(enX,  yPos, bscale, pet_won ? enSpr->sick[(now/400)%2]  : enSpr->happy[(now/250)%2]);
     canvas.setTextFont(4);
-    canvas.setTextColor(pet_won ? C_HAP : C_STR, C_BG);
-    drawCenteredStr(170, pet_won ? "VITTORIA!" : "SCONFITTA");
+    drawBadgedCenteredStr(170, pet_won ? "VITTORIA!" : "SCONFITTA", pet_won ? C_HAP : C_STR);
     if (el >= 2500) enterBattleStateMain();
   }
 
