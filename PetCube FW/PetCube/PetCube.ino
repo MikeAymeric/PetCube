@@ -94,6 +94,12 @@
 //      massimo consentito (32s) via requestConnParams(); aggiunta
 //      diagnostica sugli eventi di rinegoziazione dei parametri di
 //      connessione (onConnParamsUpdate)
+//  🔧  OTA: anche con supervision timeout a 32s confermato (status=0), la
+//      disconnessione resta a ~97s dalla connessione (96787ms, 527872 byte).
+//      Aggiunto un GAP handler custom NimBLE che logga il motivo HCI della
+//      disconnessione (event->disconnect.reason), non esposto da
+//      BLEServerCallbacks::onDisconnect, per capire se è un timeout del
+//      link o una chiusura volontaria
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -2028,6 +2034,21 @@ class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
+// Diagnostica: la disconnessione durante l'OTA avviene a un tempo fisso di
+// ~97s indipendentemente dai byte trasferiti e dai parametri di connessione
+// negoziati (vedi PR #28/#29/#30). Il motivo HCI della disconnessione
+// (event->disconnect.reason) non è esposto da BLEServerCallbacks::onDisconnect:
+// lo intercettiamo qui tramite il GAP handler custom di NimBLE per capire se
+// è un timeout del link (0x08/0x22), una chiusura volontaria dal lato remoto
+// (0x13/0x16) o altro.
+int bleCustomGapHandler(ble_gap_event* event, void* arg) {
+  if (event->type == BLE_GAP_EVENT_DISCONNECT) {
+    Serial.printf("📡 BLE disconnect reason=0x%02x (t=%lu ms)\n",
+                  (unsigned)event->disconnect.reason, millis());
+  }
+  return 0;
+}
+
 // Inizializza BLE stack una volta sola (al boot)
 void bleInit() {
   if (bleInitialized) return;
@@ -2041,6 +2062,7 @@ void bleInit() {
   // più grandi del consentito durante l'OTA (chunk da ~500 byte) e una
   // disconnessione silenziosa a metà trasferimento.
   BLEDevice::setMTU(517);
+  BLEDevice::setCustomGapHandler(bleCustomGapHandler);
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new PetCubeBLEServerCallbacks());
 
