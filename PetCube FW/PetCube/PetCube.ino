@@ -33,6 +33,7 @@
 #include "petcube_sprites.h"
 #include "petcube_backgrounds.h"
 #include "petcube_battle.h"
+#include "petcube_notif_icons.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -1382,39 +1383,40 @@ void drawMainScreen(unsigned long now) {
     if (n > 0) {
       int firstIdx = firstActiveNotif();
       NotifSource src = pendingNotifs[firstIdx].pkt.source;
-      int ix = 155, iy = 13;
+      int ix = (DISP_SIZE - ICON_NOTIF_SIZE) / 2, iy = 8;
 
-      const unsigned char* iconBmp = nullptr;
+      const uint16_t* iconPx = nullptr;
       switch (src) {
-        case SRC_DISCORD:  iconBmp = ICON_DISCORD;   break;
-        case SRC_CALENDAR: iconBmp = ICON_CALENDAR;  break;
-        case SRC_GMAIL:    iconBmp = ICON_GMAIL;     break;
-        case SRC_TRELLO:   iconBmp = ICON_HACKNPLAN; break;
-        case SRC_TELEGRAM: iconBmp = ICON_TELEGRAM;  break;
-        case SRC_WHATSAPP: iconBmp = ICON_WHATSAPP;  break;
+        case SRC_DISCORD:  iconPx = ICON_DISCORD;   break;
+        case SRC_CALENDAR: iconPx = ICON_CALENDAR;  break;
+        case SRC_GMAIL:    iconPx = ICON_GMAIL;     break;
+        case SRC_TRELLO:   iconPx = ICON_HACKNPLAN; break;
+        case SRC_TELEGRAM: iconPx = ICON_TELEGRAM;  break;
+        case SRC_WHATSAPP: iconPx = ICON_WHATSAPP;  break;
         default: break;
       }
 
-      if (iconBmp) {
-        canvas.drawXBitmap(ix, iy, iconBmp, 12, 12, C_FG);
+      if (iconPx) {
+        canvas.pushImage(ix, iy, ICON_NOTIF_SIZE, ICON_NOTIF_SIZE, iconPx, (uint16_t)0x0000);
       } else {
-        canvas.fillRoundRect(ix-1, iy-1, 14, 14, 2, C_DIM);
-        canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_BG, C_BG);
+        canvas.fillRoundRect(ix, iy, ICON_NOTIF_SIZE, ICON_NOTIF_SIZE, 4, C_DIM);
+        canvas.setTextFont(2); canvas.setTextColor(C_BG, C_DIM);
         const char* ch = "?";
         switch (src) {
-          case SRC_DISCORD: ch = "D"; break;
-          case SRC_SLACK:   ch = "S"; break;
-          case SRC_GITHUB:  ch = "G"; break;
+          case SRC_SLACK:  ch = "S"; break;
+          case SRC_GITHUB: ch = "G"; break;
           default: break;
         }
-        canvas.drawString(ch, ix+4, iy+3);
+        canvas.drawString(ch, ix + ICON_NOTIF_SIZE/2 - 4, iy + ICON_NOTIF_SIZE/2 - 8);
       }
-      if (n > 1) {
-        char cnt[3]; sprintf(cnt, "%d", n);
-        canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_TIMER, C_BG);
-        canvas.drawString(cnt, ix-14, iy+1);
-        canvas.setTextSize(1);
-      }
+
+      // Badge contatore: angolo in basso a sinistra dell'icona
+      char cnt[2]; sprintf(cnt, "%d", n);
+      int bx = ix - 5, by = iy + ICON_NOTIF_SIZE - 11;
+      canvas.fillRoundRect(bx, by, 16, 16, 4, C_BG);
+      canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_STR, C_BG);
+      canvas.drawString(cnt, bx+3, by);
+      canvas.setTextSize(1);
     }
   }
 
