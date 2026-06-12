@@ -1,207 +1,28 @@
-﻿// ═══════════════════════════════════════════════════════════════
-//  PetCube — Firmware v0.17
-//  Schermata principale: solo sprite (×3) + stato pomodoro in alto
-//  Menu testuale: Status / Clean / Heal / Registro
-//  Escrementi, malattia, morte
-//  ⚔️  Sistema battaglie con notifiche da Companion App PC
-//  📡  Server BLE GATT per ricezione notifiche dalla Companion
+﻿// ══════════════════════════════════════════════════════════════════
+//  PetCube — Firmware
+//  Tamagotchi-meets-Pomodoro: schermata principale (sprite + stato),
+//  menu Status/Clean/Heal/Registro, escrementi/malattia/morte,
+//  battaglie via notifiche Companion (BLE GATT), OTA firmware.
 //
-//  Controlli schermata principale:
+//  Controlli (schermata principale):
 //    A = apri menu
-//    B = in Training/Study/Work avvia il setup pomodoro (vedi sotto);
-//        se Idle → orologio CEST
-//        Long-press B (5s) con notifica pendente → battle!
-//    C = annulla pomodoro/riposo in corso (penalità -2 HAP); se orologio → chiudi
-//        Long-press C (5s) con notifica pendente → dismiss volontario
+//    B = setup pomodoro (Training/Study/Work) / orologio (Idle);
+//        long-press 5s con notifica pendente = battle
+//    C = annulla pomodoro/riposo (-2 HAP) / chiudi orologio;
+//        long-press 5s con notifica pendente = dismiss
 //
-//  Setup pomodoro (in Training/Study/Work):
-//    1° B → imposta durata pomodoro (default 25 min):
-//           A = +5 min, C = -5 min
-//    2° B → imposta durata riposo (default 5 min):
-//           A = +1 min, C = -1 min
-//    3° B → avvia il pomodoro
-//    Cambiare orientamento durante il setup (fasi 1-2) annulla tutto
-//    SENZA penalità. Cambiare orientamento (o premere C) durante il
-//    pomodoro o il riposo già avviati annulla con penalità -2 HAP.
-//    Al completamento del pomodoro: stat e sessioni aumentano ogni
-//    25 min completati; al completamento del riposo: aumenta la
-//    felicità (HAP).
+//  Setup pomodoro: 1°B = durata lavoro (A=+5/C=-5 min), 2°B = durata
+//  riposo (A=+1/C=-1 min), 3°B = avvia. Cambiare orientamento durante
+//  il setup annulla senza penalità; a sessione avviata, annullare
+//  costa -2 HAP. Ogni 25 min di pomodoro completato: +stat e +sessioni;
+//  al riposo completato: +HAP.
 //
-//  File necessari nella stessa cartella:
-//    PetCube.ino
-//    petcube_sprites.h
-//    petcube_battle.h
+//  File richiesti nella stessa cartella: petcube_sprites.h,
+//  petcube_battle.h, petcube_backgrounds.h, LGFX_Config.h
+//  BLE: stack nativo ESP32 (BLEDevice.h), non ArduinoBLE.
 //
-//  Libreria richiesta (oltre alle solite):
-//    BLE built-in di ESP32 Arduino Core (NO install separata richiesta)
-//
-//  ── CHANGELOG v19 → v20 ───────────────────────────────────────
-//  📡  OTA segmentata e ripristinabile su più connessioni BLE: OTA START
-//      con la stessa size mentre otaState==OTA_RECEIVING fa "riprendere"
-//      il trasferimento dall'offset già ricevuto (otaBytesReceived),
-//      invece di ricominciare da zero
-//  🔧  Risolto lo stallo del trasferimento (bloccato al 60% sullo schermo,
-//      companion che non si riconnetteva più / BleakDeviceNotFoundError):
-//      l'advertising BLE viene ora riavviato anche durante OTA_RECEIVING
-//      dopo una disconnessione, così il cubo resta raggiungibile per
-//      tutta la durata dell'aggiornamento
-//  • Bump FW_VERSION a 20, migrazione NVS automatica (reset totale)
-//
-//  ── CHANGELOG v18 → v19 ───────────────────────────────────────
-//  🖼️  Sfondo ambientale esteso anche a Session (pomodoro/riposo) e a
-//      tutte le schermate di battaglia
-//  ⚔️  UI battaglia ridisegnata per restare leggibile sullo sfondo
-//      (badge scuri dietro punteggio, VS, barra timing, danni, esito)
-//  💥  Nuovo feedback visivo nel clash: proiettile dal vincitore della
-//      fase verso il perdente (fiammella rossa/gialla per i tipo Fuoco,
-//      goccia azzurra per i tipo Acqua)
-//  🗑️  Rimosse le evoluzioni "Light" duplicate con nomi Digimon
-//      (Mitamamon/Lucemon/Vikemon/Ryugumon): restano solo Seraphyre
-//      (Fuoco) e Lightfin (Acqua) come evoluzioni Light, REGISTRO
-//      ridotto da 32 a 28 creature
-//  ✏️  Fix badge etichetta stato (Work/Study/DND/Training) disallineato
-//      dal testo, DND ora in magenta per leggibilità; suggerimento
-//      comandi setup pomodoro ingrandito e spostato sotto la sprite
-//  ⚔️  Battaglia: barra timing/VS/danni/esito spostati in alto, sprite
-//      in basso e leggermente ingrandite (×5), proiettili più grandi
-//  🖼️  Sfondi dedicati per Work/Study/Training/Sleep (DND riusa lo
-//      sfondo Sleep); rimosse le etichette di stato (Work/Study/DND/
-//      Training/Rest), ora rappresentate solo dallo sfondo
-//  📲  OTA firmware: a trasferimento completato il PetCube chiede
-//      conferma ("Aggiornare il firmware?", B = installa, C = annulla)
-//      prima di finalizzare l'update e riavviare
-//  🔧  OTA: i chunk ricevuti via BLE vengono ora accodati e scritti su
-//      flash dal main loop (non più dalla callback BLE), per evitare
-//      disconnessioni durante trasferimenti lunghi
-//  🔧  OTA: impostato l'MTU BLE locale a 517 (era 23 di default), per
-//      evitare che chunk OTA più grandi del MTU negoziato causino una
-//      disconnessione silenziosa a metà trasferimento; aggiunta
-//      diagnostica seriale su disconnessione durante OTA e avanzamento
-//      scrittura flash ogni ~100 KB
-//  🐛  OTA: con MTU 517 il companion inviava chunk da 514 byte, più
-//      grandi del buffer OTA_CHUNK_MAX (512) — venivano scartati in
-//      silenzio (0 byte ricevuti). Il companion ora limita i chunk a
-//      512 byte; aggiunta diagnostica per chunk troppo grandi, MTU
-//      negoziato e timestamp di connessione/disconnessione BLE
-//  🔧  OTA: la coda chunk andava in overflow ("coda chunk piena") perché
-//      il main loop, occupato a disegnare/leggere sensori, non la
-//      svuotava abbastanza in fretta rispetto al ritmo di arrivo via
-//      BLE (~34 KB/s). Ora durante OTA_RECEIVING il loop salta sensori/
-//      disegno/pulsanti e mostra solo una schermata di avanzamento
-//      (percentuale); coda portata da 12 a 32 slot (16 KB)
-//  🔧  OTA: aggiunta diagnostica su heap libera, livello massimo della coda
-//      chunk e durata massima di Update.write(), loggata ogni ~100 KB e
-//      alla disconnessione — per individuare la causa della disconnessione
-//      BLE che persiste a metà trasferimento (~62%, nessun errore applicativo)
-//  🐛  OTA: la disconnessione BLE durante l'OTA avveniva sempre a ~97s dalla
-//      connessione, indipendentemente dai byte trasferiti (665088 e poi
-//      201728 byte in due test): il loop OTA_RECEIVING girava senza mai
-//      cedere la CPU, impedendo allo scheduler di eseguire regolarmente il
-//      task host NimBLE/idle. Aggiunto un delay(1) per ciclo durante l'OTA;
-//      aggiunta anche diagnostica sui parametri di connessione negoziati
-//      (intervallo, latenza, supervision timeout)
-//  🔧  OTA: il delay(1) non ha cambiato nulla (disconnesso di nuovo a ~97s,
-//      476160 byte, coda quasi vuota): il supervision timeout negoziato era
-//      9.6s. All'avvio dell'OTA richiediamo ora il supervision timeout
-//      massimo consentito (32s) via requestConnParams(); aggiunta
-//      diagnostica sugli eventi di rinegoziazione dei parametri di
-//      connessione (onConnParamsUpdate)
-//  🔧  OTA: anche con supervision timeout a 32s confermato (status=0), la
-//      disconnessione resta a ~97s dalla connessione (96787ms, 527872 byte).
-//      Aggiunto un GAP handler custom NimBLE che logga il motivo HCI della
-//      disconnessione (event->disconnect.reason), non esposto da
-//      BLEServerCallbacks::onDisconnect, per capire se è un timeout del
-//      link o una chiusura volontaria
-//  🔧  OTA: reason=0x213 = disconnessione volontaria lato host (Windows),
-//      non legata al firmware. Throughput reale BLE misurato ≈ 7 KB/s →
-//      1MB richiederebbe ~155s, oltre il doppio dei ~97s di vita di una
-//      connessione: nessun pacing può bastare in un'unica connessione.
-//      OTA START (0x01) ora supporta la RIPRESA: se otaState==OTA_RECEIVING
-//      e la size coincide con otaTotalSize, non viene rifatto
-//      Update.begin(), e la risposta (0x01 + otaBytesReceived uint32 LE)
-//      indica alla companion da quale offset riprendere l'invio dopo una
-//      riconnessione. onRead della CTRL ora ritorna sempre 5 byte (stato +
-//      otaBytesReceived). Rimossa la richiesta di supervision timeout 32s
-//      (PR precedente), non necessaria con OTA segmentata e potenzialmente
-//      dannosa per il throughput per-segmento. Vedi anche
-//      firmware_updater.py per il loop di riconnessione lato companion
-//  🔧  OTA: la companion non riusciva più a riconnettersi dopo il primo
-//      segmento (cubo bloccato al 60% sullo schermo, BleakDeviceNotFound).
-//      Causa: in OTA_RECEIVING loop() ritornava subito dopo aver disegnato
-//      la progress screen, senza mai chiamare bleUpdateState() (in fondo al
-//      loop): l'advertising non veniva riavviato dopo la disconnessione e il
-//      cubo restava invisibile al companion per il resto del trasferimento.
-//      Richiamato bleUpdateState() anche nel ramo OTA_RECEIVING
-//  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
-//
-//  ── CHANGELOG v17 → v18 ───────────────────────────────────────
-//  🖼️  Sfondo ambientale (Sprite/BG_Normal.png) su Idle, Sleep, DND,
-//      Work, Study, Training; le altre schermate restano a sfondo nero
-//  🏷️  Label di stato nascosta su Idle/Sleep, mantenuta e resa
-//      leggibile (badge scuro) sulle altre schermate
-//  ⚔️  Cursore del minigioco di battaglia molto più veloce
-//      (4 → 12 px/frame)
-//  • Bump FW_VERSION a 18, migrazione NVS automatica (reset totale)
-//
-//  ── CHANGELOG v16 → v17 ───────────────────────────────────────
-//  🍅  Sistema pomodoro configurabile:
-//      - Rimossa la meccanica "Feed" (menu, cooldown, bonus)
-//      - In Training/Study/Work, B apre il setup pomodoro (durata
-//        lavoro +5/-5 min con A/C, durata riposo +1/-1 min con A/C),
-//        un terzo B avvia il timer
-//      - Cambio orientamento durante il setup annulla tutto SENZA
-//        penalità; durante pomodoro/riposo già avviati la penalità
-//        HAP (CANCEL_HAP_MALUS) resta invariata
-//      - Stat e sessioni totali/attive aumentano in proporzione ogni
-//        25 min di pomodoro completati; HAP aumenta al completamento
-//        del riposo
-//      - Durate pomodoro/riposo persistite in NVS
-//  • Bump FW_VERSION a 17, migrazione NVS automatica (reset totale)
-//
-//  ── CHANGELOG v15 → v16 ───────────────────────────────────────
-//  📡  BLE sempre raggiungibile:
-//      - Advertising attivo in QUALSIASI stato (non solo Idle), così la
-//        Companion App può inviare notifiche anche fuori da Idle
-//      - Fix bug: dopo la prima connessione il cubo restava "invisibile"
-//        per sempre (flag bleAdvertising non veniva riallineato allo stop
-//        automatico dell'advertising da parte dello stack BLE su connect)
-//  🔕  Sleep/DND silenziosi: il beep di notifica BLE non suona più in
-//      stato Sleep o DND (la notifica resta comunque in coda, gestibile
-//      al rientro in Idle, nessuna penalità per notifiche ignorate)
-//  • Bump FW_VERSION a 16, migrazione NVS automatica (reset totale)
-//
-//  ── CHANGELOG v14 → v15 ───────────────────────────────────────
-//  🖥️  Migrazione display da TFT_eSPI a LovyanGFX:
-//      - Risolve crash al boot (Guru Meditation StoreProhibited) su
-//        ESP32-S3 + GC9A01 con schermo nero flickerante in loop
-//      - Configurazione in LGFX_Config.h (SPI/pannello/backlight)
-//      - Costanti colore esplicite uint16_t (RGB565) + invert/rgb_order
-//        corretti per ripristinare i colori attesi
-//  • Bump FW_VERSION a 15, migrazione NVS automatica (reset totale)
-//
-//  ── CHANGELOG v13 → v14 ───────────────────────────────────────
-//  📡  Server BLE GATT integrato:
-//      - Service "PetCube" che riceve NotifPacket da Companion App PC
-//      - Advertising attivo SOLO in Idle (risparmio batteria)
-//      - Icona BT in alto a sinistra durante connessione PC
-//      - Beep ascendenti su connessione, discendenti su disconnessione
-//      - Spinlock per accesso thread-safe a pendingNotifs[]
-//  • Bump FW_VERSION a 14, migrazione NVS automatica
-//
-//  ── CHANGELOG v12 → v13 ───────────────────────────────────────
-//  ⚔️  Sistema battaglie completo:
-//      - Notifiche da PC via mock interno (BLE in arrivo nelle prossime patch)
-//      - Icona source accanto al pet, max 3 in coda, TTL 30 min
-//      - Long-press B → battle, long-press C → dismiss
-//      - 3 clash best-of-3 con timing-game per critici (cursore mobile)
-//      - Formule danno con type bonus Fire/Water + Light/Dark
-//      - HP come tie-breaker
-//      - Stat dominante del nemico → +3 alla stat allevamento corrispondente
-//      - Sconfitta: chance malattia scalata con escrementi a terra
-//  • Nuovo campo NVS streak (vittorie consecutive)
-//  • Nuovo campo NVS enemyKnown[32] (silhouette+nome battuto in battle)
-//  • Migrazione NVS forzata da v12 → v13
-// ═══════════════════════════════════════════════════════════════
+//  Changelog completo: vedi README.md
+// ══════════════════════════════════════════════════════════════════
 
 #include <Wire.h>
 #include <LovyanGFX.hpp>
@@ -267,7 +88,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           20   // bump al cambio struttura NVS
+#define FW_VERSION           21   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -500,7 +321,6 @@ String petTag = "";
 
 // ── 📡 BLE GATT server state ──────────────────────────────────
 BLEServer*        bleServer        = nullptr;
-volatile uint16_t bleConnHandle    = 0;
 BLECharacteristic* bleNotifChar    = nullptr;
 BLECharacteristic* bleVersionChar  = nullptr;
 BLECharacteristic* bleOtaCtrlChar  = nullptr;
@@ -529,14 +349,6 @@ volatile OtaState    otaState         = OTA_IDLE;
 volatile uint32_t    otaBytesReceived = 0;
 volatile uint32_t    otaTotalSize     = 0;
 volatile bool        otaRebootPending = false;
-
-// Diagnostica: livello massimo raggiunto dalla coda chunk (in numero di
-// chunk) e durata massima di una singola Update.write(), da quando è
-// iniziata l'OTA corrente. Aiutano a distinguere se il collo di bottiglia
-// è il link BLE (coda quasi vuota) o la scrittura su flash (coda piena,
-// Update.write lenta).
-volatile uint32_t    otaQueueHighWater = 0;
-volatile uint32_t    otaMaxWriteUs     = 0;
 
 // Coda chunk OTA: la callback BLE accoda i dati ricevuti, il main loop li
 // scrive su flash (Update.write). Così la callback BLE resta velocissima
@@ -1348,7 +1160,7 @@ void drawBootScreen() {
   canvas.setTextFont(4); canvas.setTextColor(C_CYAN, C_BG);
   canvas.drawString("PetCube", 72, 40);
   canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
-  canvas.drawString("v0.15", 98, 74);
+  canvas.drawString("v0.21", 98, 74);
   canvas.drawFastHLine(30, 96, 180, C_DIM);
 
   // Opzione 0: continua
@@ -1875,47 +1687,15 @@ class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
     // (qui non chiamiamo tone() perché siamo in un task BLE, meglio non bloccare)
     Serial.printf("📡 BLE client connesso (t=%lu ms)\n", millis());
   }
-  // Variante NimBLE: ci serve conn_handle per poter richiedere parametri di
-  // connessione diversi durante l'OTA (vedi requestConnParams in OTA START).
-  void onConnect(BLEServer* server, ble_gap_conn_desc* desc) override {
-    if (desc) bleConnHandle = desc->conn_handle;
-  }
   void onDisconnect(BLEServer* server) override {
     bleClientConnected = false;
     // ESP32 BLE non riavvia l'advertising automaticamente dopo disconnessione
     // Lo riavvieremo dal main loop in bleUpdateState()
     Serial.printf("📡 BLE client disconnesso (t=%lu ms)\n", millis());
-
-    // Diagnostica: se la disconnessione arriva durante un OTA, registriamo
-    // a che punto del trasferimento eravamo.
     if (otaState == OTA_RECEIVING || otaState == OTA_AWAIT_CONFIRM) {
-      Serial.printf("⚠️  OTA: disconnesso durante il trasferimento, %u bytes ricevuti (stato=%u, heap libera: %u, coda max: %u/32, write max: %u us)\n",
-                    (unsigned)otaBytesReceived, (unsigned)otaState,
-                    (unsigned)ESP.getFreeHeap(), (unsigned)otaQueueHighWater,
-                    (unsigned)otaMaxWriteUs);
+      Serial.printf("⚠️  OTA: disconnesso a %u/%u bytes\n",
+                    (unsigned)otaBytesReceived, (unsigned)otaTotalSize);
     }
-  }
-  // Diagnostica: MTU effettivamente negoziato con il client per questa
-  // connessione (utile per verificare BLEDevice::setMTU()). Questo
-  // firmware usa lo stack NimBLE.
-  void onMtuChanged(BLEServer* server, ble_gap_conn_desc* desc, uint16_t mtu) override {
-    Serial.printf("📡 BLE MTU negoziato: %u\n", (unsigned)mtu);
-    // Diagnostica: parametri di connessione negoziati (intervallo, latenza,
-    // supervision timeout) — utili per capire se una disconnessione "a tempo
-    // fisso" durante l'OTA è dovuta al supervision timeout del link.
-    if (desc) {
-      Serial.printf("📡 BLE conn params: interval=%u (x1.25ms), latency=%u, supervision timeout=%u (x10ms)\n",
-                    (unsigned)desc->conn_itvl, (unsigned)desc->conn_latency,
-                    (unsigned)desc->supervision_timeout);
-    }
-  }
-  // Diagnostica: la disconnessione durante l'OTA avviene a un tempo fisso
-  // (~97s) indipendente dai byte trasferiti. Se nel frattempo il client
-  // (Windows/bleak) rinegozia i parametri di connessione, lo vediamo qui
-  // (con lo status dell'operazione: 0 = riuscita).
-  void onConnParamsUpdate(uint16_t connHandle, uint16_t interval, uint16_t latency, uint16_t timeout, uint8_t status) override {
-    Serial.printf("📡 BLE conn params update (t=%lu ms): interval=%u (x1.25ms), latency=%u, supervision timeout=%u (x10ms), status=%u\n",
-                  millis(), (unsigned)interval, (unsigned)latency, (unsigned)timeout, (unsigned)status);
   }
 };
 
@@ -1974,13 +1754,11 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
       uint32_t sz;
       memcpy(&sz, val.c_str() + 1, 4);
 
-      // OTA segmentata: ogni connessione BLE dura solo ~97s prima che
-      // l'host la chiuda (vedi PR#31, reason=0x213), troppo poco per
-      // trasferire ~1MB. La companion riconnette e ripete START più volte:
-      // se è già in corso una sessione per la stessa dimensione totale, non
-      // ricominciamo da capo (Update.begin/xQueueReset distruggerebbero il
-      // progresso) ma rispondiamo con otaBytesReceived così la companion sa
-      // da dove riprendere a inviare.
+      // OTA segmentata su più connessioni: ogni connessione BLE dura solo
+      // ~97s, troppo poco per ~1MB. La companion riconnette e ripete START
+      // più volte; se è già in corso una sessione per la stessa size, non
+      // ricominciamo da capo ma rispondiamo con otaBytesReceived così la
+      // companion sa da dove riprendere.
       bool resume = (otaState == OTA_RECEIVING && sz == otaTotalSize);
       if (!resume) {
         Update.abort();
@@ -1989,9 +1767,7 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
           otaState = OTA_RECEIVING;
           otaBytesReceived = 0;
           otaTotalSize = sz;
-          otaQueueHighWater = 0;
-          otaMaxWriteUs = 0;
-          Serial.printf("OTA START: %u bytes (heap libera: %u)\n", sz, (unsigned)ESP.getFreeHeap());
+          Serial.printf("OTA START: %u bytes\n", sz);
         } else {
           otaState = OTA_ERROR;
           uint8_t err = 0x00;
@@ -2075,30 +1851,9 @@ class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
       Update.abort();
       otaState = OTA_ERROR;
       Serial.printf("OTA: coda chunk piena dopo %u bytes\n", (unsigned)otaBytesReceived);
-    } else {
-      // Diagnostica: livello massimo raggiunto dalla coda, per capire se
-      // il collo di bottiglia è il link BLE (coda quasi vuota) o la
-      // scrittura su flash (coda spesso piena).
-      UBaseType_t depth = uxQueueMessagesWaiting(otaChunkQueue);
-      if (depth > otaQueueHighWater) otaQueueHighWater = depth;
     }
   }
 };
-
-// Diagnostica: la disconnessione durante l'OTA avviene a un tempo fisso di
-// ~97s indipendentemente dai byte trasferiti e dai parametri di connessione
-// negoziati (vedi PR #28/#29/#30). Il motivo HCI della disconnessione
-// (event->disconnect.reason) non è esposto da BLEServerCallbacks::onDisconnect:
-// lo intercettiamo qui tramite il GAP handler custom di NimBLE per capire se
-// è un timeout del link (0x08/0x22), una chiusura volontaria dal lato remoto
-// (0x13/0x16) o altro.
-int bleCustomGapHandler(ble_gap_event* event, void* arg) {
-  if (event->type == BLE_GAP_EVENT_DISCONNECT) {
-    Serial.printf("📡 BLE disconnect reason=0x%02x (t=%lu ms)\n",
-                  (unsigned)event->disconnect.reason, millis());
-  }
-  return 0;
-}
 
 // Inizializza BLE stack una volta sola (al boot)
 void bleInit() {
@@ -2113,7 +1868,6 @@ void bleInit() {
   // più grandi del consentito durante l'OTA (chunk da ~500 byte) e una
   // disconnessione silenziosa a metà trasferimento.
   BLEDevice::setMTU(517);
-  BLEDevice::setCustomGapHandler(bleCustomGapHandler);
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new PetCubeBLEServerCallbacks());
 
@@ -2238,10 +1992,8 @@ void bleUpdateState() {
 
 // ── HELPER: dayOfWeek (0=Sun..6=Sat) dall'orologio software ──
 uint8_t getDayOfWeek() {
-  // Approssimazione: il firmware non ha RTC, l'orologio è solo HH:MM impostato
-  // dall'utente al boot. Per ora ritorniamo un valore fisso (Mercoledì = 3),
-  // verrà sostituito quando aggiungeremo tracking giorno.
-  // TODO v0.14: integrare giorno della settimana.
+  // Il firmware non ha RTC: l'orologio è solo HH:MM impostato dall'utente.
+  // TODO: tracking giorno della settimana; per ora fisso (Mercoledì).
   return 3;
 }
 
@@ -2289,27 +2041,6 @@ void onNotificationReceived(const NotifPacket& pkt) {
   } else {
     Serial.println("⚠️  Coda notifiche piena, scarto.");
   }
-}
-
-// Mock per testing: invia una notifica fittizia
-void mockNotification(NotifSource src, NotifPriority prio, NotifCategory cat,
-                       const char* preview) {
-  NotifPacket pkt;
-  pkt.version = 1;
-  pkt.source = src;
-  pkt.priority = prio;
-  pkt.category = cat;
-  // Hash semplice (sum dei byte) del preview
-  uint16_t h = 0;
-  uint8_t len = 0;
-  for (const char* p = preview; *p && len < 50; p++, len++) h = h * 31 + *p;
-  pkt.seedHash = h;
-  pkt.seedLength = len;
-  pkt._reserved = 0;
-  pkt.timestamp = millis() / 1000;
-  strncpy(pkt.seedPreview, preview, sizeof(pkt.seedPreview) - 1);
-  pkt.seedPreview[sizeof(pkt.seedPreview) - 1] = '\0';
-  onNotificationReceived(pkt);
 }
 
 // TTL scaduto: rimuovi notifica
@@ -2854,7 +2585,7 @@ void setup() {
   canvas.setTextColor(C_FG, C_BG);
   canvas.drawString("PetCube", 80, 100);
   canvas.setTextFont(2);
-  canvas.drawString("v0.15  Loading...", 55, 135);
+  canvas.drawString("v0.21  Loading...", 55, 135);
   canvas.pushSprite(0, 0);
 
   if (!mpu.begin()) {
@@ -2909,27 +2640,18 @@ void loop() {
     int processed = 0;
     while (processed < 4 && xQueueReceive(otaChunkQueue, &chunk, 0) == pdTRUE) {
       if (otaState == OTA_RECEIVING && Update.isRunning()) {
-        uint32_t t0 = micros();
         size_t written = Update.write(chunk.data, chunk.len);
-        uint32_t dt = micros() - t0;
-        if (dt > otaMaxWriteUs) otaMaxWriteUs = dt;
         if (written != chunk.len) {
           Update.abort();
           otaState = OTA_ERROR;
           Serial.printf("OTA write error dopo %u bytes\n", (unsigned)otaBytesReceived);
         } else {
           otaBytesReceived += written;
-          // Diagnostica: log di avanzamento ogni ~100 KB, con heap libera,
-          // livello massimo della coda chunk (0-32) e durata massima di
-          // una singola Update.write() finora — per capire se il collo di
-          // bottiglia è il link BLE (coda quasi vuota) o la scrittura su
-          // flash (coda piena, write lenta).
+          // Log di avanzamento ogni ~100 KB
           static uint32_t lastLoggedKb = 0;
           uint32_t kb = otaBytesReceived / 1024;
           if (kb / 100 != lastLoggedKb / 100) {
-            Serial.printf("OTA: %u bytes scritti su flash (heap libera: %u, coda max: %u/32, write max: %u us)\n",
-                          (unsigned)otaBytesReceived, (unsigned)ESP.getFreeHeap(),
-                          (unsigned)otaQueueHighWater, (unsigned)otaMaxWriteUs);
+            Serial.printf("OTA: %u KB scritti\n", kb);
           }
           lastLoggedKb = kb;
         }
@@ -2949,42 +2671,12 @@ void loop() {
       drawOtaProgressScreen(otaBytesReceived, otaTotalSize);
       lastOtaDrawMs = now;
     }
-    // OTA segmentata su più connessioni (vedi firmware_updater.py): se il
-    // client si disconnette a metà trasferimento, l'early-return qui sotto
-    // impediva di raggiungere bleUpdateState() (chiamato in fondo al loop),
-    // quindi l'advertising non veniva mai riavviato e il cubo restava
-    // irraggiungibile per il resto dell'OTA. Lo richiamiamo qui.
+    // Riavvia l'advertising se il client si disconnette a metà OTA
     bleUpdateState();
-    // Cede la CPU per 1 tick: senza questo yield il loop gira a vuoto in modo
-    // completamente stretto (specialmente quando la coda è vuota), e su
-    // ESP32 questo può impedire allo scheduler di eseguire regolarmente il
-    // task host NimBLE / il task idle, causando una disconnessione BLE
-    // silenziosa dopo un tempo fisso indipendente dai byte trasferiti
-    // (osservato: ~97s sia con 665088 che con 201728 byte ricevuti).
+    // Cede la CPU: senza yield lo scheduler non esegue il task host NimBLE
+    // e la connessione BLE cade dopo un tempo fisso (~97s)
     delay(1);
     return;
-  }
-
-  // ⚔️  Serial mock notifiche per testing (rimuovere quando BLE è pronto)
-  // Comandi disponibili nel Serial Monitor:
-  //   'd' → mock notifica Discord (Crisi)
-  //   'm' → mock notifica Gmail (Scadenza)
-  //   'c' → mock notifica Calendar (Routine)
-  //   's' → mock notifica Slack (Aiuto)
-  //   't' → mock notifica Trello (Opportunità)
-  //   'g' → mock notifica GitHub (Critica)
-  //   'l' → mock notifica Gmail (Lode)
-  if (Serial.available()) {
-    char k = Serial.read();
-    switch (k) {
-      case 'd': mockNotification(SRC_DISCORD,  PRIO_HIGH,   CAT_CRISI,        "Server is down, fix ASAP"); break;
-      case 'm': mockNotification(SRC_GMAIL,    PRIO_NORMAL, CAT_SCADENZA,     "Report due tomorrow EOD"); break;
-      case 'c': mockNotification(SRC_CALENDAR, PRIO_NORMAL, CAT_ROUTINE,      "Daily standup at 10am"); break;
-      case 's': mockNotification(SRC_SLACK,    PRIO_HIGH,   CAT_AIUTO,        "Can you help me with this?"); break;
-      case 't': mockNotification(SRC_TRELLO,   PRIO_NORMAL, CAT_OPPORTUNITA,  "New card assigned to you"); break;
-      case 'g': mockNotification(SRC_GITHUB,   PRIO_LOW,    CAT_CRITICA,      "PR review requested"); break;
-      case 'l': mockNotification(SRC_GMAIL,    PRIO_LOW,    CAT_LODE,         "Great job on the demo!"); break;
-    }
   }
 
   // ── MPU ───────────────────────────────────────────────────────
@@ -3007,21 +2699,6 @@ void loop() {
   if (stableOri != gOrient) {
     gOrient = stableOri;
     if (gScreen == SCR_MAIN) enterStateFromOri(stableOri);
-  }
-
-  // Debug MPU su Serial Monitor (~ogni 500ms)
-  static unsigned long lastSerialMs = 0;
-  if (now - lastSerialMs >= 500) {
-    const char* oriNames[] = { "NORMAL","LEFT","RIGHT","FACE_UP","UPSIDE_DOWN","FACE_DOWN" };
-    const char* stateNames[] = {
-      "SETUP","IDLE","TRAINING","STUDY","WORK","SLEEP","DND","SESSION","EVOLVING","DEAD",
-      "BATTLE_INTRO","BATTLE_CLASH","BATTLE_RESOLVE","BATTLE_RESULT"
-    };
-    Serial.printf("ax=%+5.2f ay=%+5.2f az=%+5.2f  ori=%-12s state=%s\n",
-      ax, ay, az,
-      oriNames[gOrient],
-      stateNames[gState]);
-    lastSerialMs = now;
   }
 
   // ── Bottoni ───────────────────────────────────────────────────
