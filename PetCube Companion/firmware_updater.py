@@ -191,98 +191,105 @@ async def ota_update_ble(
         return _on_disconnect
 
     # ── Fase 1: trasferimento a segmenti, con ripresa automatica ──
+    # `offset` rappresenta sempre l'ultimo otaBytesReceived CONFERMATO dal
+    # firmware (via OTA START ack o lettura CTRL durante il drain), mai un
+    # valore "accodato ma non ancora ricevuto": solo così il while esterno
+    # può decidere correttamente se serve un'altra connessione.
     offset = 0
     while offset < total:
         connect_ts = [time.monotonic()]
-        async with BleakClient(address, timeout=30.0, disconnected_callback=_make_disconnect_logger(connect_ts)) as client:
-            connect_ts[0] = time.monotonic()
+        try:
+            async with BleakClient(address, timeout=30.0, disconnected_callback=_make_disconnect_logger(connect_ts)) as client:
+                connect_ts[0] = time.monotonic()
 
-            # Negozia MTU più grande per throughput migliore
-            try:
-                await client.request_mtu(512)
-            except Exception:
-                pass
-            # Il firmware accoda i chunk in un buffer OTA_CHUNK_MAX=512 byte:
-            # un chunk più grande viene scartato silenziosamente (write senza
-            # risposta), quindi va sempre limitato a 512 anche se l'MTU
-            # negoziato permetterebbe payload leggermente più grandi (es. 514
-            # con MTU 517).
-            chunk_size = min(max(20, client.mtu_size - 3), 512)
-
-            # ── START (o ripresa) ──
-            start_cmd = bytes([OTA_CMD_START]) + total.to_bytes(4, "little")
-            await client.write_gatt_char(BLE_CHAR_OTA_CTRL_UUID, start_cmd, response=True)
-
-            ack = await client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID)
-            if not ack or ack[0] != OTA_ACK_OK:
-                _log("✗ Il dispositivo ha rifiutato l'avvio OTA (memoria insufficiente?).")
-                return False
-
-            # Il firmware riporta sempre otaBytesReceived: è il punto da cui
-            # riprendere, sia al primo avvio (0) sia dopo una riconnessione.
-            if len(ack) >= 5:
-                offset = int.from_bytes(ack[1:5], "little")
-
-            if offset == 0:
-                _log(f"▶ OTA avviata, trasferimento in corso... (MTU {client.mtu_size}, chunk {chunk_size})")
-            else:
-                _log(f"▶ Ripresa OTA da {offset:,}/{total:,} byte (MTU {client.mtu_size}, chunk {chunk_size})")
-            if progress_cb:
-                progress_cb(offset, total)
-
-            # ── TRANSFER chunks (limitato a SEGMENT_TIME_BUDGET secondi) ──
-            segment_start = time.monotonic()
-            while offset < total and (time.monotonic() - segment_start) < SEGMENT_TIME_BUDGET:
-                chunk = data[offset: offset + chunk_size]
+                # Negozia MTU più grande per throughput migliore
                 try:
-                    await client.write_gatt_char(BLE_CHAR_OTA_DATA_UUID, chunk, response=False)
-                except Exception as e:
-                    # Se Windows/bleak rifiuta o fallisce una write "without
-                    # response" (es. coda BLE piena), interrompiamo il
-                    # segmento: la prossima connessione riprenderà da dove il
-                    # firmware è realmente arrivato.
-                    _log(f"✗ Errore scrittura OTA dopo {offset:,}/{total:,} byte "
-                         f"e {time.monotonic() - connect_ts[0]:.1f}s: {e!r}")
-                    break
-                offset += len(chunk)
+                    await client.request_mtu(512)
+                except Exception:
+                    pass
+                # Il firmware accoda i chunk in un buffer OTA_CHUNK_MAX=512
+                # byte: un chunk più grande viene scartato silenziosamente
+                # (write senza risposta), quindi va sempre limitato a 512
+                # anche se l'MTU negoziato permetterebbe payload leggermente
+                # più grandi (es. 514 con MTU 517).
+                chunk_size = min(max(20, client.mtu_size - 3), 512)
+
+                # ── START (o ripresa) ──
+                start_cmd = bytes([OTA_CMD_START]) + total.to_bytes(4, "little")
+                await client.write_gatt_char(BLE_CHAR_OTA_CTRL_UUID, start_cmd, response=True)
+
+                ack = await client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID)
+                if not ack or ack[0] != OTA_ACK_OK:
+                    _log("✗ Il dispositivo ha rifiutato l'avvio OTA (memoria insufficiente?).")
+                    return False
+
+                # Il firmware riporta sempre otaBytesReceived: è il punto da
+                # cui riprendere, sia al primo avvio (0) sia dopo una
+                # riconnessione.
+                if len(ack) >= 5:
+                    offset = int.from_bytes(ack[1:5], "little")
+
+                if offset == 0:
+                    _log(f"▶ OTA avviata, trasferimento in corso... (MTU {client.mtu_size}, chunk {chunk_size})")
+                else:
+                    _log(f"▶ Ripresa OTA da {offset:,}/{total:,} byte (MTU {client.mtu_size}, chunk {chunk_size})")
                 if progress_cb:
                     progress_cb(offset, total)
-                # "write without response" su Windows viene solo accodato
-                # dallo stack BLE, non trasmesso subito: questa pausa evita
-                # di accumulare un backlog enorme che lo stack non riesce a
-                # smaltire prima della disconnessione.
-                await asyncio.sleep(0.015)
 
-            # ── DRAIN ──
-            # I chunk appena accodati non sono ancora arrivati al firmware:
-            # leggiamo otaBytesReceived dalla CTRL finché non raggiunge
-            # quanto accodato in questo segmento (o smette di progredire /
-            # supera DRAIN_TIMEOUT), così sappiamo davvero da dove riprendere
-            # se serve una nuova connessione.
-            queued_offset = offset
-            drain_start = time.monotonic()
-            last_confirmed = -1
-            while True:
-                try:
-                    ack = await asyncio.wait_for(
-                        client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=5.0
-                    )
-                except (asyncio.TimeoutError, Exception):
-                    break
-                confirmed = int.from_bytes(ack[1:5], "little") if len(ack) >= 5 else 0
-                if progress_cb:
-                    progress_cb(confirmed, total)
-                if confirmed >= queued_offset or confirmed == last_confirmed:
-                    offset = confirmed
-                    break
-                last_confirmed = confirmed
-                if time.monotonic() - drain_start > DRAIN_TIMEOUT:
-                    offset = confirmed
-                    break
-                await asyncio.sleep(2.0)
-        # async with: la connessione si chiude qui (volontariamente o perché
-        # l'host la termina). Se offset < total, il while esterno riconnette
-        # e riprende da otaBytesReceived.
+                # ── TRANSFER chunks (limitato a SEGMENT_TIME_BUDGET secondi) ──
+                send_offset = offset
+                segment_start = time.monotonic()
+                while send_offset < total and (time.monotonic() - segment_start) < SEGMENT_TIME_BUDGET:
+                    chunk = data[send_offset: send_offset + chunk_size]
+                    try:
+                        await client.write_gatt_char(BLE_CHAR_OTA_DATA_UUID, chunk, response=False)
+                    except Exception as e:
+                        # Se Windows/bleak rifiuta o fallisce una write
+                        # "without response" (es. coda BLE piena),
+                        # interrompiamo il segmento: il drain sottostante
+                        # confermerà quanto è davvero arrivato al firmware.
+                        _log(f"✗ Errore scrittura OTA dopo {send_offset:,}/{total:,} byte "
+                             f"e {time.monotonic() - connect_ts[0]:.1f}s: {e!r}")
+                        break
+                    send_offset += len(chunk)
+                    if progress_cb:
+                        progress_cb(send_offset, total)
+                    # "write without response" su Windows viene solo accodato
+                    # dallo stack BLE, non trasmesso subito: questa pausa
+                    # evita di accumulare un backlog enorme che lo stack non
+                    # riesce a smaltire prima della disconnessione.
+                    await asyncio.sleep(0.015)
+
+                # ── DRAIN ──
+                # I chunk appena accodati non sono ancora arrivati al
+                # firmware: leggiamo otaBytesReceived dalla CTRL finché non
+                # raggiunge quanto accodato in questo segmento (send_offset),
+                # smette di progredire, o supera DRAIN_TIMEOUT. Aggiorna
+                # `offset` solo con valori confermati dal firmware.
+                drain_start = time.monotonic()
+                last_confirmed = -1
+                while True:
+                    try:
+                        ack = await asyncio.wait_for(
+                            client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=5.0
+                        )
+                    except (asyncio.TimeoutError, Exception):
+                        break
+                    offset = int.from_bytes(ack[1:5], "little") if len(ack) >= 5 else offset
+                    if progress_cb:
+                        progress_cb(offset, total)
+                    if offset >= send_offset or offset == last_confirmed:
+                        break
+                    last_confirmed = offset
+                    if time.monotonic() - drain_start > DRAIN_TIMEOUT:
+                        break
+                    await asyncio.sleep(2.0)
+            # async with: la connessione si chiude qui (volontariamente o
+            # perché l'host la termina). Se offset < total, il while esterno
+            # riconnette e riprende da otaBytesReceived.
+        except Exception as e:
+            _log(f"⚠ Connessione BLE interrotta ({e!r}), riconnetto...")
+            await asyncio.sleep(1.0)
 
     _log(f"✓ Trasferiti {total:,} bytes. Commit in corso...")
 
