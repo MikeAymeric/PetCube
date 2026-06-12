@@ -170,7 +170,12 @@ async def ota_update_ble(
             await client.request_mtu(512)
         except Exception:
             pass
-        chunk_size = max(20, client.mtu_size - 3)
+        # Il firmware accoda i chunk in un buffer OTA_CHUNK_MAX=512 byte:
+        # un chunk più grande viene scartato silenziosamente (write senza
+        # risposta), quindi va sempre limitato a 512 anche se l'MTU
+        # negoziato permetterebbe payload leggermente più grandi (es. 514
+        # con MTU 517).
+        chunk_size = min(max(20, client.mtu_size - 3), 512)
         _log(f"MTU: {client.mtu_size}  →  chunk: {chunk_size} bytes")
 
         # ── START ──

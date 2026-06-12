@@ -66,6 +66,11 @@
 //      disconnessione silenziosa a metà trasferimento; aggiunta
 //      diagnostica seriale su disconnessione durante OTA e avanzamento
 //      scrittura flash ogni ~100 KB
+//  🐛  OTA: con MTU 517 il companion inviava chunk da 514 byte, più
+//      grandi del buffer OTA_CHUNK_MAX (512) — venivano scartati in
+//      silenzio (0 byte ricevuti). Il companion ora limita i chunk a
+//      512 byte; aggiunta diagnostica per chunk troppo grandi, MTU
+//      negoziato e timestamp di connessione/disconnessione BLE
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -1797,11 +1802,13 @@ class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
     bleAdvertising = false;
     // Il main loop suonerà il beep di connessione vedendo il cambio di stato
     // (qui non chiamiamo tone() perché siamo in un task BLE, meglio non bloccare)
+    Serial.printf("📡 BLE client connesso (t=%lu ms)\n", millis());
   }
   void onDisconnect(BLEServer* server) override {
     bleClientConnected = false;
     // ESP32 BLE non riavvia l'advertising automaticamente dopo disconnessione
     // Lo riavvieremo dal main loop in bleUpdateState()
+    Serial.printf("📡 BLE client disconnesso (t=%lu ms)\n", millis());
 
     // Diagnostica: se la disconnessione arriva durante un OTA, registriamo
     // a che punto del trasferimento eravamo.
@@ -1809,6 +1816,12 @@ class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
       Serial.printf("⚠️  OTA: disconnesso durante il trasferimento, %u bytes ricevuti (stato=%u)\n",
                     (unsigned)otaBytesReceived, (unsigned)otaState);
     }
+  }
+  // Diagnostica: MTU effettivamente negoziato con il client per questa
+  // connessione (utile per verificare BLEDevice::setMTU()). Questo
+  // firmware usa lo stack NimBLE.
+  void onMtuChanged(BLEServer* server, ble_gap_conn_desc* desc, uint16_t mtu) override {
+    Serial.printf("📡 BLE MTU negoziato: %u\n", (unsigned)mtu);
   }
 };
 
@@ -1919,7 +1932,19 @@ class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
     if (otaState != OTA_RECEIVING) return;
     String val = ch->getValue();
     size_t len = val.length();
-    if (len == 0 || len > OTA_CHUNK_MAX) return;
+    if (len == 0) return;
+    if (len > OTA_CHUNK_MAX) {
+      // Diagnostica: un chunk più grande del buffer viene scartato in
+      // silenzio (write senza risposta, il client non riceve errore).
+      static uint32_t lastWarnMs = 0;
+      uint32_t nowMs = millis();
+      if (nowMs - lastWarnMs > 1000) {
+        Serial.printf("OTA: chunk da %u byte > OTA_CHUNK_MAX (%u), scartato\n",
+                      (unsigned)len, (unsigned)OTA_CHUNK_MAX);
+        lastWarnMs = nowMs;
+      }
+      return;
+    }
 
     OtaChunk chunk;
     chunk.len = len;
