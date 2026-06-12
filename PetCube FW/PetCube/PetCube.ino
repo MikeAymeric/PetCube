@@ -88,6 +88,12 @@
 //      task host NimBLE/idle. Aggiunto un delay(1) per ciclo durante l'OTA;
 //      aggiunta anche diagnostica sui parametri di connessione negoziati
 //      (intervallo, latenza, supervision timeout)
+//  🔧  OTA: il delay(1) non ha cambiato nulla (disconnesso di nuovo a ~97s,
+//      476160 byte, coda quasi vuota): il supervision timeout negoziato era
+//      9.6s. All'avvio dell'OTA richiediamo ora il supervision timeout
+//      massimo consentito (32s) via requestConnParams(); aggiunta
+//      diagnostica sugli eventi di rinegoziazione dei parametri di
+//      connessione (onConnParamsUpdate)
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -456,6 +462,7 @@ String petTag = "";
 
 // ── 📡 BLE GATT server state ──────────────────────────────────
 BLEServer*        bleServer        = nullptr;
+volatile uint16_t bleConnHandle    = 0;
 BLECharacteristic* bleNotifChar    = nullptr;
 BLECharacteristic* bleVersionChar  = nullptr;
 BLECharacteristic* bleOtaCtrlChar  = nullptr;
@@ -1830,6 +1837,11 @@ class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
     // (qui non chiamiamo tone() perché siamo in un task BLE, meglio non bloccare)
     Serial.printf("📡 BLE client connesso (t=%lu ms)\n", millis());
   }
+  // Variante NimBLE: ci serve conn_handle per poter richiedere parametri di
+  // connessione diversi durante l'OTA (vedi requestConnParams in OTA START).
+  void onConnect(BLEServer* server, ble_gap_conn_desc* desc) override {
+    if (desc) bleConnHandle = desc->conn_handle;
+  }
   void onDisconnect(BLEServer* server) override {
     bleClientConnected = false;
     // ESP32 BLE non riavvia l'advertising automaticamente dopo disconnessione
@@ -1858,6 +1870,14 @@ class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
                     (unsigned)desc->conn_itvl, (unsigned)desc->conn_latency,
                     (unsigned)desc->supervision_timeout);
     }
+  }
+  // Diagnostica: la disconnessione durante l'OTA avviene a un tempo fisso
+  // (~97s) indipendente dai byte trasferiti. Se nel frattempo il client
+  // (Windows/bleak) rinegozia i parametri di connessione, lo vediamo qui
+  // (con lo status dell'operazione: 0 = riuscita).
+  void onConnParamsUpdate(uint16_t connHandle, uint16_t interval, uint16_t latency, uint16_t timeout, uint8_t status) override {
+    Serial.printf("📡 BLE conn params update (t=%lu ms): interval=%u (x1.25ms), latency=%u, supervision timeout=%u (x10ms), status=%u\n",
+                  millis(), (unsigned)interval, (unsigned)latency, (unsigned)timeout, (unsigned)status);
   }
 };
 
@@ -1926,6 +1946,11 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
         uint8_t ok = 0x01;
         ch->setValue(&ok, 1);
         Serial.printf("OTA START: %u bytes (heap libera: %u)\n", sz, (unsigned)ESP.getFreeHeap());
+        // La disconnessione durante l'OTA avviene a un tempo fisso (~97s)
+        // indipendente dai byte trasferiti, con supervision timeout
+        // negoziato a 9.6s — richiediamo il massimo consentito (32s) per
+        // verificare se è questo il vincolo coinvolto.
+        bleServer->requestConnParams(bleConnHandle, 24, 48, 0, 3200);
       } else {
         otaState = OTA_ERROR;
         uint8_t err = 0x00;
