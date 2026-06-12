@@ -35,6 +35,18 @@
 //  Libreria richiesta (oltre alle solite):
 //    BLE built-in di ESP32 Arduino Core (NO install separata richiesta)
 //
+//  ── CHANGELOG v19 → v20 ───────────────────────────────────────
+//  📡  OTA segmentata e ripristinabile su più connessioni BLE: OTA START
+//      con la stessa size mentre otaState==OTA_RECEIVING fa "riprendere"
+//      il trasferimento dall'offset già ricevuto (otaBytesReceived),
+//      invece di ricominciare da zero
+//  🔧  Risolto lo stallo del trasferimento (bloccato al 60% sullo schermo,
+//      companion che non si riconnetteva più / BleakDeviceNotFoundError):
+//      l'advertising BLE viene ora riavviato anche durante OTA_RECEIVING
+//      dopo una disconnessione, così il cubo resta raggiungibile per
+//      tutta la durata dell'aggiornamento
+//  • Bump FW_VERSION a 20, migrazione NVS automatica (reset totale)
+//
 //  ── CHANGELOG v18 → v19 ───────────────────────────────────────
 //  🖼️  Sfondo ambientale esteso anche a Session (pomodoro/riposo) e a
 //      tutte le schermate di battaglia
@@ -255,7 +267,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           19   // bump al cambio struttura NVS
+#define FW_VERSION           20   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
