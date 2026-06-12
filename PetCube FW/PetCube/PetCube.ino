@@ -55,6 +55,9 @@
 //  🖼️  Sfondi dedicati per Work/Study/Training/Sleep (DND riusa lo
 //      sfondo Sleep); rimosse le etichette di stato (Work/Study/DND/
 //      Training/Rest), ora rappresentate solo dallo sfondo
+//  📲  OTA firmware: a trasferimento completato il PetCube chiede
+//      conferma ("Aggiornare il firmware?", B = installa, C = annulla)
+//      prima di finalizzare l'update e riavviare
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -436,7 +439,17 @@ bool              bleInitialized   = false;
 portMUX_TYPE      notifsMux        = portMUX_INITIALIZER_UNLOCKED;
 
 // ── OTA state ────────────────────────────────────────────────
-enum OtaState : uint8_t { OTA_IDLE = 0, OTA_RECEIVING = 1, OTA_DONE = 2, OTA_ERROR = 0xFF };
+// AWAIT_CONFIRM: trasferimento completato, in attesa che l'utente confermi
+// (B) o annulli (C) sullo schermo del PetCube prima di finalizzare.
+// CANCELLED: l'utente ha annullato — resta finché non parte una nuova OTA.
+enum OtaState : uint8_t {
+  OTA_IDLE          = 0,
+  OTA_RECEIVING     = 1,
+  OTA_DONE          = 2,
+  OTA_AWAIT_CONFIRM = 3,
+  OTA_CANCELLED     = 4,
+  OTA_ERROR         = 0xFF
+};
 volatile OtaState    otaState         = OTA_IDLE;
 volatile uint32_t    otaBytesReceived = 0;
 volatile bool        otaRebootPending = false;
@@ -1842,19 +1855,19 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
       }
 
     } else if (cmd == 0x02) {
-      // COMMIT
-      if (otaState == OTA_RECEIVING && Update.end(true)) {
-        otaState = OTA_DONE;
-        uint8_t ok = 0x01;
-        ch->setValue(&ok, 1);
-        Serial.println("OTA COMMIT OK — riavvio imminente");
-        otaRebootPending = true;   // riavvio gestito dal main loop
+      // COMMIT — trasferimento completato: NON finalizzare subito,
+      // attendi la conferma dell'utente (B/C) sullo schermo del PetCube.
+      if (otaState == OTA_RECEIVING) {
+        otaState = OTA_AWAIT_CONFIRM;
+        uint8_t st = (uint8_t)otaState;
+        ch->setValue(&st, 1);
+        Serial.println("OTA COMMIT: in attesa di conferma sul dispositivo");
       } else {
         Update.abort();
         otaState = OTA_ERROR;
         uint8_t err = 0x00;
         ch->setValue(&err, 1);
-        Serial.printf("OTA COMMIT fallito: %s\n", Update.errorString());
+        Serial.println("OTA COMMIT fallito: stato non valido");
       }
 
     } else if (cmd == 0x03) {
@@ -2406,6 +2419,24 @@ void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX, int p
   canvas.drawString(s, x, y);
 }
 
+// ── Schermata di conferma OTA ────────────────────────────────
+// Mostrata quando il trasferimento firmware è completo e si attende
+// la scelta dell'utente: B = installa e riavvia, C = annulla.
+void drawOtaConfirmScreen(unsigned long now) {
+  canvas.fillSprite(C_BG);
+  canvas.setTextFont(2);
+  canvas.setTextColor(C_CYAN, C_BG);
+  drawCenteredStr(70, "Nuovo firmware");
+  drawCenteredStr(92, "pronto!");
+  canvas.setTextColor(C_FG, C_BG);
+  drawCenteredStr(130, "Aggiornare ora?");
+  canvas.setTextColor(C_HAP, C_BG);
+  drawCenteredStr(165, "B = Si, installa");
+  canvas.setTextColor(C_STR, C_BG);
+  drawCenteredStr(185, "C = No, annulla");
+  canvas.pushSprite(0, 0);
+}
+
 // Proiettile vincitore->perdente: fiammella rossa/gialla (Fire) o goccia azzurra (Water).
 void drawProjectile(int x, int y, BattleElement elem) {
   if (elem == BE_FIRE) {
@@ -2752,6 +2783,38 @@ void loop() {
     btnAPrev=btnANow; btnBPrev=btnBNow; btnCPrev=btnCNow;
     // display boot
     drawBootScreen();
+    delay(40);
+    return;
+  }
+
+  // ── Conferma OTA ─────────────────────────────────────────────
+  // Trasferimento completato: chiediamo all'utente se installare (B)
+  // o annullare (C) prima di finalizzare l'aggiornamento.
+  if (otaState == OTA_AWAIT_CONFIRM) {
+    if (btnBPrev==HIGH && btnBNow==LOW) {
+      // Installa: finalizza l'update e riavvia
+      if (Update.end(true)) {
+        otaState = OTA_DONE;
+        otaRebootPending = true;   // riavvio gestito dal main loop
+        Serial.println("OTA confermata dall'utente — riavvio imminente");
+      } else {
+        Update.abort();
+        otaState = OTA_ERROR;
+        Serial.printf("OTA: finalizzazione fallita: %s\n", Update.errorString());
+      }
+      tone(BUZZER,784,80); delay(90); tone(BUZZER,1047,150);
+      delay(50);
+    }
+    if (btnCPrev==HIGH && btnCNow==LOW) {
+      // Annulla: scarta l'update ricevuto
+      Update.abort();
+      otaState = OTA_CANCELLED;
+      Serial.println("OTA annullata dall'utente");
+      tone(BUZZER, 440, 120);
+      delay(50);
+    }
+    btnAPrev=btnANow; btnBPrev=btnBNow; btnCPrev=btnCNow;
+    drawOtaConfirmScreen(now);
     delay(40);
     return;
   }

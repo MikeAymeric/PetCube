@@ -32,6 +32,14 @@ OTA_CMD_ABORT  = 0x03
 OTA_ACK_OK  = 0x01
 OTA_ACK_ERR = 0x00
 
+# Stati OTA letti dal device (caratteristica CTRL, OtaState lato firmware)
+OTA_STATE_IDLE          = 0x00
+OTA_STATE_RECEIVING     = 0x01
+OTA_STATE_DONE          = 0x02
+OTA_STATE_AWAIT_CONFIRM = 0x03
+OTA_STATE_CANCELLED     = 0x04
+OTA_STATE_ERROR         = 0xFF
+
 # Chunk size conservativo per BLE (MTU negoziata - 3 byte ATT header)
 # Viene sovrascritto a runtime con il valore reale dopo la connessione.
 DEFAULT_CHUNK_SIZE = 500
@@ -209,16 +217,43 @@ async def ota_update_ble(
             ack = await asyncio.wait_for(
                 client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=10.0
             )
-            if ack and ack[0] == OTA_ACK_OK:
-                _log("✓ Commit OK — il dispositivo si riavvierà con il nuovo firmware.")
-                return True
-            else:
-                _log("✗ Commit rifiutato (verifica CRC fallita?).")
-                return False
         except (asyncio.TimeoutError, Exception):
             # Il dispositivo potrebbe essersi già riavviato prima che leggessimo la risposta
             _log("ℹ  Il dispositivo si è riavviato (timeout atteso dopo commit).")
             return True
+
+        if not ack or ack[0] != OTA_STATE_AWAIT_CONFIRM:
+            _log("✗ Commit rifiutato (verifica CRC fallita?).")
+            return False
+
+        # ── Attesa conferma sul dispositivo ──
+        # Il PetCube mostra "Aggiornare il firmware?" e attende B (installa)
+        # o C (annulla) prima di finalizzare l'OTA.
+        _log("⏳ In attesa di conferma sul PetCube (B = installa, C = annulla)...")
+        while True:
+            await asyncio.sleep(1.0)
+            try:
+                st = await asyncio.wait_for(
+                    client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=5.0
+                )
+            except (asyncio.TimeoutError, Exception):
+                _log("ℹ  Il dispositivo si è riavviato (connessione persa dopo conferma).")
+                return True
+
+            if not st:
+                continue
+            state = st[0]
+            if state == OTA_STATE_AWAIT_CONFIRM:
+                continue
+            elif state == OTA_STATE_DONE:
+                _log("✓ Aggiornamento confermato — il dispositivo si riavvierà con il nuovo firmware.")
+                return True
+            elif state == OTA_STATE_CANCELLED:
+                _log("✗ Aggiornamento annullato dall'utente sul PetCube.")
+                return False
+            else:
+                _log("✗ Aggiornamento fallito sul dispositivo.")
+                return False
 
 
 # ── USB fallback (esptool) ────────────────────────────────────
