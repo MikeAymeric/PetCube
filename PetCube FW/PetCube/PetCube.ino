@@ -100,6 +100,19 @@
 //      disconnessione (event->disconnect.reason), non esposto da
 //      BLEServerCallbacks::onDisconnect, per capire se è un timeout del
 //      link o una chiusura volontaria
+//  🔧  OTA: reason=0x213 = disconnessione volontaria lato host (Windows),
+//      non legata al firmware. Throughput reale BLE misurato ≈ 7 KB/s →
+//      1MB richiederebbe ~155s, oltre il doppio dei ~97s di vita di una
+//      connessione: nessun pacing può bastare in un'unica connessione.
+//      OTA START (0x01) ora supporta la RIPRESA: se otaState==OTA_RECEIVING
+//      e la size coincide con otaTotalSize, non viene rifatto
+//      Update.begin(), e la risposta (0x01 + otaBytesReceived uint32 LE)
+//      indica alla companion da quale offset riprendere l'invio dopo una
+//      riconnessione. onRead della CTRL ora ritorna sempre 5 byte (stato +
+//      otaBytesReceived). Rimossa la richiesta di supervision timeout 32s
+//      (PR precedente), non necessaria con OTA segmentata e potenzialmente
+//      dannosa per il throughput per-segmento. Vedi anche
+//      firmware_updater.py per il loop di riconnessione lato companion
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -1941,28 +1954,42 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
       // START — bytes 1-4 = total firmware size (little-endian)
       uint32_t sz;
       memcpy(&sz, val.c_str() + 1, 4);
-      Update.abort();
-      xQueueReset(otaChunkQueue);  // scarta eventuali chunk residui di una sessione precedente
-      if (Update.begin(sz, U_FLASH)) {
-        otaState = OTA_RECEIVING;
-        otaBytesReceived = 0;
-        otaTotalSize = sz;
-        otaQueueHighWater = 0;
-        otaMaxWriteUs = 0;
-        uint8_t ok = 0x01;
-        ch->setValue(&ok, 1);
-        Serial.printf("OTA START: %u bytes (heap libera: %u)\n", sz, (unsigned)ESP.getFreeHeap());
-        // La disconnessione durante l'OTA avviene a un tempo fisso (~97s)
-        // indipendente dai byte trasferiti, con supervision timeout
-        // negoziato a 9.6s — richiediamo il massimo consentito (32s) per
-        // verificare se è questo il vincolo coinvolto.
-        bleServer->requestConnParams(bleConnHandle, 24, 48, 0, 3200);
+
+      // OTA segmentata: ogni connessione BLE dura solo ~97s prima che
+      // l'host la chiuda (vedi PR#31, reason=0x213), troppo poco per
+      // trasferire ~1MB. La companion riconnette e ripete START più volte:
+      // se è già in corso una sessione per la stessa dimensione totale, non
+      // ricominciamo da capo (Update.begin/xQueueReset distruggerebbero il
+      // progresso) ma rispondiamo con otaBytesReceived così la companion sa
+      // da dove riprendere a inviare.
+      bool resume = (otaState == OTA_RECEIVING && sz == otaTotalSize);
+      if (!resume) {
+        Update.abort();
+        xQueueReset(otaChunkQueue);  // scarta eventuali chunk residui di una sessione precedente
+        if (Update.begin(sz, U_FLASH)) {
+          otaState = OTA_RECEIVING;
+          otaBytesReceived = 0;
+          otaTotalSize = sz;
+          otaQueueHighWater = 0;
+          otaMaxWriteUs = 0;
+          Serial.printf("OTA START: %u bytes (heap libera: %u)\n", sz, (unsigned)ESP.getFreeHeap());
+        } else {
+          otaState = OTA_ERROR;
+          uint8_t err = 0x00;
+          ch->setValue(&err, 1);
+          Serial.println("OTA START: Update.begin() fallito");
+          return;
+        }
       } else {
-        otaState = OTA_ERROR;
-        uint8_t err = 0x00;
-        ch->setValue(&err, 1);
-        Serial.println("OTA START: Update.begin() fallito");
+        Serial.printf("OTA START: ripresa da %u/%u bytes\n", (unsigned)otaBytesReceived, (unsigned)otaTotalSize);
       }
+
+      // Risposta: 0x01 + otaBytesReceived (uint32 little-endian), così la
+      // companion sa da quale offset continuare l'invio dei chunk.
+      uint8_t resp[5] = { 0x01, 0, 0, 0, 0 };
+      uint32_t br = otaBytesReceived;
+      memcpy(resp + 1, &br, 4);
+      ch->setValue(resp, 5);
 
     } else if (cmd == 0x02) {
       // COMMIT — trasferimento completato: NON finalizzare subito,
@@ -1989,8 +2016,13 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
   }
 
   void onRead(BLECharacteristic* ch) override {
-    uint8_t st = (uint8_t)otaState;
-    ch->setValue(&st, 1);
+    // Risposta estesa: stato (1 byte) + otaBytesReceived (uint32 LE).
+    // Usata dalla companion per il polling durante OTA_AWAIT_CONFIRM e per
+    // sapere a che punto è il trasferimento dopo una riconnessione.
+    uint8_t resp[5] = { (uint8_t)otaState, 0, 0, 0, 0 };
+    uint32_t br = otaBytesReceived;
+    memcpy(resp + 1, &br, 4);
+    ch->setValue(resp, 5);
   }
 };
 

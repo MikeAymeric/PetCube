@@ -146,6 +146,20 @@ def download_firmware(
 
 # ── BLE OTA ──────────────────────────────────────────────────
 
+# Ogni connessione BLE viene chiusa dall'host (Windows) dopo ~97s
+# (reason=0x213, "Remote User Terminated Connection") indipendentemente da
+# tutto il resto. Il throughput reale misurato è ≈ 7 KB/s, quindi 1MB
+# richiederebbe ~155s: oltre il doppio della vita di una connessione.
+# Per questo l'OTA viene trasferita in più connessioni successive: ogni
+# segmento dura al massimo SEGMENT_TIME_BUDGET secondi (ben sotto i 97s, per
+# lasciare margine a connessione/discovery), poi la companion si disconnette
+# e riconnette. Il firmware mantiene lo stato OTA tra una connessione e
+# l'altra e, su OTA START, risponde con otaBytesReceived: la companion
+# riprende sempre da lì, che coincide esattamente con i byte effettivamente
+# scritti in flash (autocorregge eventuali dati persi nella disconnessione).
+SEGMENT_TIME_BUDGET = 60.0
+
+
 async def ota_update_ble(
     address: str,
     bin_path: Path,
@@ -154,6 +168,9 @@ async def ota_update_ble(
 ) -> bool:
     """
     Trasferisce bin_path via BLE OTA al dispositivo e ne avvia il riavvio.
+    Il trasferimento è segmentato su più connessioni BLE (vedi
+    SEGMENT_TIME_BUDGET) e riprende automaticamente da dove il firmware è
+    arrivato in caso di disconnessione.
     Ritorna True se il flashing è andato a buon fine.
     """
     def _log(msg: str) -> None:
@@ -165,128 +182,145 @@ async def ota_update_ble(
     total = len(data)
     _log(f"File: {bin_path.name}  ({total:,} bytes)")
 
-    # Diagnostica: il firmware vede una disconnessione BLE a un tempo
-    # fisso di ~97s dalla connessione, con reason=0x213 ("Remote User
-    # Terminated Connection" lato ESP32, cioè l'host/Windows chiude la
-    # connessione). Logghiamo qui il momento esatto in cui bleak/Windows
-    # rileva la disconnessione, per correlarlo col log seriale del cubo.
-    # In bleak >= 1.0 il callback va passato al costruttore di BleakClient
-    # (BleakClient.set_disconnected_callback è stato rimosso); usiamo un
-    # contenitore mutabile per impostare il riferimento temporale dopo che
-    # la connessione è stabilita.
-    connect_ts = [time.monotonic()]
+    def _make_disconnect_logger(connect_ts: list) -> Callable[[object], None]:
+        def _on_disconnect(_client) -> None:
+            _log(f"⚠ BLE disconnesso lato host dopo {time.monotonic() - connect_ts[0]:.1f}s")
+        return _on_disconnect
 
-    def _on_disconnect(_client) -> None:
-        _log(f"⚠ BLE disconnesso lato host dopo {time.monotonic() - connect_ts[0]:.1f}s")
+    # ── Fase 1: trasferimento a segmenti, con ripresa automatica ──
+    offset = 0
+    while offset < total:
+        connect_ts = [time.monotonic()]
+        async with BleakClient(address, timeout=30.0, disconnected_callback=_make_disconnect_logger(connect_ts)) as client:
+            connect_ts[0] = time.monotonic()
 
-    async with BleakClient(address, timeout=30.0, disconnected_callback=_on_disconnect) as client:
-        connect_ts[0] = time.monotonic()
-
-        # Negozia MTU più grande per throughput migliore
-        try:
-            await client.request_mtu(512)
-        except Exception:
-            pass
-        # Il firmware accoda i chunk in un buffer OTA_CHUNK_MAX=512 byte:
-        # un chunk più grande viene scartato silenziosamente (write senza
-        # risposta), quindi va sempre limitato a 512 anche se l'MTU
-        # negoziato permetterebbe payload leggermente più grandi (es. 514
-        # con MTU 517).
-        chunk_size = min(max(20, client.mtu_size - 3), 512)
-        _log(f"MTU: {client.mtu_size}  →  chunk: {chunk_size} bytes")
-
-        # ── START ──
-        start_cmd = bytes([OTA_CMD_START]) + total.to_bytes(4, "little")
-        await client.write_gatt_char(BLE_CHAR_OTA_CTRL_UUID, start_cmd, response=True)
-
-        ack = await client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID)
-        if not ack or ack[0] != OTA_ACK_OK:
-            _log("✗ Il dispositivo ha rifiutato l'avvio OTA (memoria insufficiente?).")
-            return False
-        _log("▶ OTA avviata, trasferimento in corso...")
-
-        # ── TRANSFER chunks ──
-        offset = 0
-        while offset < total:
-            chunk = data[offset: offset + chunk_size]
+            # Negozia MTU più grande per throughput migliore
             try:
-                await client.write_gatt_char(BLE_CHAR_OTA_DATA_UUID, chunk, response=False)
-            except Exception as e:
-                # Diagnostica: se Windows/bleak rifiuta o fallisce una write
-                # "without response" (es. coda BLE piena), vogliamo vedere
-                # l'errore esatto e dopo quanti byte/secondi si è verificato,
-                # invece di farlo propagare silenziosamente fino a
-                # __aexit__ (che disconnette con reason "Remote User
-                # Terminated Connection", senza errore visibile a schermo).
-                _log(f"✗ Errore scrittura OTA dopo {offset:,}/{total:,} byte "
-                     f"e {time.monotonic() - connect_ts[0]:.1f}s: {e!r}")
-                raise
-            offset += len(chunk)
+                await client.request_mtu(512)
+            except Exception:
+                pass
+            # Il firmware accoda i chunk in un buffer OTA_CHUNK_MAX=512 byte:
+            # un chunk più grande viene scartato silenziosamente (write senza
+            # risposta), quindi va sempre limitato a 512 anche se l'MTU
+            # negoziato permetterebbe payload leggermente più grandi (es. 514
+            # con MTU 517).
+            chunk_size = min(max(20, client.mtu_size - 3), 512)
+
+            # ── START (o ripresa) ──
+            start_cmd = bytes([OTA_CMD_START]) + total.to_bytes(4, "little")
+            await client.write_gatt_char(BLE_CHAR_OTA_CTRL_UUID, start_cmd, response=True)
+
+            ack = await client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID)
+            if not ack or ack[0] != OTA_ACK_OK:
+                _log("✗ Il dispositivo ha rifiutato l'avvio OTA (memoria insufficiente?).")
+                return False
+
+            # Il firmware riporta sempre otaBytesReceived: è il punto da cui
+            # riprendere, sia al primo avvio (0) sia dopo una riconnessione.
+            if len(ack) >= 5:
+                offset = int.from_bytes(ack[1:5], "little")
+
+            if offset == 0:
+                _log(f"▶ OTA avviata, trasferimento in corso... (MTU {client.mtu_size}, chunk {chunk_size})")
+            else:
+                _log(f"▶ Ripresa OTA da {offset:,}/{total:,} byte (MTU {client.mtu_size}, chunk {chunk_size})")
             if progress_cb:
                 progress_cb(offset, total)
-            # "write without response" su Windows viene solo accodato dallo
-            # stack BLE, non trasmesso subito. Senza una pausa qui il loop
-            # "finisce" molto prima che i dati siano davvero arrivati al cubo,
-            # e il successivo COMMIT (write con risposta) resta bloccato dietro
-            # un enorme backlog di pacchetti non ancora inviati, causando un
-            # timeout silenzioso prima che l'ESP32 riceva il comando di commit.
-            await asyncio.sleep(0.015)
 
-        _log(f"✓ Trasferiti {total:,} bytes. Commit in corso...")
+            # ── TRANSFER chunks (limitato a SEGMENT_TIME_BUDGET secondi) ──
+            segment_start = time.monotonic()
+            while offset < total and (time.monotonic() - segment_start) < SEGMENT_TIME_BUDGET:
+                chunk = data[offset: offset + chunk_size]
+                try:
+                    await client.write_gatt_char(BLE_CHAR_OTA_DATA_UUID, chunk, response=False)
+                except Exception as e:
+                    # Se Windows/bleak rifiuta o fallisce una write "without
+                    # response" (es. coda BLE piena), interrompiamo il
+                    # segmento: la prossima connessione riprenderà da dove il
+                    # firmware è realmente arrivato.
+                    _log(f"✗ Errore scrittura OTA dopo {offset:,}/{total:,} byte "
+                         f"e {time.monotonic() - connect_ts[0]:.1f}s: {e!r}")
+                    break
+                offset += len(chunk)
+                if progress_cb:
+                    progress_cb(offset, total)
+                # "write without response" su Windows viene solo accodato
+                # dallo stack BLE, non trasmesso subito: questa pausa evita
+                # di accumulare un backlog enorme che lo stack non riesce a
+                # smaltire prima della disconnessione.
+                await asyncio.sleep(0.015)
+        # async with: la connessione si chiude qui (volontariamente o per il
+        # limite ~97s dell'host). Se offset < total, il while esterno
+        # riconnette e riprende da otaBytesReceived.
 
-        # ── COMMIT ──
-        # Update.end(true) sull'ESP32 verifica l'immagine (SHA256 sull'intera
-        # partizione) prima di rispondere: può richiedere qualche secondo.
+    _log(f"✓ Trasferiti {total:,} bytes. Commit in corso...")
+
+    # ── Fase 2: commit + attesa conferma, con riconnessione se necessario ──
+    committed = False
+    while True:
+        connect_ts = [time.monotonic()]
         try:
-            await asyncio.wait_for(
-                client.write_gatt_char(BLE_CHAR_OTA_CTRL_UUID, bytes([OTA_CMD_COMMIT]), response=True),
-                timeout=15.0,
-            )
+            async with BleakClient(address, timeout=30.0, disconnected_callback=_make_disconnect_logger(connect_ts)) as client:
+                connect_ts[0] = time.monotonic()
+
+                if not committed:
+                    # ── COMMIT ──
+                    # Update.end(true) sull'ESP32 verifica l'immagine (SHA256
+                    # sull'intera partizione) prima di rispondere: può
+                    # richiedere qualche secondo.
+                    try:
+                        await asyncio.wait_for(
+                            client.write_gatt_char(BLE_CHAR_OTA_CTRL_UUID, bytes([OTA_CMD_COMMIT]), response=True),
+                            timeout=15.0,
+                        )
+                        committed = True
+                    except Exception as e:
+                        _log(f"✗ Commit non confermato dal dispositivo ({e}), riconnetto e riprovo...")
+                        continue
+
+                    ack = await asyncio.wait_for(
+                        client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=10.0
+                    )
+                    if not ack or ack[0] != OTA_STATE_AWAIT_CONFIRM:
+                        _log("✗ Commit rifiutato (verifica CRC fallita?).")
+                        return False
+
+                    # ── Attesa conferma sul dispositivo ──
+                    # Il PetCube mostra "Aggiornare il firmware?" e attende B
+                    # (installa) o C (annulla) prima di finalizzare l'OTA.
+                    _log("⏳ In attesa di conferma sul PetCube (B = installa, C = annulla)...")
+
+                # ── Polling stato (con ripresa se la connessione cade) ──
+                while True:
+                    await asyncio.sleep(1.0)
+                    try:
+                        st = await asyncio.wait_for(
+                            client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=5.0
+                        )
+                    except (asyncio.TimeoutError, Exception):
+                        break  # riconnetti e continua il polling
+
+                    if not st:
+                        continue
+                    state = st[0]
+                    if state == OTA_STATE_AWAIT_CONFIRM:
+                        continue
+                    elif state == OTA_STATE_DONE:
+                        _log("✓ Aggiornamento confermato — il dispositivo si riavvierà con il nuovo firmware.")
+                        return True
+                    elif state == OTA_STATE_CANCELLED:
+                        _log("✗ Aggiornamento annullato dall'utente sul PetCube.")
+                        return False
+                    else:
+                        _log("✗ Aggiornamento fallito sul dispositivo.")
+                        return False
         except Exception as e:
-            _log(f"✗ Commit non confermato dal dispositivo ({e}). OTA non completata.")
-            return False
-
-        try:
-            ack = await asyncio.wait_for(
-                client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=10.0
-            )
-        except (asyncio.TimeoutError, Exception):
-            # Il dispositivo potrebbe essersi già riavviato prima che leggessimo la risposta
-            _log("ℹ  Il dispositivo si è riavviato (timeout atteso dopo commit).")
-            return True
-
-        if not ack or ack[0] != OTA_STATE_AWAIT_CONFIRM:
-            _log("✗ Commit rifiutato (verifica CRC fallita?).")
-            return False
-
-        # ── Attesa conferma sul dispositivo ──
-        # Il PetCube mostra "Aggiornare il firmware?" e attende B (installa)
-        # o C (annulla) prima di finalizzare l'OTA.
-        _log("⏳ In attesa di conferma sul PetCube (B = installa, C = annulla)...")
-        while True:
-            await asyncio.sleep(1.0)
-            try:
-                st = await asyncio.wait_for(
-                    client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=5.0
-                )
-            except (asyncio.TimeoutError, Exception):
-                _log("ℹ  Il dispositivo si è riavviato (connessione persa dopo conferma).")
+            if committed:
+                # Il dispositivo probabilmente si è riavviato col nuovo
+                # firmware prima che riuscissimo a riconnetterci.
+                _log(f"ℹ  Il dispositivo si è riavviato ({e!r}).")
                 return True
-
-            if not st:
-                continue
-            state = st[0]
-            if state == OTA_STATE_AWAIT_CONFIRM:
-                continue
-            elif state == OTA_STATE_DONE:
-                _log("✓ Aggiornamento confermato — il dispositivo si riavvierà con il nuovo firmware.")
-                return True
-            elif state == OTA_STATE_CANCELLED:
-                _log("✗ Aggiornamento annullato dall'utente sul PetCube.")
-                return False
-            else:
-                _log("✗ Aggiornamento fallito sul dispositivo.")
-                return False
+            raise
 
 
 # ── USB fallback (esptool) ────────────────────────────────────
