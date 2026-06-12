@@ -8,6 +8,7 @@ import logging
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
@@ -165,6 +166,18 @@ async def ota_update_ble(
     _log(f"File: {bin_path.name}  ({total:,} bytes)")
 
     async with BleakClient(address, timeout=30.0) as client:
+        # Diagnostica: il firmware vede una disconnessione BLE a un tempo
+        # fisso di ~97s dalla connessione, con reason=0x213 ("Remote User
+        # Terminated Connection" lato ESP32, cioè l'host/Windows chiude la
+        # connessione). Logghiamo qui il momento esatto in cui bleak/Windows
+        # rileva la disconnessione, per correlarlo col log seriale del cubo.
+        connect_ts = time.monotonic()
+
+        def _on_disconnect(_client) -> None:
+            _log(f"⚠ BLE disconnesso lato host dopo {time.monotonic() - connect_ts:.1f}s")
+
+        client.set_disconnected_callback(_on_disconnect)
+
         # Negozia MTU più grande per throughput migliore
         try:
             await client.request_mtu(512)
@@ -192,7 +205,18 @@ async def ota_update_ble(
         offset = 0
         while offset < total:
             chunk = data[offset: offset + chunk_size]
-            await client.write_gatt_char(BLE_CHAR_OTA_DATA_UUID, chunk, response=False)
+            try:
+                await client.write_gatt_char(BLE_CHAR_OTA_DATA_UUID, chunk, response=False)
+            except Exception as e:
+                # Diagnostica: se Windows/bleak rifiuta o fallisce una write
+                # "without response" (es. coda BLE piena), vogliamo vedere
+                # l'errore esatto e dopo quanti byte/secondi si è verificato,
+                # invece di farlo propagare silenziosamente fino a
+                # __aexit__ (che disconnette con reason "Remote User
+                # Terminated Connection", senza errore visibile a schermo).
+                _log(f"✗ Errore scrittura OTA dopo {offset:,}/{total:,} byte "
+                     f"e {time.monotonic() - connect_ts:.1f}s: {e!r}")
+                raise
             offset += len(chunk)
             if progress_cb:
                 progress_cb(offset, total)
