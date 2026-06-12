@@ -113,6 +113,13 @@
 //      (PR precedente), non necessaria con OTA segmentata e potenzialmente
 //      dannosa per il throughput per-segmento. Vedi anche
 //      firmware_updater.py per il loop di riconnessione lato companion
+//  🔧  OTA: la companion non riusciva più a riconnettersi dopo il primo
+//      segmento (cubo bloccato al 60% sullo schermo, BleakDeviceNotFound).
+//      Causa: in OTA_RECEIVING loop() ritornava subito dopo aver disegnato
+//      la progress screen, senza mai chiamare bleUpdateState() (in fondo al
+//      loop): l'advertising non veniva riavviato dopo la disconnessione e il
+//      cubo restava invisibile al companion per il resto del trasferimento.
+//      Richiamato bleUpdateState() anche nel ramo OTA_RECEIVING
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -2930,6 +2937,12 @@ void loop() {
       drawOtaProgressScreen(otaBytesReceived, otaTotalSize);
       lastOtaDrawMs = now;
     }
+    // OTA segmentata su più connessioni (vedi firmware_updater.py): se il
+    // client si disconnette a metà trasferimento, l'early-return qui sotto
+    // impediva di raggiungere bleUpdateState() (chiamato in fondo al loop),
+    // quindi l'advertising non veniva mai riavviato e il cubo restava
+    // irraggiungibile per il resto dell'OTA. Lo richiamiamo qui.
+    bleUpdateState();
     // Cede la CPU per 1 tick: senza questo yield il loop gira a vuoto in modo
     // completamente stretto (specialmente quando la coda è vuota), e su
     // ESP32 questo può impedire allo scheduler di eseguire regolarmente il
