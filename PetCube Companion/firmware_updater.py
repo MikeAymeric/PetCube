@@ -146,18 +146,21 @@ def download_firmware(
 
 # ── BLE OTA ──────────────────────────────────────────────────
 
-# Ogni connessione BLE viene chiusa dall'host (Windows) dopo ~97s
-# (reason=0x213, "Remote User Terminated Connection") indipendentemente da
-# tutto il resto. Il throughput reale misurato è ≈ 7 KB/s, quindi 1MB
-# richiederebbe ~155s: oltre il doppio della vita di una connessione.
-# Per questo l'OTA viene trasferita in più connessioni successive: ogni
-# segmento dura al massimo SEGMENT_TIME_BUDGET secondi (ben sotto i 97s, per
-# lasciare margine a connessione/discovery), poi la companion si disconnette
-# e riconnette. Il firmware mantiene lo stato OTA tra una connessione e
-# l'altra e, su OTA START, risponde con otaBytesReceived: la companion
-# riprende sempre da lì, che coincide esattamente con i byte effettivamente
-# scritti in flash (autocorregge eventuali dati persi nella disconnessione).
+# Una connessione BLE può chiudersi in qualsiasi momento con reason=0x213
+# ("Remote User Terminated Connection", host-initiated). Il throughput reale
+# misurato è ≈ 7 KB/s, quindi 1MB richiede ~155s, ma "write without response"
+# su Windows ritorna non appena il dato è ACCODATO, non quando è trasmesso:
+# la companion può accodare l'intero file in pochi secondi mentre il firmware
+# lo riceve molto più lentamente. Per questo l'OTA è trasferita in più
+# connessioni successive: ogni segmento accoda dati per al massimo
+# SEGMENT_TIME_BUDGET secondi, poi la companion attende (DRAIN, fino a
+# DRAIN_TIMEOUT secondi) che otaBytesReceived raggiunga quanto accodato,
+# leggendolo periodicamente dalla CTRL. Se la connessione cade prima che il
+# drain finisca, la companion riconnette e riprende: il firmware risponde a
+# OTA START con otaBytesReceived, che coincide esattamente con i byte
+# effettivamente scritti in flash (autocorregge eventuali dati persi).
 SEGMENT_TIME_BUDGET = 60.0
+DRAIN_TIMEOUT = 90.0
 
 
 async def ota_update_ble(
@@ -249,9 +252,37 @@ async def ota_update_ble(
                 # di accumulare un backlog enorme che lo stack non riesce a
                 # smaltire prima della disconnessione.
                 await asyncio.sleep(0.015)
-        # async with: la connessione si chiude qui (volontariamente o per il
-        # limite ~97s dell'host). Se offset < total, il while esterno
-        # riconnette e riprende da otaBytesReceived.
+
+            # ── DRAIN ──
+            # I chunk appena accodati non sono ancora arrivati al firmware:
+            # leggiamo otaBytesReceived dalla CTRL finché non raggiunge
+            # quanto accodato in questo segmento (o smette di progredire /
+            # supera DRAIN_TIMEOUT), così sappiamo davvero da dove riprendere
+            # se serve una nuova connessione.
+            queued_offset = offset
+            drain_start = time.monotonic()
+            last_confirmed = -1
+            while True:
+                try:
+                    ack = await asyncio.wait_for(
+                        client.read_gatt_char(BLE_CHAR_OTA_CTRL_UUID), timeout=5.0
+                    )
+                except (asyncio.TimeoutError, Exception):
+                    break
+                confirmed = int.from_bytes(ack[1:5], "little") if len(ack) >= 5 else 0
+                if progress_cb:
+                    progress_cb(confirmed, total)
+                if confirmed >= queued_offset or confirmed == last_confirmed:
+                    offset = confirmed
+                    break
+                last_confirmed = confirmed
+                if time.monotonic() - drain_start > DRAIN_TIMEOUT:
+                    offset = confirmed
+                    break
+                await asyncio.sleep(2.0)
+        # async with: la connessione si chiude qui (volontariamente o perché
+        # l'host la termina). Se offset < total, il while esterno riconnette
+        # e riprende da otaBytesReceived.
 
     _log(f"✓ Trasferiti {total:,} bytes. Commit in corso...")
 
