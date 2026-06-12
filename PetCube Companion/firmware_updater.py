@@ -165,18 +165,22 @@ async def ota_update_ble(
     total = len(data)
     _log(f"File: {bin_path.name}  ({total:,} bytes)")
 
-    async with BleakClient(address, timeout=30.0) as client:
-        # Diagnostica: il firmware vede una disconnessione BLE a un tempo
-        # fisso di ~97s dalla connessione, con reason=0x213 ("Remote User
-        # Terminated Connection" lato ESP32, cioè l'host/Windows chiude la
-        # connessione). Logghiamo qui il momento esatto in cui bleak/Windows
-        # rileva la disconnessione, per correlarlo col log seriale del cubo.
-        connect_ts = time.monotonic()
+    # Diagnostica: il firmware vede una disconnessione BLE a un tempo
+    # fisso di ~97s dalla connessione, con reason=0x213 ("Remote User
+    # Terminated Connection" lato ESP32, cioè l'host/Windows chiude la
+    # connessione). Logghiamo qui il momento esatto in cui bleak/Windows
+    # rileva la disconnessione, per correlarlo col log seriale del cubo.
+    # In bleak >= 1.0 il callback va passato al costruttore di BleakClient
+    # (BleakClient.set_disconnected_callback è stato rimosso); usiamo un
+    # contenitore mutabile per impostare il riferimento temporale dopo che
+    # la connessione è stabilita.
+    connect_ts = [time.monotonic()]
 
-        def _on_disconnect(_client) -> None:
-            _log(f"⚠ BLE disconnesso lato host dopo {time.monotonic() - connect_ts:.1f}s")
+    def _on_disconnect(_client) -> None:
+        _log(f"⚠ BLE disconnesso lato host dopo {time.monotonic() - connect_ts[0]:.1f}s")
 
-        client.set_disconnected_callback(_on_disconnect)
+    async with BleakClient(address, timeout=30.0, disconnected_callback=_on_disconnect) as client:
+        connect_ts[0] = time.monotonic()
 
         # Negozia MTU più grande per throughput migliore
         try:
@@ -215,7 +219,7 @@ async def ota_update_ble(
                 # __aexit__ (che disconnette con reason "Remote User
                 # Terminated Connection", senza errore visibile a schermo).
                 _log(f"✗ Errore scrittura OTA dopo {offset:,}/{total:,} byte "
-                     f"e {time.monotonic() - connect_ts:.1f}s: {e!r}")
+                     f"e {time.monotonic() - connect_ts[0]:.1f}s: {e!r}")
                 raise
             offset += len(chunk)
             if progress_cb:
