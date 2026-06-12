@@ -61,6 +61,11 @@
 //  🔧  OTA: i chunk ricevuti via BLE vengono ora accodati e scritti su
 //      flash dal main loop (non più dalla callback BLE), per evitare
 //      disconnessioni durante trasferimenti lunghi
+//  🔧  OTA: impostato l'MTU BLE locale a 517 (era 23 di default), per
+//      evitare che chunk OTA più grandi del MTU negoziato causino una
+//      disconnessione silenziosa a metà trasferimento; aggiunta
+//      diagnostica seriale su disconnessione durante OTA e avanzamento
+//      scrittura flash ogni ~100 KB
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -1797,6 +1802,13 @@ class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
     bleClientConnected = false;
     // ESP32 BLE non riavvia l'advertising automaticamente dopo disconnessione
     // Lo riavvieremo dal main loop in bleUpdateState()
+
+    // Diagnostica: se la disconnessione arriva durante un OTA, registriamo
+    // a che punto del trasferimento eravamo.
+    if (otaState == OTA_RECEIVING || otaState == OTA_AWAIT_CONFIRM) {
+      Serial.printf("⚠️  OTA: disconnesso durante il trasferimento, %u bytes ricevuti (stato=%u)\n",
+                    (unsigned)otaBytesReceived, (unsigned)otaState);
+    }
   }
 };
 
@@ -1926,6 +1938,11 @@ void bleInit() {
   if (bleInitialized) return;
   otaChunkQueue = xQueueCreate(12, sizeof(OtaChunk));
   BLEDevice::init(BLE_DEVICE_NAME);
+  // Senza questa chiamata l'MTU locale resta a 23 (default): qualunque MTU
+  // negoziato dal client verrebbe troncato a 23, causando scritture ATT
+  // più grandi del consentito durante l'OTA (chunk da ~500 byte) e una
+  // disconnessione silenziosa a metà trasferimento.
+  BLEDevice::setMTU(517);
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new PetCubeBLEServerCallbacks());
 
@@ -2712,6 +2729,13 @@ void loop() {
           Serial.printf("OTA write error dopo %u bytes\n", (unsigned)otaBytesReceived);
         } else {
           otaBytesReceived += written;
+          // Diagnostica: log di avanzamento ogni ~100 KB
+          static uint32_t lastLoggedKb = 0;
+          uint32_t kb = otaBytesReceived / 1024;
+          if (kb / 100 != lastLoggedKb / 100) {
+            Serial.printf("OTA: %u bytes scritti su flash\n", (unsigned)otaBytesReceived);
+          }
+          lastLoggedKb = kb;
         }
       }
       processed++;
