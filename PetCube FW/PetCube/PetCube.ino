@@ -77,6 +77,10 @@
 //      BLE (~34 KB/s). Ora durante OTA_RECEIVING il loop salta sensori/
 //      disegno/pulsanti e mostra solo una schermata di avanzamento
 //      (percentuale); coda portata da 12 a 32 slot (16 KB)
+//  🔧  OTA: aggiunta diagnostica su heap libera, livello massimo della coda
+//      chunk e durata massima di Update.write(), loggata ogni ~100 KB e
+//      alla disconnessione — per individuare la causa della disconnessione
+//      BLE che persiste a metà trasferimento (~62%, nessun errore applicativo)
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -473,6 +477,14 @@ volatile OtaState    otaState         = OTA_IDLE;
 volatile uint32_t    otaBytesReceived = 0;
 volatile uint32_t    otaTotalSize     = 0;
 volatile bool        otaRebootPending = false;
+
+// Diagnostica: livello massimo raggiunto dalla coda chunk (in numero di
+// chunk) e durata massima di una singola Update.write(), da quando è
+// iniziata l'OTA corrente. Aiutano a distinguere se il collo di bottiglia
+// è il link BLE (coda quasi vuota) o la scrittura su flash (coda piena,
+// Update.write lenta).
+volatile uint32_t    otaQueueHighWater = 0;
+volatile uint32_t    otaMaxWriteUs     = 0;
 
 // Coda chunk OTA: la callback BLE accoda i dati ricevuti, il main loop li
 // scrive su flash (Update.write). Così la callback BLE resta velocissima
@@ -1820,8 +1832,10 @@ class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
     // Diagnostica: se la disconnessione arriva durante un OTA, registriamo
     // a che punto del trasferimento eravamo.
     if (otaState == OTA_RECEIVING || otaState == OTA_AWAIT_CONFIRM) {
-      Serial.printf("⚠️  OTA: disconnesso durante il trasferimento, %u bytes ricevuti (stato=%u)\n",
-                    (unsigned)otaBytesReceived, (unsigned)otaState);
+      Serial.printf("⚠️  OTA: disconnesso durante il trasferimento, %u bytes ricevuti (stato=%u, heap libera: %u, coda max: %u/32, write max: %u us)\n",
+                    (unsigned)otaBytesReceived, (unsigned)otaState,
+                    (unsigned)ESP.getFreeHeap(), (unsigned)otaQueueHighWater,
+                    (unsigned)otaMaxWriteUs);
     }
   }
   // Diagnostica: MTU effettivamente negoziato con il client per questa
@@ -1892,9 +1906,11 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
         otaState = OTA_RECEIVING;
         otaBytesReceived = 0;
         otaTotalSize = sz;
+        otaQueueHighWater = 0;
+        otaMaxWriteUs = 0;
         uint8_t ok = 0x01;
         ch->setValue(&ok, 1);
-        Serial.printf("OTA START: %u bytes\n", sz);
+        Serial.printf("OTA START: %u bytes (heap libera: %u)\n", sz, (unsigned)ESP.getFreeHeap());
       } else {
         otaState = OTA_ERROR;
         uint8_t err = 0x00;
@@ -1962,6 +1978,12 @@ class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
       Update.abort();
       otaState = OTA_ERROR;
       Serial.printf("OTA: coda chunk piena dopo %u bytes\n", (unsigned)otaBytesReceived);
+    } else {
+      // Diagnostica: livello massimo raggiunto dalla coda, per capire se
+      // il collo di bottiglia è il link BLE (coda quasi vuota) o la
+      // scrittura su flash (coda spesso piena).
+      UBaseType_t depth = uxQueueMessagesWaiting(otaChunkQueue);
+      if (depth > otaQueueHighWater) otaQueueHighWater = depth;
     }
   }
 };
@@ -2774,18 +2796,27 @@ void loop() {
     int processed = 0;
     while (processed < 4 && xQueueReceive(otaChunkQueue, &chunk, 0) == pdTRUE) {
       if (otaState == OTA_RECEIVING && Update.isRunning()) {
+        uint32_t t0 = micros();
         size_t written = Update.write(chunk.data, chunk.len);
+        uint32_t dt = micros() - t0;
+        if (dt > otaMaxWriteUs) otaMaxWriteUs = dt;
         if (written != chunk.len) {
           Update.abort();
           otaState = OTA_ERROR;
           Serial.printf("OTA write error dopo %u bytes\n", (unsigned)otaBytesReceived);
         } else {
           otaBytesReceived += written;
-          // Diagnostica: log di avanzamento ogni ~100 KB
+          // Diagnostica: log di avanzamento ogni ~100 KB, con heap libera,
+          // livello massimo della coda chunk (0-32) e durata massima di
+          // una singola Update.write() finora — per capire se il collo di
+          // bottiglia è il link BLE (coda quasi vuota) o la scrittura su
+          // flash (coda piena, write lenta).
           static uint32_t lastLoggedKb = 0;
           uint32_t kb = otaBytesReceived / 1024;
           if (kb / 100 != lastLoggedKb / 100) {
-            Serial.printf("OTA: %u bytes scritti su flash\n", (unsigned)otaBytesReceived);
+            Serial.printf("OTA: %u bytes scritti su flash (heap libera: %u, coda max: %u/32, write max: %u us)\n",
+                          (unsigned)otaBytesReceived, (unsigned)ESP.getFreeHeap(),
+                          (unsigned)otaQueueHighWater, (unsigned)otaMaxWriteUs);
           }
           lastLoggedKb = kb;
         }
