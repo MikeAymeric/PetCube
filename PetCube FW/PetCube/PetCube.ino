@@ -58,6 +58,9 @@
 //  📲  OTA firmware: a trasferimento completato il PetCube chiede
 //      conferma ("Aggiornare il firmware?", B = installa, C = annulla)
 //      prima di finalizzare l'update e riavviare
+//  🔧  OTA: i chunk ricevuti via BLE vengono ora accodati e scritti su
+//      flash dal main loop (non più dalla callback BLE), per evitare
+//      disconnessioni durante trasferimenti lunghi
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -453,6 +456,17 @@ enum OtaState : uint8_t {
 volatile OtaState    otaState         = OTA_IDLE;
 volatile uint32_t    otaBytesReceived = 0;
 volatile bool        otaRebootPending = false;
+
+// Coda chunk OTA: la callback BLE accoda i dati ricevuti, il main loop li
+// scrive su flash (Update.write). Così la callback BLE resta velocissima
+// e non blocca lo stack BLE con operazioni di flash durante un trasferimento
+// lungo (causa di disconnessioni a metà OTA).
+#define OTA_CHUNK_MAX 512
+struct OtaChunk {
+  uint8_t data[OTA_CHUNK_MAX];
+  size_t  len;
+};
+QueueHandle_t otaChunkQueue = nullptr;
 
 // MPU
 float filtX = 0, filtY = 0;
@@ -1841,6 +1855,7 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
       uint32_t sz;
       memcpy(&sz, val.c_str() + 1, 4);
       Update.abort();
+      xQueueReset(otaChunkQueue);  // scarta eventuali chunk residui di una sessione precedente
       if (Update.begin(sz, U_FLASH)) {
         otaState = OTA_RECEIVING;
         otaBytesReceived = 0;
@@ -1884,21 +1899,24 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
-// DATA characteristic: write without response — riceve i chunk binari
+// DATA characteristic: write without response — riceve i chunk binari.
+// La scrittura su flash (Update.write) NON avviene qui: il chunk viene solo
+// copiato in coda, il main loop la elabora (vedi inizio di loop()).
 class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* ch) override {
     if (otaState != OTA_RECEIVING) return;
     String val = ch->getValue();
     size_t len = val.length();
-    if (len == 0 || !Update.isRunning()) return;
+    if (len == 0 || len > OTA_CHUNK_MAX) return;
 
-    size_t written = Update.write((uint8_t*)val.c_str(), len);
-    if (written != len) {
+    OtaChunk chunk;
+    chunk.len = len;
+    memcpy(chunk.data, val.c_str(), len);
+    if (xQueueSend(otaChunkQueue, &chunk, 0) != pdTRUE) {
+      // Coda piena: il loop non sta tenendo il passo col trasferimento.
       Update.abort();
       otaState = OTA_ERROR;
-      Serial.printf("OTA write error dopo %u bytes\n", (unsigned)otaBytesReceived);
-    } else {
-      otaBytesReceived += written;
+      Serial.printf("OTA: coda chunk piena dopo %u bytes\n", (unsigned)otaBytesReceived);
     }
   }
 };
@@ -1906,6 +1924,7 @@ class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
 // Inizializza BLE stack una volta sola (al boot)
 void bleInit() {
   if (bleInitialized) return;
+  otaChunkQueue = xQueueCreate(12, sizeof(OtaChunk));
   BLEDevice::init(BLE_DEVICE_NAME);
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new PetCubeBLEServerCallbacks());
@@ -2677,6 +2696,27 @@ void loop() {
   }
 
   unsigned long now = millis();
+
+  // ── OTA: scrive su flash i chunk ricevuti via BLE ───────────────
+  // Eseguito qui (non nella callback BLE) per non bloccare lo stack BLE
+  // con operazioni di scrittura flash durante un trasferimento lungo.
+  if (otaChunkQueue) {
+    OtaChunk chunk;
+    int processed = 0;
+    while (processed < 4 && xQueueReceive(otaChunkQueue, &chunk, 0) == pdTRUE) {
+      if (otaState == OTA_RECEIVING && Update.isRunning()) {
+        size_t written = Update.write(chunk.data, chunk.len);
+        if (written != chunk.len) {
+          Update.abort();
+          otaState = OTA_ERROR;
+          Serial.printf("OTA write error dopo %u bytes\n", (unsigned)otaBytesReceived);
+        } else {
+          otaBytesReceived += written;
+        }
+      }
+      processed++;
+    }
+  }
 
   // ⚔️  Serial mock notifiche per testing (rimuovere quando BLE è pronto)
   // Comandi disponibili nel Serial Monitor:
