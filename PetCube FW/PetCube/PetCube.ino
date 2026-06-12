@@ -71,6 +71,12 @@
 //      silenzio (0 byte ricevuti). Il companion ora limita i chunk a
 //      512 byte; aggiunta diagnostica per chunk troppo grandi, MTU
 //      negoziato e timestamp di connessione/disconnessione BLE
+//  🔧  OTA: la coda chunk andava in overflow ("coda chunk piena") perché
+//      il main loop, occupato a disegnare/leggere sensori, non la
+//      svuotava abbastanza in fretta rispetto al ritmo di arrivo via
+//      BLE (~34 KB/s). Ora durante OTA_RECEIVING il loop salta sensori/
+//      disegno/pulsanti e mostra solo una schermata di avanzamento
+//      (percentuale); coda portata da 12 a 32 slot (16 KB)
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -465,6 +471,7 @@ enum OtaState : uint8_t {
 };
 volatile OtaState    otaState         = OTA_IDLE;
 volatile uint32_t    otaBytesReceived = 0;
+volatile uint32_t    otaTotalSize     = 0;
 volatile bool        otaRebootPending = false;
 
 // Coda chunk OTA: la callback BLE accoda i dati ricevuti, il main loop li
@@ -1884,6 +1891,7 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
       if (Update.begin(sz, U_FLASH)) {
         otaState = OTA_RECEIVING;
         otaBytesReceived = 0;
+        otaTotalSize = sz;
         uint8_t ok = 0x01;
         ch->setValue(&ok, 1);
         Serial.printf("OTA START: %u bytes\n", sz);
@@ -1961,7 +1969,10 @@ class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
 // Inizializza BLE stack una volta sola (al boot)
 void bleInit() {
   if (bleInitialized) return;
-  otaChunkQueue = xQueueCreate(12, sizeof(OtaChunk));
+  // 32 slot × 512 byte = 16 KB di buffer: assorbe le code chunk che
+  // arrivano via BLE (~34 KB/s) mentre il main loop è impegnato a
+  // disegnare un frame (vedi early-return OTA_RECEIVING in loop()).
+  otaChunkQueue = xQueueCreate(32, sizeof(OtaChunk));
   BLEDevice::init(BLE_DEVICE_NAME);
   // Senza questa chiamata l'MTU locale resta a 23 (default): qualunque MTU
   // negoziato dal client verrebbe troncato a 23, causando scritture ATT
@@ -2480,6 +2491,22 @@ void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX, int p
   canvas.drawString(s, x, y);
 }
 
+// ── Schermata di avanzamento OTA ─────────────────────────────
+// Mostrata durante la ricezione del firmware (OTA_RECEIVING).
+void drawOtaProgressScreen(uint32_t received, uint32_t total) {
+  canvas.fillSprite(C_BG);
+  canvas.setTextFont(2);
+  canvas.setTextColor(C_CYAN, C_BG);
+  drawCenteredStr(80, "Aggiornamento");
+  drawCenteredStr(102, "in corso...");
+  canvas.setTextColor(C_FG, C_BG);
+  int pct = total ? (int)((uint64_t)received * 100 / total) : 0;
+  char buf[16];
+  snprintf(buf, sizeof(buf), "%d%%", pct);
+  drawCenteredStr(140, buf);
+  canvas.pushSprite(0, 0);
+}
+
 // ── Schermata di conferma OTA ────────────────────────────────
 // Mostrata quando il trasferimento firmware è completo e si attende
 // la scelta dell'utente: B = installa e riavvia, C = annulla.
@@ -2765,6 +2792,20 @@ void loop() {
       }
       processed++;
     }
+  }
+
+  // ── OTA in corso ─────────────────────────────────────────────
+  // Saltiamo il resto del loop (sensori, disegno schermate, pulsanti):
+  // a ~34 KB/s anche pochi ms di ritardo per iterazione fanno traboccare
+  // la coda chunk ("OTA: coda chunk piena"). Mostriamo solo una
+  // schermata di avanzamento, aggiornata periodicamente.
+  if (otaState == OTA_RECEIVING) {
+    static uint32_t lastOtaDrawMs = 0;
+    if (now - lastOtaDrawMs >= 300) {
+      drawOtaProgressScreen(otaBytesReceived, otaTotalSize);
+      lastOtaDrawMs = now;
+    }
+    return;
   }
 
   // ⚔️  Serial mock notifiche per testing (rimuovere quando BLE è pronto)
