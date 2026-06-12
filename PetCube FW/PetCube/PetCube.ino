@@ -81,6 +81,13 @@
 //      chunk e durata massima di Update.write(), loggata ogni ~100 KB e
 //      alla disconnessione — per individuare la causa della disconnessione
 //      BLE che persiste a metà trasferimento (~62%, nessun errore applicativo)
+//  🐛  OTA: la disconnessione BLE durante l'OTA avveniva sempre a ~97s dalla
+//      connessione, indipendentemente dai byte trasferiti (665088 e poi
+//      201728 byte in due test): il loop OTA_RECEIVING girava senza mai
+//      cedere la CPU, impedendo allo scheduler di eseguire regolarmente il
+//      task host NimBLE/idle. Aggiunto un delay(1) per ciclo durante l'OTA;
+//      aggiunta anche diagnostica sui parametri di connessione negoziati
+//      (intervallo, latenza, supervision timeout)
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -1843,6 +1850,14 @@ class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
   // firmware usa lo stack NimBLE.
   void onMtuChanged(BLEServer* server, ble_gap_conn_desc* desc, uint16_t mtu) override {
     Serial.printf("📡 BLE MTU negoziato: %u\n", (unsigned)mtu);
+    // Diagnostica: parametri di connessione negoziati (intervallo, latenza,
+    // supervision timeout) — utili per capire se una disconnessione "a tempo
+    // fisso" durante l'OTA è dovuta al supervision timeout del link.
+    if (desc) {
+      Serial.printf("📡 BLE conn params: interval=%u (x1.25ms), latency=%u, supervision timeout=%u (x10ms)\n",
+                    (unsigned)desc->conn_itvl, (unsigned)desc->conn_latency,
+                    (unsigned)desc->supervision_timeout);
+    }
   }
 };
 
@@ -2836,6 +2851,13 @@ void loop() {
       drawOtaProgressScreen(otaBytesReceived, otaTotalSize);
       lastOtaDrawMs = now;
     }
+    // Cede la CPU per 1 tick: senza questo yield il loop gira a vuoto in modo
+    // completamente stretto (specialmente quando la coda è vuota), e su
+    // ESP32 questo può impedire allo scheduler di eseguire regolarmente il
+    // task host NimBLE / il task idle, causando una disconnessione BLE
+    // silenziosa dopo un tempo fisso indipendente dai byte trasferiti
+    // (osservato: ~97s sia con 665088 che con 201728 byte ricevuti).
+    delay(1);
     return;
   }
 
