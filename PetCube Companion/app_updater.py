@@ -193,9 +193,18 @@ def restart_from_source() -> None:
 
 def apply_exe_update_and_restart(new_exe_path: Path, log_cb: Optional[Callable[[str], None]] = None) -> None:
     """
-    Sostituisce l'eseguibile corrente con new_exe_path e lo rilancia.
-    Usa uno script .bat di appoggio perché Windows non permette di
-    sovrascrivere un .exe in esecuzione.
+    Avvia uno script .bat di appoggio (perché Windows non permette di
+    sovrascrivere un .exe in esecuzione) che, in ordine:
+      1. chiude la Companion corrente (taskkill)
+      2. attende 15 secondi
+      3. sostituisce l'eseguibile con new_exe_path
+      4. chiede (popup) se riavviare la Companion e, se sì, la riavvia
+      5. si autoelimina
+
+    Il bat viene avviato ORA, prima che il processo Python termini: deve
+    quindi sopravvivere alla chiusura del padre. Sotto PyInstaller i
+    processi figli vivono in un job object che li chiude insieme al
+    padre, perciò serve CREATE_BREAKAWAY_FROM_JOB oltre a DETACHED_PROCESS.
     """
     def _log(msg: str) -> None:
         log.info("[update] %s", msg)
@@ -205,23 +214,35 @@ def apply_exe_update_and_restart(new_exe_path: Path, log_cb: Optional[Callable[[
     current_exe = Path(sys.executable).resolve()
     bat_path = current_exe.parent / "_petcube_update.bat"
 
+    ps_prompt = (
+        "Add-Type -AssemblyName System.Windows.Forms; "
+        "$r = [System.Windows.Forms.MessageBox]::Show("
+        "'Aggiornamento completato. Vuoi riavviare PetCube Companion?', "
+        "'PetCube Companion', "
+        "[System.Windows.Forms.MessageBoxButtons]::YesNo, "
+        "[System.Windows.Forms.MessageBoxIcon]::Question); "
+        "if ($r -eq 'Yes') { Start-Process -FilePath '" + str(current_exe) + "' "
+        "-WorkingDirectory '" + str(current_exe.parent) + "' }"
+    )
+
     bat_content = (
         "@echo off\r\n"
-        ":wait\r\n"
-        f'tasklist /fi "imagename eq {current_exe.name}" | find /i "{current_exe.name}" >nul\r\n'
-        "if not errorlevel 1 (\r\n"
-        "  timeout /t 1 /nobreak >nul\r\n"
-        "  goto wait\r\n"
-        ")\r\n"
+        f'taskkill /f /im "{current_exe.name}" >nul 2>&1\r\n'
+        "timeout /t 15 /nobreak >nul\r\n"
         f'move /y "{new_exe_path}" "{current_exe}"\r\n'
-        f'start "" "{current_exe}"\r\n'
+        f'powershell -NoProfile -WindowStyle Hidden -Command "{ps_prompt}"\r\n'
         'del "%~f0"\r\n'
     )
     bat_path.write_text(bat_content, encoding="utf-8")
 
-    _log("Riavvio in corso...")
+    _log("Avvio script di aggiornamento (la Companion verrà chiusa)...")
     subprocess.Popen(
         ["cmd", "/c", str(bat_path)],
-        creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+        creationflags=(
+            subprocess.CREATE_NO_WINDOW
+            | subprocess.DETACHED_PROCESS
+            | subprocess.CREATE_BREAKAWAY_FROM_JOB
+        ),
         close_fds=True,
+        cwd=str(current_exe.parent),
     )

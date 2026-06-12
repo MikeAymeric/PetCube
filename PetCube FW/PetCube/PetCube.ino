@@ -35,6 +35,18 @@
 //  Libreria richiesta (oltre alle solite):
 //    BLE built-in di ESP32 Arduino Core (NO install separata richiesta)
 //
+//  ── CHANGELOG v19 → v20 ───────────────────────────────────────
+//  📡  OTA segmentata e ripristinabile su più connessioni BLE: OTA START
+//      con la stessa size mentre otaState==OTA_RECEIVING fa "riprendere"
+//      il trasferimento dall'offset già ricevuto (otaBytesReceived),
+//      invece di ricominciare da zero
+//  🔧  Risolto lo stallo del trasferimento (bloccato al 60% sullo schermo,
+//      companion che non si riconnetteva più / BleakDeviceNotFoundError):
+//      l'advertising BLE viene ora riavviato anche durante OTA_RECEIVING
+//      dopo una disconnessione, così il cubo resta raggiungibile per
+//      tutta la durata dell'aggiornamento
+//  • Bump FW_VERSION a 20, migrazione NVS automatica (reset totale)
+//
 //  ── CHANGELOG v18 → v19 ───────────────────────────────────────
 //  🖼️  Sfondo ambientale esteso anche a Session (pomodoro/riposo) e a
 //      tutte le schermate di battaglia
@@ -47,6 +59,79 @@
 //      (Mitamamon/Lucemon/Vikemon/Ryugumon): restano solo Seraphyre
 //      (Fuoco) e Lightfin (Acqua) come evoluzioni Light, REGISTRO
 //      ridotto da 32 a 28 creature
+//  ✏️  Fix badge etichetta stato (Work/Study/DND/Training) disallineato
+//      dal testo, DND ora in magenta per leggibilità; suggerimento
+//      comandi setup pomodoro ingrandito e spostato sotto la sprite
+//  ⚔️  Battaglia: barra timing/VS/danni/esito spostati in alto, sprite
+//      in basso e leggermente ingrandite (×5), proiettili più grandi
+//  🖼️  Sfondi dedicati per Work/Study/Training/Sleep (DND riusa lo
+//      sfondo Sleep); rimosse le etichette di stato (Work/Study/DND/
+//      Training/Rest), ora rappresentate solo dallo sfondo
+//  📲  OTA firmware: a trasferimento completato il PetCube chiede
+//      conferma ("Aggiornare il firmware?", B = installa, C = annulla)
+//      prima di finalizzare l'update e riavviare
+//  🔧  OTA: i chunk ricevuti via BLE vengono ora accodati e scritti su
+//      flash dal main loop (non più dalla callback BLE), per evitare
+//      disconnessioni durante trasferimenti lunghi
+//  🔧  OTA: impostato l'MTU BLE locale a 517 (era 23 di default), per
+//      evitare che chunk OTA più grandi del MTU negoziato causino una
+//      disconnessione silenziosa a metà trasferimento; aggiunta
+//      diagnostica seriale su disconnessione durante OTA e avanzamento
+//      scrittura flash ogni ~100 KB
+//  🐛  OTA: con MTU 517 il companion inviava chunk da 514 byte, più
+//      grandi del buffer OTA_CHUNK_MAX (512) — venivano scartati in
+//      silenzio (0 byte ricevuti). Il companion ora limita i chunk a
+//      512 byte; aggiunta diagnostica per chunk troppo grandi, MTU
+//      negoziato e timestamp di connessione/disconnessione BLE
+//  🔧  OTA: la coda chunk andava in overflow ("coda chunk piena") perché
+//      il main loop, occupato a disegnare/leggere sensori, non la
+//      svuotava abbastanza in fretta rispetto al ritmo di arrivo via
+//      BLE (~34 KB/s). Ora durante OTA_RECEIVING il loop salta sensori/
+//      disegno/pulsanti e mostra solo una schermata di avanzamento
+//      (percentuale); coda portata da 12 a 32 slot (16 KB)
+//  🔧  OTA: aggiunta diagnostica su heap libera, livello massimo della coda
+//      chunk e durata massima di Update.write(), loggata ogni ~100 KB e
+//      alla disconnessione — per individuare la causa della disconnessione
+//      BLE che persiste a metà trasferimento (~62%, nessun errore applicativo)
+//  🐛  OTA: la disconnessione BLE durante l'OTA avveniva sempre a ~97s dalla
+//      connessione, indipendentemente dai byte trasferiti (665088 e poi
+//      201728 byte in due test): il loop OTA_RECEIVING girava senza mai
+//      cedere la CPU, impedendo allo scheduler di eseguire regolarmente il
+//      task host NimBLE/idle. Aggiunto un delay(1) per ciclo durante l'OTA;
+//      aggiunta anche diagnostica sui parametri di connessione negoziati
+//      (intervallo, latenza, supervision timeout)
+//  🔧  OTA: il delay(1) non ha cambiato nulla (disconnesso di nuovo a ~97s,
+//      476160 byte, coda quasi vuota): il supervision timeout negoziato era
+//      9.6s. All'avvio dell'OTA richiediamo ora il supervision timeout
+//      massimo consentito (32s) via requestConnParams(); aggiunta
+//      diagnostica sugli eventi di rinegoziazione dei parametri di
+//      connessione (onConnParamsUpdate)
+//  🔧  OTA: anche con supervision timeout a 32s confermato (status=0), la
+//      disconnessione resta a ~97s dalla connessione (96787ms, 527872 byte).
+//      Aggiunto un GAP handler custom NimBLE che logga il motivo HCI della
+//      disconnessione (event->disconnect.reason), non esposto da
+//      BLEServerCallbacks::onDisconnect, per capire se è un timeout del
+//      link o una chiusura volontaria
+//  🔧  OTA: reason=0x213 = disconnessione volontaria lato host (Windows),
+//      non legata al firmware. Throughput reale BLE misurato ≈ 7 KB/s →
+//      1MB richiederebbe ~155s, oltre il doppio dei ~97s di vita di una
+//      connessione: nessun pacing può bastare in un'unica connessione.
+//      OTA START (0x01) ora supporta la RIPRESA: se otaState==OTA_RECEIVING
+//      e la size coincide con otaTotalSize, non viene rifatto
+//      Update.begin(), e la risposta (0x01 + otaBytesReceived uint32 LE)
+//      indica alla companion da quale offset riprendere l'invio dopo una
+//      riconnessione. onRead della CTRL ora ritorna sempre 5 byte (stato +
+//      otaBytesReceived). Rimossa la richiesta di supervision timeout 32s
+//      (PR precedente), non necessaria con OTA segmentata e potenzialmente
+//      dannosa per il throughput per-segmento. Vedi anche
+//      firmware_updater.py per il loop di riconnessione lato companion
+//  🔧  OTA: la companion non riusciva più a riconnettersi dopo il primo
+//      segmento (cubo bloccato al 60% sullo schermo, BleakDeviceNotFound).
+//      Causa: in OTA_RECEIVING loop() ritornava subito dopo aver disegnato
+//      la progress screen, senza mai chiamare bleUpdateState() (in fondo al
+//      loop): l'advertising non veniva riavviato dopo la disconnessione e il
+//      cubo restava invisibile al companion per il resto del trasferimento.
+//      Richiamato bleUpdateState() anche nel ramo OTA_RECEIVING
 //  • Bump FW_VERSION a 19, migrazione NVS automatica (reset totale)
 //
 //  ── CHANGELOG v17 → v18 ───────────────────────────────────────
@@ -182,7 +267,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           19   // bump al cambio struttura NVS
+#define FW_VERSION           20   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -415,6 +500,7 @@ String petTag = "";
 
 // ── 📡 BLE GATT server state ──────────────────────────────────
 BLEServer*        bleServer        = nullptr;
+volatile uint16_t bleConnHandle    = 0;
 BLECharacteristic* bleNotifChar    = nullptr;
 BLECharacteristic* bleVersionChar  = nullptr;
 BLECharacteristic* bleOtaCtrlChar  = nullptr;
@@ -428,10 +514,40 @@ bool              bleInitialized   = false;
 portMUX_TYPE      notifsMux        = portMUX_INITIALIZER_UNLOCKED;
 
 // ── OTA state ────────────────────────────────────────────────
-enum OtaState : uint8_t { OTA_IDLE = 0, OTA_RECEIVING = 1, OTA_DONE = 2, OTA_ERROR = 0xFF };
+// AWAIT_CONFIRM: trasferimento completato, in attesa che l'utente confermi
+// (B) o annulli (C) sullo schermo del PetCube prima di finalizzare.
+// CANCELLED: l'utente ha annullato — resta finché non parte una nuova OTA.
+enum OtaState : uint8_t {
+  OTA_IDLE          = 0,
+  OTA_RECEIVING     = 1,
+  OTA_DONE          = 2,
+  OTA_AWAIT_CONFIRM = 3,
+  OTA_CANCELLED     = 4,
+  OTA_ERROR         = 0xFF
+};
 volatile OtaState    otaState         = OTA_IDLE;
 volatile uint32_t    otaBytesReceived = 0;
+volatile uint32_t    otaTotalSize     = 0;
 volatile bool        otaRebootPending = false;
+
+// Diagnostica: livello massimo raggiunto dalla coda chunk (in numero di
+// chunk) e durata massima di una singola Update.write(), da quando è
+// iniziata l'OTA corrente. Aiutano a distinguere se il collo di bottiglia
+// è il link BLE (coda quasi vuota) o la scrittura su flash (coda piena,
+// Update.write lenta).
+volatile uint32_t    otaQueueHighWater = 0;
+volatile uint32_t    otaMaxWriteUs     = 0;
+
+// Coda chunk OTA: la callback BLE accoda i dati ricevuti, il main loop li
+// scrive su flash (Update.write). Così la callback BLE resta velocissima
+// e non blocca lo stack BLE con operazioni di flash durante un trasferimento
+// lungo (causa di disconnessioni a metà OTA).
+#define OTA_CHUNK_MAX 512
+struct OtaChunk {
+  uint8_t data[OTA_CHUNK_MAX];
+  size_t  len;
+};
+QueueHandle_t otaChunkQueue = nullptr;
 
 // MPU
 float filtX = 0, filtY = 0;
@@ -1287,15 +1403,43 @@ void drawSetupScreen(unsigned long now) {
   canvas.pushSprite(0, 0);
 }
 
+// Prototipo esplicito: la generazione automatica di Arduino non gestisce
+// correttamente i parametri di default e altrimenti non lo troverebbe
+// nelle chiamate precedenti alla definizione (vicino a drawBattleScreen).
+void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX = 6, int padY = 2);
+
 void drawMainScreen(unsigned long now) {
   // Sfondo ambientale per Idle/Sleep/DND/Work/Study/Training/Session
-  // (pomodoro+riposo); solo Dead resta a sfondo nero.
+  // (pomodoro+riposo); solo Dead resta a sfondo nero. Ogni stato ha il
+  // proprio sfondo (DND riusa quello di Sleep); durante una sessione lo
+  // sfondo segue il tipo di sessione (Training/Study/Work), o quello di
+  // Sleep durante il riposo.
   bool useBg = (gState == STATE_IDLE   || gState == STATE_SLEEP ||
                 gState == STATE_DND    || gState == STATE_WORK  ||
                 gState == STATE_STUDY  || gState == STATE_TRAINING ||
                 gState == STATE_SESSION);
   if (useBg) {
-    canvas.pushImage(0, 0, DISP_SIZE, DISP_SIZE, BG_NORMAL);
+    const uint16_t* bg = BG_NORMAL;
+    switch (gState) {
+      case STATE_SLEEP:
+      case STATE_DND:      bg = BG_SLEEP;    break;
+      case STATE_WORK:     bg = BG_WORK;     break;
+      case STATE_STUDY:    bg = BG_STUDY;    break;
+      case STATE_TRAINING: bg = BG_TRAINING; break;
+      case STATE_SESSION:
+        if (pomoPhase == POMO_RUN_REST || pomoPhase == POMO_SET_REST) {
+          bg = BG_NORMAL;
+        } else if (sessionType == STATE_TRAINING) {
+          bg = BG_TRAINING;
+        } else if (sessionType == STATE_STUDY) {
+          bg = BG_STUDY;
+        } else {
+          bg = BG_WORK;
+        }
+        break;
+      default: break;
+    }
+    canvas.pushImage(0, 0, DISP_SIZE, DISP_SIZE, bg);
   } else {
     canvas.fillSprite(C_BG);
   }
@@ -1316,43 +1460,20 @@ void drawMainScreen(unsigned long now) {
     return;
   }
 
-  // ── Label stato ───────────────────────────────────────────────
-  // In Idle/Sleep lo sfondo ambientale sostituisce la label di stato.
-  const char* stateLabel = "Idle";
-  uint16_t labelColor = C_DIM;
-  bool showLabel = true;
-  if (isSick) {
-    stateLabel = ((now/400)%2) ? "SICK!" : "";
-    labelColor = C_STR;
-  } else {
-    switch (gState) {
-      case STATE_IDLE:     showLabel = false; break;
-      case STATE_TRAINING: stateLabel = "Training"; labelColor = C_STR;   break;
-      case STATE_STUDY:    stateLabel = "Study";    labelColor = C_INT;   break;
-      case STATE_WORK:     stateLabel = "Work";     labelColor = C_ENG;   break;
-      case STATE_SLEEP:    stateLabel = "Sleep";    labelColor = C_CYAN;  showLabel = false; break;
-      case STATE_DND:      stateLabel = "DND";      labelColor = C_DIM;   break;
-      case STATE_SESSION:
-        if (pomoPhase == POMO_RUN_REST) {
-          stateLabel = "Rest"; labelColor = C_HAP;
-        } else if (sessionType==STATE_TRAINING)      { stateLabel="Training"; labelColor=C_STR; }
-        else if (sessionType==STATE_STUDY)    { stateLabel="Study";    labelColor=C_INT; }
-        else                                  { stateLabel="Work";     labelColor=C_ENG; }
-        break;
-      default: break;
-    }
-  }
-
-  if (showLabel && stateLabel[0] != '\0') {
+  // ── Avviso malattia ───────────────────────────────────────────
+  // Le etichette di stato (Work/Study/DND/Training/Rest) sono state rimosse:
+  // lo sfondo ambientale identifica già lo stato. "SICK!" resta come avviso.
+  if (isSick && (now/400)%2) {
+    const char* sickLabel = "SICK!";
     canvas.setTextFont(2);
-    int lw = canvas.textWidth(stateLabel);
-    int lx = (DISP_SIZE - lw) / 2;
     if (useBg) {
-      // Targhetta scura dietro il testo per restare leggibile sullo sfondo.
-      canvas.fillRoundRect(lx - 6, 4, lw + 12, 18, 4, C_BG);
+      drawBadgedCenteredStr(14, sickLabel, C_STR);
+    } else {
+      int lw = canvas.textWidth(sickLabel);
+      int lx = (DISP_SIZE - lw) / 2;
+      canvas.setTextColor(C_STR, C_BG);
+      canvas.drawString(sickLabel, lx, 14);
     }
-    canvas.setTextColor(labelColor, C_BG);
-    canvas.drawString(stateLabel, lx, 14);
   }
 
   // ── Setup pomodoro/riposo ────────────────────────────────────────
@@ -1362,17 +1483,24 @@ void drawMainScreen(unsigned long now) {
     sprintf(buf, "%lu min", ms / 60000);
     canvas.setTextFont(2);
     int tw = canvas.textWidth(buf);
-    canvas.setTextFont(1); canvas.setTextSize(1);
-    const char* hint = (pomoPhase == POMO_SET_WORK) ? "Pomodoro: A+ C-  B=ok" : "Riposo: A+ C-  B=ok";
-    int hw = canvas.textWidth(hint);
     if (useBg) {
       canvas.fillRoundRect((DISP_SIZE - tw) / 2 - 6, 32, tw + 12, 18, 4, C_BG);
-      canvas.fillRoundRect((DISP_SIZE - hw) / 2 - 6, 52, hw + 12, 12, 3, C_BG);
     }
-    canvas.setTextFont(2); canvas.setTextColor(C_TIMER, C_BG);
+    canvas.setTextColor(C_TIMER, C_BG);
     canvas.drawString(buf, (DISP_SIZE - tw) / 2, 36);
-    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
-    canvas.drawString(hint, (DISP_SIZE - hw) / 2, 56);
+
+    // Suggerimento comandi: spostato sotto la sprite e ingrandito
+    // (font1 size2) con colore C_FG per restare leggibile sullo sfondo.
+    canvas.setTextFont(1); canvas.setTextSize(2);
+    const char* hint = "A+  C-  B=OK";
+    if (useBg) {
+      drawBadgedCenteredStr(190, hint, C_FG);
+    } else {
+      int hw = canvas.textWidth(hint);
+      canvas.setTextColor(C_FG, C_BG);
+      canvas.drawString(hint, (DISP_SIZE - hw) / 2, 190);
+    }
+    canvas.setTextSize(1);
   }
   // ── Timer pomodoro/riposo ─────────────────────────────────────
   else if (sessionRunning) {
@@ -1745,11 +1873,49 @@ class PetCubeBLEServerCallbacks : public BLEServerCallbacks {
     bleAdvertising = false;
     // Il main loop suonerà il beep di connessione vedendo il cambio di stato
     // (qui non chiamiamo tone() perché siamo in un task BLE, meglio non bloccare)
+    Serial.printf("📡 BLE client connesso (t=%lu ms)\n", millis());
+  }
+  // Variante NimBLE: ci serve conn_handle per poter richiedere parametri di
+  // connessione diversi durante l'OTA (vedi requestConnParams in OTA START).
+  void onConnect(BLEServer* server, ble_gap_conn_desc* desc) override {
+    if (desc) bleConnHandle = desc->conn_handle;
   }
   void onDisconnect(BLEServer* server) override {
     bleClientConnected = false;
     // ESP32 BLE non riavvia l'advertising automaticamente dopo disconnessione
     // Lo riavvieremo dal main loop in bleUpdateState()
+    Serial.printf("📡 BLE client disconnesso (t=%lu ms)\n", millis());
+
+    // Diagnostica: se la disconnessione arriva durante un OTA, registriamo
+    // a che punto del trasferimento eravamo.
+    if (otaState == OTA_RECEIVING || otaState == OTA_AWAIT_CONFIRM) {
+      Serial.printf("⚠️  OTA: disconnesso durante il trasferimento, %u bytes ricevuti (stato=%u, heap libera: %u, coda max: %u/32, write max: %u us)\n",
+                    (unsigned)otaBytesReceived, (unsigned)otaState,
+                    (unsigned)ESP.getFreeHeap(), (unsigned)otaQueueHighWater,
+                    (unsigned)otaMaxWriteUs);
+    }
+  }
+  // Diagnostica: MTU effettivamente negoziato con il client per questa
+  // connessione (utile per verificare BLEDevice::setMTU()). Questo
+  // firmware usa lo stack NimBLE.
+  void onMtuChanged(BLEServer* server, ble_gap_conn_desc* desc, uint16_t mtu) override {
+    Serial.printf("📡 BLE MTU negoziato: %u\n", (unsigned)mtu);
+    // Diagnostica: parametri di connessione negoziati (intervallo, latenza,
+    // supervision timeout) — utili per capire se una disconnessione "a tempo
+    // fisso" durante l'OTA è dovuta al supervision timeout del link.
+    if (desc) {
+      Serial.printf("📡 BLE conn params: interval=%u (x1.25ms), latency=%u, supervision timeout=%u (x10ms)\n",
+                    (unsigned)desc->conn_itvl, (unsigned)desc->conn_latency,
+                    (unsigned)desc->supervision_timeout);
+    }
+  }
+  // Diagnostica: la disconnessione durante l'OTA avviene a un tempo fisso
+  // (~97s) indipendente dai byte trasferiti. Se nel frattempo il client
+  // (Windows/bleak) rinegozia i parametri di connessione, lo vediamo qui
+  // (con lo status dell'operazione: 0 = riuscita).
+  void onConnParamsUpdate(uint16_t connHandle, uint16_t interval, uint16_t latency, uint16_t timeout, uint8_t status) override {
+    Serial.printf("📡 BLE conn params update (t=%lu ms): interval=%u (x1.25ms), latency=%u, supervision timeout=%u (x10ms), status=%u\n",
+                  millis(), (unsigned)interval, (unsigned)latency, (unsigned)timeout, (unsigned)status);
   }
 };
 
@@ -1807,34 +1973,57 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
       // START — bytes 1-4 = total firmware size (little-endian)
       uint32_t sz;
       memcpy(&sz, val.c_str() + 1, 4);
-      Update.abort();
-      if (Update.begin(sz, U_FLASH)) {
-        otaState = OTA_RECEIVING;
-        otaBytesReceived = 0;
-        uint8_t ok = 0x01;
-        ch->setValue(&ok, 1);
-        Serial.printf("OTA START: %u bytes\n", sz);
+
+      // OTA segmentata: ogni connessione BLE dura solo ~97s prima che
+      // l'host la chiuda (vedi PR#31, reason=0x213), troppo poco per
+      // trasferire ~1MB. La companion riconnette e ripete START più volte:
+      // se è già in corso una sessione per la stessa dimensione totale, non
+      // ricominciamo da capo (Update.begin/xQueueReset distruggerebbero il
+      // progresso) ma rispondiamo con otaBytesReceived così la companion sa
+      // da dove riprendere a inviare.
+      bool resume = (otaState == OTA_RECEIVING && sz == otaTotalSize);
+      if (!resume) {
+        Update.abort();
+        xQueueReset(otaChunkQueue);  // scarta eventuali chunk residui di una sessione precedente
+        if (Update.begin(sz, U_FLASH)) {
+          otaState = OTA_RECEIVING;
+          otaBytesReceived = 0;
+          otaTotalSize = sz;
+          otaQueueHighWater = 0;
+          otaMaxWriteUs = 0;
+          Serial.printf("OTA START: %u bytes (heap libera: %u)\n", sz, (unsigned)ESP.getFreeHeap());
+        } else {
+          otaState = OTA_ERROR;
+          uint8_t err = 0x00;
+          ch->setValue(&err, 1);
+          Serial.println("OTA START: Update.begin() fallito");
+          return;
+        }
       } else {
-        otaState = OTA_ERROR;
-        uint8_t err = 0x00;
-        ch->setValue(&err, 1);
-        Serial.println("OTA START: Update.begin() fallito");
+        Serial.printf("OTA START: ripresa da %u/%u bytes\n", (unsigned)otaBytesReceived, (unsigned)otaTotalSize);
       }
 
+      // Risposta: 0x01 + otaBytesReceived (uint32 little-endian), così la
+      // companion sa da quale offset continuare l'invio dei chunk.
+      uint8_t resp[5] = { 0x01, 0, 0, 0, 0 };
+      uint32_t br = otaBytesReceived;
+      memcpy(resp + 1, &br, 4);
+      ch->setValue(resp, 5);
+
     } else if (cmd == 0x02) {
-      // COMMIT
-      if (otaState == OTA_RECEIVING && Update.end(true)) {
-        otaState = OTA_DONE;
-        uint8_t ok = 0x01;
-        ch->setValue(&ok, 1);
-        Serial.println("OTA COMMIT OK — riavvio imminente");
-        otaRebootPending = true;   // riavvio gestito dal main loop
+      // COMMIT — trasferimento completato: NON finalizzare subito,
+      // attendi la conferma dell'utente (B/C) sullo schermo del PetCube.
+      if (otaState == OTA_RECEIVING) {
+        otaState = OTA_AWAIT_CONFIRM;
+        uint8_t st = (uint8_t)otaState;
+        ch->setValue(&st, 1);
+        Serial.println("OTA COMMIT: in attesa di conferma sul dispositivo");
       } else {
         Update.abort();
         otaState = OTA_ERROR;
         uint8_t err = 0x00;
         ch->setValue(&err, 1);
-        Serial.printf("OTA COMMIT fallito: %s\n", Update.errorString());
+        Serial.println("OTA COMMIT fallito: stato non valido");
       }
 
     } else if (cmd == 0x03) {
@@ -1846,34 +2035,85 @@ class PetCubeOtaCtrlCallbacks : public BLECharacteristicCallbacks {
   }
 
   void onRead(BLECharacteristic* ch) override {
-    uint8_t st = (uint8_t)otaState;
-    ch->setValue(&st, 1);
+    // Risposta estesa: stato (1 byte) + otaBytesReceived (uint32 LE).
+    // Usata dalla companion per il polling durante OTA_AWAIT_CONFIRM e per
+    // sapere a che punto è il trasferimento dopo una riconnessione.
+    uint8_t resp[5] = { (uint8_t)otaState, 0, 0, 0, 0 };
+    uint32_t br = otaBytesReceived;
+    memcpy(resp + 1, &br, 4);
+    ch->setValue(resp, 5);
   }
 };
 
-// DATA characteristic: write without response — riceve i chunk binari
+// DATA characteristic: write without response — riceve i chunk binari.
+// La scrittura su flash (Update.write) NON avviene qui: il chunk viene solo
+// copiato in coda, il main loop la elabora (vedi inizio di loop()).
 class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* ch) override {
     if (otaState != OTA_RECEIVING) return;
     String val = ch->getValue();
     size_t len = val.length();
-    if (len == 0 || !Update.isRunning()) return;
+    if (len == 0) return;
+    if (len > OTA_CHUNK_MAX) {
+      // Diagnostica: un chunk più grande del buffer viene scartato in
+      // silenzio (write senza risposta, il client non riceve errore).
+      static uint32_t lastWarnMs = 0;
+      uint32_t nowMs = millis();
+      if (nowMs - lastWarnMs > 1000) {
+        Serial.printf("OTA: chunk da %u byte > OTA_CHUNK_MAX (%u), scartato\n",
+                      (unsigned)len, (unsigned)OTA_CHUNK_MAX);
+        lastWarnMs = nowMs;
+      }
+      return;
+    }
 
-    size_t written = Update.write((uint8_t*)val.c_str(), len);
-    if (written != len) {
+    OtaChunk chunk;
+    chunk.len = len;
+    memcpy(chunk.data, val.c_str(), len);
+    if (xQueueSend(otaChunkQueue, &chunk, 0) != pdTRUE) {
+      // Coda piena: il loop non sta tenendo il passo col trasferimento.
       Update.abort();
       otaState = OTA_ERROR;
-      Serial.printf("OTA write error dopo %u bytes\n", (unsigned)otaBytesReceived);
+      Serial.printf("OTA: coda chunk piena dopo %u bytes\n", (unsigned)otaBytesReceived);
     } else {
-      otaBytesReceived += written;
+      // Diagnostica: livello massimo raggiunto dalla coda, per capire se
+      // il collo di bottiglia è il link BLE (coda quasi vuota) o la
+      // scrittura su flash (coda spesso piena).
+      UBaseType_t depth = uxQueueMessagesWaiting(otaChunkQueue);
+      if (depth > otaQueueHighWater) otaQueueHighWater = depth;
     }
   }
 };
 
+// Diagnostica: la disconnessione durante l'OTA avviene a un tempo fisso di
+// ~97s indipendentemente dai byte trasferiti e dai parametri di connessione
+// negoziati (vedi PR #28/#29/#30). Il motivo HCI della disconnessione
+// (event->disconnect.reason) non è esposto da BLEServerCallbacks::onDisconnect:
+// lo intercettiamo qui tramite il GAP handler custom di NimBLE per capire se
+// è un timeout del link (0x08/0x22), una chiusura volontaria dal lato remoto
+// (0x13/0x16) o altro.
+int bleCustomGapHandler(ble_gap_event* event, void* arg) {
+  if (event->type == BLE_GAP_EVENT_DISCONNECT) {
+    Serial.printf("📡 BLE disconnect reason=0x%02x (t=%lu ms)\n",
+                  (unsigned)event->disconnect.reason, millis());
+  }
+  return 0;
+}
+
 // Inizializza BLE stack una volta sola (al boot)
 void bleInit() {
   if (bleInitialized) return;
+  // 32 slot × 512 byte = 16 KB di buffer: assorbe le code chunk che
+  // arrivano via BLE (~34 KB/s) mentre il main loop è impegnato a
+  // disegnare un frame (vedi early-return OTA_RECEIVING in loop()).
+  otaChunkQueue = xQueueCreate(32, sizeof(OtaChunk));
   BLEDevice::init(BLE_DEVICE_NAME);
+  // Senza questa chiamata l'MTU locale resta a 23 (default): qualunque MTU
+  // negoziato dal client verrebbe troncato a 23, causando scritture ATT
+  // più grandi del consentito durante l'OTA (chunk da ~500 byte) e una
+  // disconnessione silenziosa a metà trasferimento.
+  BLEDevice::setMTU(517);
+  BLEDevice::setCustomGapHandler(bleCustomGapHandler);
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new PetCubeBLEServerCallbacks());
 
@@ -2377,7 +2617,7 @@ void drawCenteredStr(int y, const char* s) {
 }
 
 // Disegna un'etichetta centrata su un badge scuro (per leggibilità sullo sfondo).
-void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX = 6, int padY = 2) {
+void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX, int padY) {
   int w = canvas.textWidth(s);
   int h = canvas.fontHeight();
   int x = max(0, (DISP_SIZE - w) / 2);
@@ -2386,14 +2626,48 @@ void drawBadgedCenteredStr(int y, const char* s, uint16_t color, int padX = 6, i
   canvas.drawString(s, x, y);
 }
 
+// ── Schermata di avanzamento OTA ─────────────────────────────
+// Mostrata durante la ricezione del firmware (OTA_RECEIVING).
+void drawOtaProgressScreen(uint32_t received, uint32_t total) {
+  canvas.fillSprite(C_BG);
+  canvas.setTextFont(2);
+  canvas.setTextColor(C_CYAN, C_BG);
+  drawCenteredStr(80, "Aggiornamento");
+  drawCenteredStr(102, "in corso...");
+  canvas.setTextColor(C_FG, C_BG);
+  int pct = total ? (int)((uint64_t)received * 100 / total) : 0;
+  char buf[16];
+  snprintf(buf, sizeof(buf), "%d%%", pct);
+  drawCenteredStr(140, buf);
+  canvas.pushSprite(0, 0);
+}
+
+// ── Schermata di conferma OTA ────────────────────────────────
+// Mostrata quando il trasferimento firmware è completo e si attende
+// la scelta dell'utente: B = installa e riavvia, C = annulla.
+void drawOtaConfirmScreen(unsigned long now) {
+  canvas.fillSprite(C_BG);
+  canvas.setTextFont(2);
+  canvas.setTextColor(C_CYAN, C_BG);
+  drawCenteredStr(70, "Nuovo firmware");
+  drawCenteredStr(92, "pronto!");
+  canvas.setTextColor(C_FG, C_BG);
+  drawCenteredStr(130, "Aggiornare ora?");
+  canvas.setTextColor(C_HAP, C_BG);
+  drawCenteredStr(165, "B = Si, installa");
+  canvas.setTextColor(C_STR, C_BG);
+  drawCenteredStr(185, "C = No, annulla");
+  canvas.pushSprite(0, 0);
+}
+
 // Proiettile vincitore->perdente: fiammella rossa/gialla (Fire) o goccia azzurra (Water).
 void drawProjectile(int x, int y, BattleElement elem) {
   if (elem == BE_FIRE) {
-    canvas.fillCircle(x, y, 6, C_STR);
-    canvas.fillCircle(x, y - 1, 3, C_ENG);
+    canvas.fillCircle(x, y, 8, C_STR);
+    canvas.fillCircle(x, y - 1, 4, C_ENG);
   } else {
-    canvas.fillCircle(x, y + 2, 5, C_CYAN);
-    canvas.fillTriangle(x, y - 6, x - 4, y + 2, x + 4, y + 2, C_CYAN);
+    canvas.fillCircle(x, y + 3, 7, C_CYAN);
+    canvas.fillTriangle(x, y - 8, x - 5, y + 3, x + 5, y + 3, C_CYAN);
   }
 }
 
@@ -2430,13 +2704,14 @@ void drawBattleScreen(unsigned long now) {
     return;
   }
 
-  // Posizioni sprite battle: pet sx ×4 (64px), nemico dx ×4.
-  // x=28/y=44 (anziché 14/38): a 14/38 l'angolo esterno delle sprite
-  // finiva fuori dall'area circolare visibile.
-  const int bscale = 4;
-  const int bsz    = SPR_SIZE * bscale;  // 64
+  // Posizioni sprite battle: pet sx ×5 (80px), nemico dx ×5, in basso.
+  // Bar/VS/esito stanno nella fascia in alto (32-110), le sprite sotto
+  // (110-190): a y=110/190 l'angolo esterno resta entro l'area circolare
+  // visibile (verificato per petX=28/enX=132).
+  const int bscale = 5;
+  const int bsz    = SPR_SIZE * bscale;  // 80
   int petX = 28, enX = DISP_SIZE - 28 - bsz;
-  int yPos = 44;
+  int yPos = 110;
 
   if (gState == STATE_BATTLE_INTRO) {
     int progress = min((int)el, 800);
@@ -2447,7 +2722,7 @@ void drawBattleScreen(unsigned long now) {
     drawSpriteScaled(petX, yPos, bscale, petSpr->idle[idx0], true);
     drawSpriteScaled(enX,  yPos, bscale, enSpr->idle[idx0]);
     canvas.setTextFont(4);
-    drawBadgedCenteredStr(115, "VS", C_FG);
+    drawBadgedCenteredStr(58, "VS", C_FG);
     if (el >= 1000) {
       gState = STATE_BATTLE_CLASH;
       battleStateMs = now;
@@ -2467,18 +2742,18 @@ void drawBattleScreen(unsigned long now) {
     // (x:10-230) le estremità finivano fuori dall'area circolare visibile.
     // Sfondo opaco dietro la barra: sullo sfondo immagine, drawRect da solo
     // disegna solo il bordo e lascerebbe l'interno trasparente.
-    canvas.fillRect(36, 181, 168, 18, C_BG);
-    canvas.fillRect(critWindowStart, 181, critWindowWidth, 18, C_ENG);
+    canvas.fillRect(36, 44, 168, 18, C_BG);
+    canvas.fillRect(critWindowStart, 44, critWindowWidth, 18, C_ENG);
 
     cursorX += cursorDir * BATTLE_CURSOR_SPEED;
     if (cursorX >= 200) { cursorX = 200; cursorDir = -1; }
     if (cursorX <= 36)  { cursorX = 36;  cursorDir =  1; }
-    canvas.fillRect(cursorX, 181, 4, 18, C_BG);
-    canvas.drawFastVLine(cursorX+1, 177, 26, C_FG);
-    canvas.drawRect(35, 180, 170, 20, C_FG);
+    canvas.fillRect(cursorX, 44, 4, 18, C_BG);
+    canvas.drawFastVLine(cursorX+1, 40, 26, C_FG);
+    canvas.drawRect(35, 43, 170, 20, C_FG);
 
     canvas.setTextFont(2);
-    drawBadgedCenteredStr(162, "B = colpo", C_DIM);
+    drawBadgedCenteredStr(72, "B = colpo", C_DIM);
 
     if (el >= 4000) {
       petCritThisClash = false;
@@ -2509,14 +2784,14 @@ void drawBattleScreen(unsigned long now) {
       }
       float t = (float)el / PROJECTILE_MS;
       int px = fromX + (int)((toX - fromX) * t);
-      int py = cy - (int)(20 * sinf(t * PI));  // piccolo arco verticale
+      int py = cy - (int)(25 * sinf(t * PI));  // piccolo arco verticale
       drawProjectile(px, py, winnerElem);
     }
 
     char dmg[28];
     sprintf(dmg, "P:-%d   E:-%d", lastResult.enemy_dmg, lastResult.pet_dmg);
     canvas.setTextFont(2);
-    drawBadgedCenteredStr(170, dmg, C_TIMER);
+    drawBadgedCenteredStr(50, dmg, C_TIMER);
 
     if (el >= 1500) {
       battleClashIdx++;
@@ -2541,7 +2816,7 @@ void drawBattleScreen(unsigned long now) {
     drawSpriteScaled(petX, yPos, bscale, pet_won ? petSpr->happy[(now/250)%2] : petSpr->sick[(now/400)%2], true);
     drawSpriteScaled(enX,  yPos, bscale, pet_won ? enSpr->sick[(now/400)%2]  : enSpr->happy[(now/250)%2]);
     canvas.setTextFont(4);
-    drawBadgedCenteredStr(170, pet_won ? "VITTORIA!" : "SCONFITTA", pet_won ? C_HAP : C_STR);
+    drawBadgedCenteredStr(55, pet_won ? "VITTORIA!" : "SCONFITTA", pet_won ? C_HAP : C_STR);
     if (el >= 2500) enterBattleStateMain();
   }
 
@@ -2625,6 +2900,70 @@ void loop() {
   }
 
   unsigned long now = millis();
+
+  // ── OTA: scrive su flash i chunk ricevuti via BLE ───────────────
+  // Eseguito qui (non nella callback BLE) per non bloccare lo stack BLE
+  // con operazioni di scrittura flash durante un trasferimento lungo.
+  if (otaChunkQueue) {
+    OtaChunk chunk;
+    int processed = 0;
+    while (processed < 4 && xQueueReceive(otaChunkQueue, &chunk, 0) == pdTRUE) {
+      if (otaState == OTA_RECEIVING && Update.isRunning()) {
+        uint32_t t0 = micros();
+        size_t written = Update.write(chunk.data, chunk.len);
+        uint32_t dt = micros() - t0;
+        if (dt > otaMaxWriteUs) otaMaxWriteUs = dt;
+        if (written != chunk.len) {
+          Update.abort();
+          otaState = OTA_ERROR;
+          Serial.printf("OTA write error dopo %u bytes\n", (unsigned)otaBytesReceived);
+        } else {
+          otaBytesReceived += written;
+          // Diagnostica: log di avanzamento ogni ~100 KB, con heap libera,
+          // livello massimo della coda chunk (0-32) e durata massima di
+          // una singola Update.write() finora — per capire se il collo di
+          // bottiglia è il link BLE (coda quasi vuota) o la scrittura su
+          // flash (coda piena, write lenta).
+          static uint32_t lastLoggedKb = 0;
+          uint32_t kb = otaBytesReceived / 1024;
+          if (kb / 100 != lastLoggedKb / 100) {
+            Serial.printf("OTA: %u bytes scritti su flash (heap libera: %u, coda max: %u/32, write max: %u us)\n",
+                          (unsigned)otaBytesReceived, (unsigned)ESP.getFreeHeap(),
+                          (unsigned)otaQueueHighWater, (unsigned)otaMaxWriteUs);
+          }
+          lastLoggedKb = kb;
+        }
+      }
+      processed++;
+    }
+  }
+
+  // ── OTA in corso ─────────────────────────────────────────────
+  // Saltiamo il resto del loop (sensori, disegno schermate, pulsanti):
+  // a ~34 KB/s anche pochi ms di ritardo per iterazione fanno traboccare
+  // la coda chunk ("OTA: coda chunk piena"). Mostriamo solo una
+  // schermata di avanzamento, aggiornata periodicamente.
+  if (otaState == OTA_RECEIVING) {
+    static uint32_t lastOtaDrawMs = 0;
+    if (now - lastOtaDrawMs >= 300) {
+      drawOtaProgressScreen(otaBytesReceived, otaTotalSize);
+      lastOtaDrawMs = now;
+    }
+    // OTA segmentata su più connessioni (vedi firmware_updater.py): se il
+    // client si disconnette a metà trasferimento, l'early-return qui sotto
+    // impediva di raggiungere bleUpdateState() (chiamato in fondo al loop),
+    // quindi l'advertising non veniva mai riavviato e il cubo restava
+    // irraggiungibile per il resto dell'OTA. Lo richiamiamo qui.
+    bleUpdateState();
+    // Cede la CPU per 1 tick: senza questo yield il loop gira a vuoto in modo
+    // completamente stretto (specialmente quando la coda è vuota), e su
+    // ESP32 questo può impedire allo scheduler di eseguire regolarmente il
+    // task host NimBLE / il task idle, causando una disconnessione BLE
+    // silenziosa dopo un tempo fisso indipendente dai byte trasferiti
+    // (osservato: ~97s sia con 665088 che con 201728 byte ricevuti).
+    delay(1);
+    return;
+  }
 
   // ⚔️  Serial mock notifiche per testing (rimuovere quando BLE è pronto)
   // Comandi disponibili nel Serial Monitor:
@@ -2731,6 +3070,38 @@ void loop() {
     btnAPrev=btnANow; btnBPrev=btnBNow; btnCPrev=btnCNow;
     // display boot
     drawBootScreen();
+    delay(40);
+    return;
+  }
+
+  // ── Conferma OTA ─────────────────────────────────────────────
+  // Trasferimento completato: chiediamo all'utente se installare (B)
+  // o annullare (C) prima di finalizzare l'aggiornamento.
+  if (otaState == OTA_AWAIT_CONFIRM) {
+    if (btnBPrev==HIGH && btnBNow==LOW) {
+      // Installa: finalizza l'update e riavvia
+      if (Update.end(true)) {
+        otaState = OTA_DONE;
+        otaRebootPending = true;   // riavvio gestito dal main loop
+        Serial.println("OTA confermata dall'utente — riavvio imminente");
+      } else {
+        Update.abort();
+        otaState = OTA_ERROR;
+        Serial.printf("OTA: finalizzazione fallita: %s\n", Update.errorString());
+      }
+      tone(BUZZER,784,80); delay(90); tone(BUZZER,1047,150);
+      delay(50);
+    }
+    if (btnCPrev==HIGH && btnCNow==LOW) {
+      // Annulla: scarta l'update ricevuto
+      Update.abort();
+      otaState = OTA_CANCELLED;
+      Serial.println("OTA annullata dall'utente");
+      tone(BUZZER, 440, 120);
+      delay(50);
+    }
+    btnAPrev=btnANow; btnBPrev=btnBNow; btnCPrev=btnCNow;
+    drawOtaConfirmScreen(now);
     delay(40);
     return;
   }

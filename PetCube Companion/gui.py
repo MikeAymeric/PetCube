@@ -1485,8 +1485,9 @@ class CompanionGUI(ctk.CTk):
 
         self._fw_set_progress(1, 1, "Completato")
         if restart_exe:
-            self._fw_log_append("✓ Aggiornamento scaricato. L'app si riavvierà a breve...")
-            self.after(1000, self._real_quit)
+            # Lo script di aggiornamento (gia' avviato) chiudera' la Companion,
+            # sostituira' l'eseguibile e chiedera' se riavviarla.
+            self._fw_log_append("✓ Download completato. La Companion verrà chiusa e aggiornata a breve...")
         else:
             self._fw_log_append("✓ Aggiornamento applicato. Riavvio dell'app...")
             self.after(500, app_upd.restart_from_source)

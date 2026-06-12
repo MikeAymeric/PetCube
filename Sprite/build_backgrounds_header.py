@@ -21,6 +21,10 @@ DISP_SIZE = 240
 # display name (Sprite/BG_<Nome>.png) -> identificatore C (BG_<NOME>)
 BACKGROUNDS = [
     ("Normal", "NORMAL"),
+    ("Sleep", "SLEEP"),
+    ("Work", "WORK"),
+    ("Study", "STUDY"),
+    ("Training", "TRAINING"),
 ]
 
 
