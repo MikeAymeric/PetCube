@@ -940,8 +940,8 @@ void cancelPomodoro() {
 
 // ── DECAY ─────────────────────────────────────────────────────
 void checkDecay(unsigned long now) {
-  // Sospeso in Sleep (cubo con schermo verso l'alto)
-  if (gOrient == ORI_FACE_UP) { lastDecayMs = now; return; }
+  // Sospeso in Sleep (cubo in posizione normale)
+  if (gOrient == ORI_NORMAL) { lastDecayMs = now; return; }
   if (lastDecayMs == 0) { lastDecayMs = now; return; }
   if (now - lastDecayMs < DECAY_WINDOW_MS) return;
   bool noSess = lastSessionMs == 0 || (now - lastSessionMs >= DECAY_WINDOW_MS);
@@ -1062,12 +1062,12 @@ void enterStateFromOri(Orientation ori) {
   }
   updateDisplayRotation(ori);
   switch (ori) {
-    case ORI_NORMAL:      gState = STATE_IDLE;     break;
+    case ORI_NORMAL:      gState = STATE_SLEEP;     break;
     case ORI_LEFT:        gState = STATE_TRAINING;  break;
     case ORI_RIGHT:       gState = STATE_STUDY;     break;
-    case ORI_FACE_UP:     gState = STATE_SLEEP;     break;
-    case ORI_UPSIDE_DOWN: gState = STATE_WORK;      break;
-    case ORI_FACE_DOWN:   gState = STATE_DND;       break;
+    case ORI_FACE_UP:     gState = STATE_WORK;      break;
+    case ORI_UPSIDE_DOWN: gState = STATE_DND;       break;
+    case ORI_FACE_DOWN:   gState = STATE_IDLE;      break;
   }
 }
 
