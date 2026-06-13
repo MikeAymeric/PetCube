@@ -89,7 +89,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           24   // bump al cambio struttura NVS
+#define FW_VERSION           25   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -100,6 +100,7 @@ Preferences prefs;
 #define BLE_CHAR_OTA_DATA_UUID  "12345678-1234-5678-1234-56789abcdef4"
 #define BLE_CHAR_IDENTITY_UUID  "12345678-1234-5678-1234-56789abcdef5"
 #define BLE_CHAR_RESET_UUID     "12345678-1234-5678-1234-56789abcdef6"
+#define BLE_CHAR_ACHV_UUID      "12345678-1234-5678-1234-56789abcdef7"
 #define DISP_SIZE            240
 #define SPR_SCALE            7    // sprite 16×16 → 112×112
 #define SPR_SIZE             16
@@ -256,6 +257,88 @@ int evoStage  = 0, finalVariant = -1;
 int lineVariant = 0;  // 0=STR, 1=ENG, 2=INT (determinato a Child->Adult)
 int battlesWon = 0, battlesLost = 0;
 
+// ── Eredità genetica (Leggende) ──────────────────────────────────
+// Se un pet muore avendo raggiunto lo stadio finale (evoStage==5), lascia in
+// eredità il 20% delle sue stat STR/INT/ENG al prossimo baby. Slot singolo,
+// persistente nel namespace "registro" (sopravvive al reset di una partita).
+#define LEGACY_STAT_PCT 20
+int legacySTR = 0, legacyINT = 0, legacyENG = 0;
+int legendCount = 0;   // numero totale di Leggende raggiunte (badge permanente)
+
+// ── ACHIEVEMENTS ──────────────────────────────────────────────────
+// Bitmask a 64 bit (47 usati) persistito nel namespace "achv", sopravvive
+// al reset di partita come "registro"/eredità ma viene wipata da un
+// factory reset. Contatori/maschere di supporto per le condizioni che non
+// sono già derivabili da altro stato persistente.
+enum AchvId {
+  ACHV_GLOW_UP = 0,        // Glow Up — prima evoluzione
+  ACHV_ADULTING,           // Adulting — stadio Adulto
+  ACHV_FINAL_FORM,         // Final Form — stadio finale
+  ACHV_LIGHT_SIDE,         // Light Side — variante Light
+  ACHV_DARK_SIDE,          // Dark Side — variante Dark
+  ACHV_BALANCED,           // No Cap, Balanced — stat finali equilibrate
+  ACHV_FIRE_AND_WATER,     // Master of Fire and Water — entrambi gli elementi
+  ACHV_CATCH_A_FEW,        // Gotta Catch a Few — 5 creature nel registro
+  ACHV_CATCH_HALF,         // Gotta Catch Half — 14 creature nel registro
+  ACHV_CATCH_ALL,          // Gotta Catch 'Em All — 28 creature nel registro
+  ACHV_SHINY_HUNTER,       // Shiny Hunter — variante Light nel registro
+  ACHV_EDGELORD,           // Edgelord Unlocked — variante Dark nel registro
+  ACHV_TWO_SIDES,          // Two Sides of the Coin — forma finale Fire e Water
+  ACHV_PAY_RESPECTS,       // Press F to Pay Respects — prima morte
+  ACHV_HALL_OF_FLAME,      // Hall of Flame — prima Leggenda
+  ACHV_GOAT_STATUS,        // GOAT Status — 5 Leggende
+  ACHV_NEPO_BABY,          // Nepo Baby — iniziato con eredità genetica
+  ACHV_CIRCLE_OF_LIFE,     // The Circle of Life — 3 reincarnazioni
+  ACHV_BIG_BRAIN,          // Big Brain Time — 10 sessioni totali
+  ACHV_TOUCH_GRASS_LATER,  // Touch Grass... Later — 50 sessioni totali
+  ACHV_NO_DAYS_OFF,        // No Days Off — 100 sessioni totali
+  ACHV_GALAXY_BRAIN,       // Galaxy Brain — INT >= 90
+  ACHV_WE_GO_GYM,          // We Go Gym — STR >= 90
+  ACHV_CAFFEINE_POWERED,   // Caffeine Powered — ENG >= 90
+  ACHV_JACK_OF_ALL_TRADES, // Jack of All Trades — sessione di ogni tipo
+  ACHV_CLEAN_FREAK,        // Clean Freak — 20 pulizie escrementi
+  ACHV_IT_WAS_MEGA,        // It Was Mega — primo escremento mega
+  ACHV_NOT_DEAD_YET,       // He's Not Dead Yet! — guarito da malattia critica
+  ACHV_BUILT_DIFFERENT,    // Built Different — 5 malattie superate
+  ACHV_VIBING,             // Vibing — felicità 100
+  ACHV_ROCK_BOTTOM,        // Mood: Rock Bottom — felicità 0
+  ACHV_SELF_CARE_SUNDAY,   // Self Care Sunday — 10 guarigioni
+  ACHV_GO_TIME,            // It's Go Time — prima battaglia vinta
+  ACHV_UNDEFEATED,         // Undefeated — win streak 5
+  ACHV_L_RATIO,            // L + Ratio — prima battaglia persa
+  ACHV_COMEBACK_ARC,       // Comeback Arc — vittoria dopo una sconfitta
+  ACHV_BIG_BOSS_ENERGY,    // Big Boss Energy — 25 battaglie vinte
+  ACHV_GLASS_CANNON,       // Glass Cannon — vittoria da malato
+  ACHV_NOTIF_HELL,         // Notification Hell — 5 fonti notifiche diverse
+  ACHV_HOUSTON,            // Houston, We Solved It — notifica di crisi
+  ACHV_MULTIPLAYER,        // Multiplayer Unlocked — tag identità impostato
+  ACHV_UPSIDE_DOWN,        // Upside Down — orientamento sottosopra
+  ACHV_5AM_CLUB,           // 5AM Club — sessione completata tra le 4 e le 6
+  ACHV_VAMPIRE_MODE,       // Vampire Mode — sessione completata tra le 0 e le 4
+  ACHV_TOUCH_DEPRIVED,     // Touch Deprived — 36h senza sessioni
+  ACHV_ALL_ANGLES,         // All Angles Covered — tutti i 6 orientamenti
+  ACHV_MARATHON_MOOD,      // Marathon Mood — win streak 10
+  ACHV_COUNT               // = 47
+};
+
+uint64_t achvUnlocked          = 0;
+uint32_t lifetimeSessions      = 0;
+uint32_t lifetimeBattlesWon    = 0;
+uint32_t lifetimeBattlesLost   = 0;
+uint32_t deathsTotal           = 0;
+uint32_t poopCleanedCount      = 0;
+uint32_t healCount             = 0;
+uint32_t lifetimeSickEpisodes  = 0;
+uint8_t  elementsPlayedMask    = 0;   // bit0=FIRE bit1=WATER
+uint8_t  sessionTypeMask       = 0;   // bit0=Training bit1=Study bit2=Work
+uint8_t  notifSourceMask       = 0;   // bit per NotifSource 0..7
+uint8_t  orientationMask       = 0;   // bit per Orientation 0..5
+bool     hapHitZeroEver        = false;
+bool     hapHit100Ever         = false;
+bool     crisiSeenEver         = false;
+bool     touchDeprivedEver     = false;
+bool     lastBattleWasLoss     = false;
+
 bool          sessionRunning  = false;
 GameState     sessionType     = STATE_WORK;
 unsigned long sessionStartMs  = 0;
@@ -335,6 +418,7 @@ BLECharacteristic* bleOtaCtrlChar  = nullptr;
 BLECharacteristic* bleOtaDataChar  = nullptr;
 BLECharacteristic* bleIdentityChar = nullptr;
 BLECharacteristic* bleResetChar    = nullptr;
+BLECharacteristic* bleAchvChar     = nullptr;
 bool              bleAdvertising   = false;
 bool              bleClientConnected = false;
 bool              bleClientConnectedPrev = false;
@@ -508,6 +592,237 @@ void registroLoad() {
     REGISTRO[i].obtained = prefs.getInt(key, 0);
   }
   prefs.end();
+}
+
+// ── Eredità genetica: carica/salva nel namespace "registro" ──────
+void legacyLoad() {
+  prefs.begin("registro", true);
+  legendCount = prefs.getInt("legendCnt", 0);
+  legacySTR   = prefs.getInt("legSTR", 0);
+  legacyINT   = prefs.getInt("legINT", 0);
+  legacyENG   = prefs.getInt("legENG", 0);
+  prefs.end();
+}
+
+// Chiamata alla morte: se il pet ha raggiunto lo stadio finale, registra
+// l'eredità (20% delle stat) e incrementa il contatore Leggende.
+void legacyRecordOnDeath() {
+  if (evoStage < 5) return;
+  legendCount++;
+  legacySTR = statSTR * LEGACY_STAT_PCT / 100;
+  legacyINT = statINT * LEGACY_STAT_PCT / 100;
+  legacyENG = statENG * LEGACY_STAT_PCT / 100;
+  prefs.begin("registro", false);
+  prefs.putInt("legendCnt", legendCount);
+  prefs.putInt("legSTR", legacySTR);
+  prefs.putInt("legINT", legacyINT);
+  prefs.putInt("legENG", legacyENG);
+  prefs.end();
+}
+
+// Consuma l'eredità su NVS (slot singolo, usa-e-getta): i valori restano in
+// RAM per il feedback nella schermata di scelta del baby, finché non viene
+// scelto l'elemento.
+void legacyClearPersisted() {
+  prefs.begin("registro", false);
+  prefs.putInt("legSTR", 0);
+  prefs.putInt("legINT", 0);
+  prefs.putInt("legENG", 0);
+  prefs.end();
+}
+
+// ── ACHIEVEMENTS: persistenza (namespace "achv") ─────────────────
+// Sopravvive al reset di partita (come "registro"), wipata solo da un
+// factory reset completo.
+void achvLoad() {
+  prefs.begin("achv", true);
+  achvUnlocked         = prefs.getULong64("mask", 0);
+  lifetimeSessions     = prefs.getUInt("sess", 0);
+  lifetimeBattlesWon   = prefs.getUInt("bWon", 0);
+  lifetimeBattlesLost  = prefs.getUInt("bLost", 0);
+  deathsTotal          = prefs.getUInt("deaths", 0);
+  poopCleanedCount     = prefs.getUInt("poopCln", 0);
+  healCount            = prefs.getUInt("heals", 0);
+  lifetimeSickEpisodes = prefs.getUInt("sickEpL", 0);
+  elementsPlayedMask   = prefs.getUChar("elemMask", 0);
+  sessionTypeMask      = prefs.getUChar("sessMask", 0);
+  notifSourceMask      = prefs.getUChar("notifMask", 0);
+  orientationMask      = prefs.getUChar("oriMask", 0);
+  hapHitZeroEver       = prefs.getBool("hap0", false);
+  hapHit100Ever        = prefs.getBool("hap100", false);
+  crisiSeenEver        = prefs.getBool("crisi", false);
+  touchDeprivedEver    = prefs.getBool("touchDep", false);
+  prefs.end();
+}
+
+void achvSaveCounters() {
+  prefs.begin("achv", false);
+  prefs.putUInt("sess", lifetimeSessions);
+  prefs.putUInt("bWon", lifetimeBattlesWon);
+  prefs.putUInt("bLost", lifetimeBattlesLost);
+  prefs.putUInt("deaths", deathsTotal);
+  prefs.putUInt("poopCln", poopCleanedCount);
+  prefs.putUInt("heals", healCount);
+  prefs.putUInt("sickEpL", lifetimeSickEpisodes);
+  prefs.putUChar("elemMask", elementsPlayedMask);
+  prefs.putUChar("sessMask", sessionTypeMask);
+  prefs.putUChar("notifMask", notifSourceMask);
+  prefs.putUChar("oriMask", orientationMask);
+  prefs.putBool("hap0", hapHitZeroEver);
+  prefs.putBool("hap100", hapHit100Ever);
+  prefs.putBool("crisi", crisiSeenEver);
+  prefs.putBool("touchDep", touchDeprivedEver);
+  prefs.end();
+}
+
+// Sblocca un achievement (no-op se già sbloccato): persiste la bitmask e
+// aggiorna la caratteristica BLE per la companion.
+void achvUnlock(int id) {
+  uint64_t bit = (uint64_t)1ULL << id;
+  if (achvUnlocked & bit) return;
+  achvUnlocked |= bit;
+  prefs.begin("achv", false);
+  prefs.putULong64("mask", achvUnlocked);
+  prefs.end();
+  if (bleAchvChar) bleAchvChar->setValue((uint8_t*)&achvUnlocked, sizeof(achvUnlocked));
+  Serial.printf("🏆 Achievement unlocked: #%d\n", id);
+}
+
+// Indici REGISTRO delle forme finali (ultimate), per Shiny/Edgelord/Two Sides
+const int ACHV_FIRE_FINALS[] = { 5, 6, 9, 12, 13 };   // Flameforge, Seraphyre, Citadellion, Eldervulp, Noxfortress
+const int ACHV_WATER_FINALS[] = { 19, 20, 23, 26, 27 }; // Leviacrush, Lightfin, Tidenaught, Thalassibyl, Nightmare
+
+// Valuta tutte le condizioni "passive" (basate su stato/contatori correnti)
+// e sblocca gli achievement corrispondenti. Chiamata dopo ogni evento
+// rilevante: idempotente, achvUnlock() è no-op se già sbloccato.
+void achvEvaluate() {
+  // ── Evolution ──
+  if (evoStage >= 1) achvUnlock(ACHV_GLOW_UP);
+  if (evoStage >= 3) achvUnlock(ACHV_ADULTING);
+  if (evoStage >= 5) achvUnlock(ACHV_FINAL_FORM);
+  if (finalVariant == 1) achvUnlock(ACHV_LIGHT_SIDE);
+  if (finalVariant == 2) achvUnlock(ACHV_DARK_SIDE);
+  if (evoStage >= 5 &&
+      abs(statSTR - statINT) <= 5 && abs(statSTR - statENG) <= 5 &&
+      abs(statINT - statENG) <= 5) {
+    achvUnlock(ACHV_BALANCED);
+  }
+  if ((elementsPlayedMask & 0x03) == 0x03) achvUnlock(ACHV_FIRE_AND_WATER);
+
+  // ── Collection ──
+  int obtained = 0;
+  bool hasFireFinal = false, hasWaterFinal = false;
+  for (int i = 0; i < REGISTRO_SIZE; i++) {
+    if (REGISTRO[i].obtained <= 0) continue;
+    obtained++;
+    for (int j = 0; j < (int)(sizeof(ACHV_FIRE_FINALS)/sizeof(int)); j++)
+      if (ACHV_FIRE_FINALS[j] == i) hasFireFinal = true;
+    for (int j = 0; j < (int)(sizeof(ACHV_WATER_FINALS)/sizeof(int)); j++)
+      if (ACHV_WATER_FINALS[j] == i) hasWaterFinal = true;
+  }
+  if (obtained >= 5)              achvUnlock(ACHV_CATCH_A_FEW);
+  if (obtained >= 14)             achvUnlock(ACHV_CATCH_HALF);
+  if (obtained >= REGISTRO_SIZE)  achvUnlock(ACHV_CATCH_ALL);
+  if (REGISTRO[6].obtained > 0 || REGISTRO[20].obtained > 0)  achvUnlock(ACHV_SHINY_HUNTER);
+  if (REGISTRO[13].obtained > 0 || REGISTRO[27].obtained > 0) achvUnlock(ACHV_EDGELORD);
+  if (hasFireFinal && hasWaterFinal) achvUnlock(ACHV_TWO_SIDES);
+
+  // ── Legends ──
+  if (deathsTotal >= 1)  achvUnlock(ACHV_PAY_RESPECTS);
+  if (legendCount >= 1)  achvUnlock(ACHV_HALL_OF_FLAME);
+  if (legendCount >= 5)  achvUnlock(ACHV_GOAT_STATUS);
+  if (deathsTotal >= 3)  achvUnlock(ACHV_CIRCLE_OF_LIFE);
+
+  // ── Productivity ──
+  if (lifetimeSessions >= 10)  achvUnlock(ACHV_BIG_BRAIN);
+  if (lifetimeSessions >= 50)  achvUnlock(ACHV_TOUCH_GRASS_LATER);
+  if (lifetimeSessions >= 100) achvUnlock(ACHV_NO_DAYS_OFF);
+  if (statINT >= 90) achvUnlock(ACHV_GALAXY_BRAIN);
+  if (statSTR >= 90) achvUnlock(ACHV_WE_GO_GYM);
+  if (statENG >= 90) achvUnlock(ACHV_CAFFEINE_POWERED);
+  if ((sessionTypeMask & 0x07) == 0x07) achvUnlock(ACHV_JACK_OF_ALL_TRADES);
+
+  // ── Care / Survival ──
+  if (poopCleanedCount >= 20)     achvUnlock(ACHV_CLEAN_FREAK);
+  if (lifetimeSickEpisodes >= 5)  achvUnlock(ACHV_BUILT_DIFFERENT);
+  if (hapHit100Ever)               achvUnlock(ACHV_VIBING);
+  if (hapHitZeroEver)              achvUnlock(ACHV_ROCK_BOTTOM);
+  if (healCount >= 10)             achvUnlock(ACHV_SELF_CARE_SUNDAY);
+
+  // ── Battles ──
+  if (lifetimeBattlesWon >= 1)  achvUnlock(ACHV_GO_TIME);
+  if (battleStreak >= 5)        achvUnlock(ACHV_UNDEFEATED);
+  if (lifetimeBattlesLost >= 1) achvUnlock(ACHV_L_RATIO);
+  if (lifetimeBattlesWon >= 25) achvUnlock(ACHV_BIG_BOSS_ENERGY);
+  if (battleStreak >= 10)       achvUnlock(ACHV_MARATHON_MOOD);
+
+  // ── Connectivity ──
+  if (__builtin_popcount(notifSourceMask) >= 5) achvUnlock(ACHV_NOTIF_HELL);
+  if (crisiSeenEver)        achvUnlock(ACHV_HOUSTON);
+  if (petTag.length() > 0)  achvUnlock(ACHV_MULTIPLAYER);
+
+  // ── Daily life ──
+  if (orientationMask & (1 << ORI_UPSIDE_DOWN)) achvUnlock(ACHV_UPSIDE_DOWN);
+  if (touchDeprivedEver)                        achvUnlock(ACHV_TOUCH_DEPRIVED);
+  if ((orientationMask & 0x3F) == 0x3F)         achvUnlock(ACHV_ALL_ANGLES);
+}
+
+// ── ACHIEVEMENTS: helper "Note" — aggiornano maschere/flag persistenti e
+// rivalutano la lista solo quando cambia qualcosa (no scrittura NVS inutile).
+void achvNoteElement(Element el) {
+  uint8_t bit = (el == FIRE) ? 0x01 : 0x02;
+  if (elementsPlayedMask & bit) return;
+  elementsPlayedMask |= bit;
+  achvSaveCounters();
+  achvEvaluate();
+}
+
+void achvNoteSessionType(GameState type) {
+  uint8_t bit = (type == STATE_TRAINING) ? 0x01 : (type == STATE_STUDY) ? 0x02 : 0x04;
+  if (sessionTypeMask & bit) return;
+  sessionTypeMask |= bit;
+  achvSaveCounters();
+  achvEvaluate();
+}
+
+void achvNoteOrientation(Orientation ori) {
+  uint8_t bit = (uint8_t)(1 << (int)ori);
+  if (orientationMask & bit) return;
+  orientationMask |= bit;
+  achvSaveCounters();
+  achvEvaluate();
+}
+
+void achvNoteNotifSource(NotifSource src) {
+  if ((uint8_t)src > 7) return;  // SRC_GENERIC=255 e altri valori fuori range non tracciati
+  uint8_t bit = (uint8_t)(1 << (uint8_t)src);
+  if (notifSourceMask & bit) return;
+  notifSourceMask |= bit;
+  achvSaveCounters();
+  achvEvaluate();
+}
+
+void achvNoteCrisis() {
+  if (crisiSeenEver) return;
+  crisiSeenEver = true;
+  achvSaveCounters();
+  achvEvaluate();
+}
+
+void achvNoteTouchDeprived() {
+  if (touchDeprivedEver) return;
+  touchDeprivedEver = true;
+  achvSaveCounters();
+  achvEvaluate();
+}
+
+// Aggiorna i flag "estremi" di felicità (0 o 100 raggiunti almeno una volta)
+void achvNoteHap() {
+  bool dirty = false;
+  if (statHAP <= 0   && !hapHitZeroEver) { hapHitZeroEver = true; dirty = true; }
+  if (statHAP >= 100 && !hapHit100Ever)  { hapHit100Ever  = true; dirty = true; }
+  if (dirty) achvSaveCounters();
+  achvEvaluate();
 }
 
 // Menu aggiornato con Registro
@@ -794,6 +1109,30 @@ bool loadFromNVS() {
   return ok;
 }
 
+// Reset per una nuova partita (mantiene il registro e l'eredità persistenti).
+// Usato sia da "Nuova partita" nella schermata di boot sia dopo la morte del
+// pet. Applica l'eredità genetica (se presente) come stat di partenza del
+// nuovo baby e consuma lo slot su NVS (resta in RAM per il feedback a schermo).
+void resetForNewGame(unsigned long now) {
+  prefs.begin("petcube",false); prefs.clear(); prefs.end();
+  // Riscrivo subito fw_version per evitare retrigger della migrazione
+  prefs.begin("petcube",false); prefs.putInt("fw_ver", FW_VERSION); prefs.end();
+  statSTR = legacySTR; statINT = legacyINT; statENG = legacyENG;
+  statHAP = 50;
+  sessTotal=sessActive=0; evoStage=0; finalVariant=-1; lineVariant=0;
+  battlesWon=battlesLost=0; poopCount=0; poopMega=false;
+  isSick=false; sickStartMs=0;
+  sickEpisodes=0;
+  pomoPhase=POMO_NONE; pomodoroMs=POMO_DEFAULT_MS; restMs=REST_DEFAULT_MS;
+  lastSessionMs=0; lastDecayMs=now;
+  nextPoopMs = now + randomPoopInterval();
+  clockSet=false; clockOffsetSec=0;
+  clockEditH=12; clockEditM=0;
+  gState  = STATE_SETUP;
+  gScreen = SCR_CLOCK;  // imposta prima l'orologio
+  legacyClearPersisted();
+}
+
 // Traccia la versione firmware nelle NVS, senza più effettuare reset
 // automatici sul bump di FW_VERSION: il salvataggio (partita + registro)
 // resta intatto tra un aggiornamento e l'altro. Il reset completo è ora
@@ -820,6 +1159,7 @@ void performFactoryResetIfPending() {
   if (!pending) return;
   prefs.begin("petcube", false);  prefs.clear();  prefs.end();
   prefs.begin("registro", false); prefs.clear();  prefs.end();
+  prefs.begin("achv", false);     prefs.clear();  prefs.end();
   prefs.begin("petcube", false);
   prefs.putInt("fw_ver", FW_VERSION);
   prefs.end();
@@ -874,6 +1214,7 @@ void checkEvolution() {
   gState = STATE_EVOLVING;
   // Segna la nuova creatura nel registro
   registroMarkObtained(getCurrentName());
+  achvEvaluate();
   // Jingle evoluzione — evolveStartMs impostato DOPO i delay
   // così i 3 secondi partono quando lo schermo appare davvero
   tone(BUZZER,523,80); delay(90);
@@ -941,6 +1282,20 @@ void completePomodoroWork() {
   saveToNVS();
   pomoPhase      = POMO_RUN_REST;
   sessionStartMs = millis();  // impostato DOPO i tone per evitare underflow
+
+  // ── Achievements: sessione completata ──
+  lifetimeSessions++;
+  achvSaveCounters();
+  achvNoteSessionType(sessionType);
+  if (clockSet) {
+    long totalSec = (long)(millis() / 1000) + clockOffsetSec;
+    long sec = totalSec % 86400;
+    if (sec < 0) sec += 86400;
+    int hh = sec / 3600;
+    if (hh >= 4 && hh < 6) achvUnlock(ACHV_5AM_CLUB);
+    if (hh >= 0 && hh < 4) achvUnlock(ACHV_VAMPIRE_MODE);
+  }
+  achvEvaluate();
 }
 
 // Riposo completato: aumenta la felicità e chiude il pomodoro.
@@ -950,6 +1305,7 @@ void completePomodoroRest() {
   tone(BUZZER,1319,80); delay(90);
   tone(BUZZER,1047,200);
   saveToNVS();
+  achvNoteHap();
   sessionRunning = false;
   pomoPhase      = POMO_NONE;
   // Imposta lo stato in base all'orientamento corrente, non torna di default a IDLE
@@ -979,6 +1335,11 @@ void checkDecay(unsigned long now) {
   if (noSess) {
     statHAP = max(0, statHAP - DECAY_AMOUNT);
     saveToNVS();
+    achvNoteHap();
+  }
+  // 36h senza alcuna sessione → "Touch Deprived"
+  if (lastSessionMs > 0 && (now - lastSessionMs > 36UL*3600000)) {
+    achvNoteTouchDeprived();
   }
   lastDecayMs = now;
 }
@@ -1010,20 +1371,25 @@ void checkPoop(unsigned long now) {
     poopCount = 1;   // 1 mega conta come 1
     statHAP   = max(0, statHAP - POOP_MEGA_MALUS);
     tone(BUZZER, 150, 300);
+    achvUnlock(ACHV_IT_WAS_MEGA);
   } else if (poopMega) {
     // Il mega non è stato pulito: la creatura si ammala
     isSick        = true;
     sickStartMs   = now;
     lastSickDecayMs = now;
     sickEpisodes++;   // L4: tracking malattie per logica Light
+    lifetimeSickEpisodes++;
     statHAP = max(0, statHAP - POOP_SICK_MALUS);
     tone(BUZZER, 100, 500);
     saveToNVS();
     nextPoopMs = 0;
+    achvSaveCounters();
+    achvNoteHap();
     return;
   }
   nextPoopMs = now + randomPoopInterval();
   saveToNVS();
+  achvNoteHap();
 }
 
 void cleanPoop(unsigned long now) {
@@ -1033,6 +1399,9 @@ void cleanPoop(unsigned long now) {
   // millis() fresco DOPO i delay — evita che nextPoopMs cada già nel passato
   nextPoopMs = millis() + randomPoopInterval();
   saveToNVS();
+  poopCleanedCount++;
+  achvSaveCounters();
+  achvEvaluate();
 }
 
 // ── MALATTIA ──────────────────────────────────────────────────
@@ -1044,17 +1413,23 @@ void checkSick(unsigned long now) {
     statHAP = max(0, statHAP - SICK_HAP_DECAY);
     lastSickDecayMs = now;
     saveToNVS();
+    achvNoteHap();
   }
   // Morte dopo 2 ore
   if (sickStartMs > 0 && now - sickStartMs >= SICK_DEATH_MS) {
+    legacyRecordOnDeath();  // se evoStage==5: registra eredità + Leggenda
     gState = STATE_DEAD;
     gScreen = SCR_MAIN;
     tone(BUZZER, 200, 1000);
     saveToNVS();
+    deathsTotal++;
+    achvSaveCounters();
+    achvEvaluate();
   }
 }
 
 void healPet() {
+  bool wasCritical = isSick && statHAP < 20;
   isSick        = false;
   sickStartMs   = 0;
   lastSickDecayMs = 0;
@@ -1066,6 +1441,10 @@ void healPet() {
   tone(BUZZER, 1047, 80); delay(90);
   tone(BUZZER, 1319, 200);
   saveToNVS();
+  healCount++;
+  achvSaveCounters();
+  if (wasCritical) achvUnlock(ACHV_NOT_DEAD_YET);
+  achvNoteHap();
 }
 
 // ── FEED ──────────────────────────────────────────────────────
@@ -1194,6 +1573,13 @@ void drawBootScreen() {
   canvas.drawString("PetCube", 72, 40);
   canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
   canvas.drawString("v0.24", 98, 74);
+  // Badge permanente: numero di Leggende raggiunte (evoStage finale)
+  if (legendCount > 0) {
+    char lb[20]; sprintf(lb, "Leggende: %d", legendCount);
+    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_HAP, C_BG);
+    drawCenteredStr(88, lb);
+    canvas.setTextSize(1);
+  }
   canvas.drawFastHLine(30, 96, 180, C_DIM);
 
   // Opzione 0: continua
@@ -1220,6 +1606,14 @@ void drawSetupScreen(unsigned long now) {
   canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
   drawCenteredStr(18, "Scegli elemento:");
   canvas.drawFastHLine(20, 40, 200, C_DIM);
+
+  // Eredità genetica: feedback delle stat ricevute dall'ultima Leggenda
+  if (legacySTR > 0 || legacyINT > 0 || legacyENG > 0) {
+    char buf[40];
+    sprintf(buf, "Eredita: STR+%d INT+%d ENG+%d", legacySTR, legacyINT, legacyENG);
+    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_FG, C_BG);
+    drawCenteredStr(46, buf);
+  }
 
   int frame = (now / 400) % 2;
   const SprFrame& botaFrame = SPR_KINDLEKIN.idle[frame];
@@ -1301,6 +1695,14 @@ void drawMainScreen(unsigned long now) {
 #else
     drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, spr->sick[(now/600)%2]);
 #endif
+    // Stadio finale raggiunto: lascia un'eredità al prossimo baby
+    if (evoStage >= 5) {
+      canvas.setTextFont(2); canvas.setTextColor(C_HAP, C_BG);
+      drawCenteredStr(60, "LEGGENDA!");
+    }
+    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
+    drawCenteredStr(185, "B: nuovo inizio");
+    canvas.setTextSize(1);
     canvas.pushSprite(0, 0);
     return;
   }
@@ -1967,6 +2369,14 @@ void bleInit() {
   );
   bleResetChar->setCallbacks(new PetCubeResetCallbacks());
 
+  // Caratteristica ACHIEVEMENTS (read-only) — bitmask 64 bit (LE) degli
+  // achievement sbloccati, aggiornata da achvUnlock()
+  bleAchvChar = svc->createCharacteristic(
+    BLE_CHAR_ACHV_UUID,
+    BLECharacteristic::PROPERTY_READ
+  );
+  bleAchvChar->setValue((uint8_t*)&achvUnlocked, sizeof(achvUnlocked));
+
   svc->start();
 
   // Configura advertising una volta sola (l'aggiunta del Service UUID si accumulerebbe)
@@ -2097,6 +2507,8 @@ void onNotificationReceived(const NotifPacket& pkt) {
     Serial.printf("📬 Notifica ricevuta: source=%d cat=%d hash=%u preview=\"%s\"\n",
                   pkt.source, pkt.category, pkt.seedHash, pkt.seedPreview);
     pendingNotifBeep = true;  // Il main loop suonerà
+    achvNoteNotifSource(pkt.source);
+    if (pkt.category == CAT_CRISI) achvNoteCrisis();
   } else {
     Serial.println("⚠️  Coda notifiche piena, scarto.");
   }
@@ -2341,6 +2753,8 @@ ClashResult resolveClash() {
 
 // ── FINE BATTLE: applica conseguenze ───────────────────────
 void finalizeBattle() {
+  bool wasSickBeforeBattle = isSick;
+  bool prevBattleWasLoss   = lastBattleWasLoss;
   // Determina esito
   bool pet_won_battle;
   if (battlePetWins > battleEnemyWins) pet_won_battle = true;
@@ -2371,6 +2785,11 @@ void finalizeBattle() {
     // Registro: marca nemico come 'visto'
     markEnemyKnown(battleEnemyIdx);
     battleStreak++;
+    battlesWon++;
+    lifetimeBattlesWon++;
+    lastBattleWasLoss = false;
+    if (prevBattleWasLoss)   achvUnlock(ACHV_COMEBACK_ARC);
+    if (wasSickBeforeBattle) achvUnlock(ACHV_GLASS_CANNON);
     Serial.printf("🏆 VITTORIA! +5 HAP, +3 al dom_stat=%d (streak=%d)\n", dom_stat, battleStreak);
     tone(BUZZER, 1047, 100); delay(110);
     tone(BUZZER, 1319, 100); delay(110);
@@ -2383,15 +2802,22 @@ void finalizeBattle() {
       sickStartMs = millis();
       lastSickDecayMs = millis();
       sickEpisodes++;
+      lifetimeSickEpisodes++;
       Serial.printf("💀 SCONFITTA + malattia (chance %d%%)\n", pct);
     } else {
       Serial.printf("💀 SCONFITTA (chance malattia %d%% non scattata)\n", pct);
     }
     battleStreak = 0;
+    battlesLost++;
+    lifetimeBattlesLost++;
+    lastBattleWasLoss = true;
     tone(BUZZER, 300, 200); delay(220);
     tone(BUZZER, 200, 300);
   }
   saveToNVS();
+  achvSaveCounters();
+  achvNoteHap();
+  achvEvaluate();
 }
 
 void enterBattleStateMain() {
@@ -2669,6 +3095,9 @@ void setup() {
 
   bootHasData = loadFromNVS();
   registroLoad();
+  legacyLoad();
+  achvLoad();
+  achvEvaluate();
   loadEnemyKnown();
 
   // 📡 Inizializza BLE GATT server (advertising verrà avviato quando entriamo in Idle)
@@ -2765,6 +3194,7 @@ void loop() {
     gOrient = stableOri;
     if (gScreen == SCR_MAIN) enterStateFromOri(stableOri);
     wakeScreen(now);
+    achvNoteOrientation(stableOri);
   }
 
   // ── Bottoni ───────────────────────────────────────────────────
@@ -2783,22 +3213,8 @@ void loop() {
     }
     if (btnBPrev==HIGH && btnBNow==LOW) {
       if (bootChoice == 1 || !bootHasData) {
-        // Nuova partita: reset (mantiene il registro persistente)
-        prefs.begin("petcube",false); prefs.clear(); prefs.end();
-        // Riscrivo subito fw_ver dopo il clear della partita
-        prefs.begin("petcube",false); prefs.putInt("fw_ver", FW_VERSION); prefs.end();
-        statSTR=statINT=statENG=0; statHAP=50;
-        sessTotal=sessActive=0; evoStage=0; finalVariant=-1; lineVariant=0;
-        battlesWon=battlesLost=0; poopCount=0; poopMega=false;
-        isSick=false; sickStartMs=0;
-        sickEpisodes=0;
-        pomoPhase=POMO_NONE; pomodoroMs=POMO_DEFAULT_MS; restMs=REST_DEFAULT_MS;
-        lastSessionMs=0; lastDecayMs=now;
-        nextPoopMs = now + randomPoopInterval();
-        clockSet=false; clockOffsetSec=0;
-        clockEditH=12; clockEditM=0;
-        gState  = STATE_SETUP;
-        gScreen = SCR_CLOCK;  // imposta prima l'orologio
+        // Nuova partita: reset (mantiene il registro e l'eredità persistenti)
+        resetForNewGame(now);
       } else {
         // Continua: imposta orologio poi vai in gioco
         gState  = STATE_IDLE;
@@ -2874,17 +3290,23 @@ void loop() {
       saveToNVS();
       // Segna il Baby I di partenza nel registro
       registroMarkObtained(gElement == FIRE ? "Kindlekin" : "Drowsea");
+      achvNoteElement(gElement);
+      if (legacySTR > 0 || legacyINT > 0 || legacyENG > 0) achvUnlock(ACHV_NEPO_BABY);
+      achvEvaluate();
+      // L'eredità (se presente) è già stata applicata e consumata su NVS
+      // da resetForNewGame(); ora azzero anche il feedback a schermo.
+      legacySTR = legacyINT = legacyENG = 0;
       tone(BUZZER,784,80); delay(90); tone(BUZZER,1047,200);
       delay(50);
     }
     // C: niente
   }
   else if (gState == STATE_DEAD) {
-    // Tieni premuto A+C per 3 secondi per resettare
-    if (btnANow==LOW && btnCNow==LOW) {
-      // Reset
-      prefs.begin("petcube",false); prefs.clear(); prefs.end();
-      ESP.restart();
+    // B: torna alla scelta del baby (mantiene registro ed eredità)
+    if (btnBPrev==HIGH && btnBNow==LOW) {
+      resetForNewGame(now);
+      tone(BUZZER,784,80); delay(90); tone(BUZZER,1047,150);
+      delay(50);
     }
   }
   else if (gState == STATE_EVOLVING) {

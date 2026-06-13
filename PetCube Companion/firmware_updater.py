@@ -24,6 +24,7 @@ BLE_CHAR_VERSION_UUID   = "12345678-1234-5678-1234-56789abcdef2"
 BLE_CHAR_OTA_CTRL_UUID  = "12345678-1234-5678-1234-56789abcdef3"
 BLE_CHAR_OTA_DATA_UUID  = "12345678-1234-5678-1234-56789abcdef4"
 BLE_CHAR_RESET_UUID     = "12345678-1234-5678-1234-56789abcdef6"
+BLE_CHAR_ACHV_UUID      = "12345678-1234-5678-1234-56789abcdef7"
 
 # Comando RESET — wipe NVS completo (partita + registro) al prossimo boot
 RESET_CMD_FACTORY = 0x01
@@ -98,6 +99,17 @@ async def factory_reset_ble(address: str, timeout: float = 10.0) -> bool:
         except Exception as e:
             log.warning("Richiesta reset di fabbrica fallita: %s", e)
             return False
+
+
+async def read_achievements_ble(address: str, timeout: float = 10.0) -> Optional[int]:
+    """Legge la bitmask achievement dalla caratteristica ACHV (uint64 LE)."""
+    async with BleakClient(address, timeout=timeout) as client:
+        try:
+            data = await client.read_gatt_char(BLE_CHAR_ACHV_UUID)
+            return int.from_bytes(data[:8], "little")
+        except Exception as e:
+            log.warning("Lettura achievement BLE fallita: %s", e)
+            return None
 
 
 # ── GitHub Releases ──────────────────────────────────────────
