@@ -1064,6 +1064,7 @@ void updateDisplayRotation(Orientation ori) {
     case ORI_LEFT:        display.setRotation(1); break;
     case ORI_RIGHT:       display.setRotation(3); break;
     case ORI_UPSIDE_DOWN: display.setRotation(2); break;
+    case ORI_FACE_UP:     display.setRotation(2); break;
     default:              display.setRotation(0); break;
   }
 }
