@@ -99,6 +99,7 @@ Preferences prefs;
 #define BLE_CHAR_OTA_CTRL_UUID  "12345678-1234-5678-1234-56789abcdef3"
 #define BLE_CHAR_OTA_DATA_UUID  "12345678-1234-5678-1234-56789abcdef4"
 #define BLE_CHAR_IDENTITY_UUID  "12345678-1234-5678-1234-56789abcdef5"
+#define BLE_CHAR_RESET_UUID     "12345678-1234-5678-1234-56789abcdef6"
 #define BLE_CHAR_ACHV_UUID      "12345678-1234-5678-1234-56789abcdef7"
 #define DISP_SIZE            240
 #define SPR_SCALE            7    // sprite 16×16 → 112×112
@@ -416,6 +417,7 @@ BLECharacteristic* bleVersionChar  = nullptr;
 BLECharacteristic* bleOtaCtrlChar  = nullptr;
 BLECharacteristic* bleOtaDataChar  = nullptr;
 BLECharacteristic* bleIdentityChar = nullptr;
+BLECharacteristic* bleResetChar    = nullptr;
 BLECharacteristic* bleAchvChar     = nullptr;
 bool              bleAdvertising   = false;
 bool              bleClientConnected = false;
@@ -440,6 +442,7 @@ volatile OtaState    otaState         = OTA_IDLE;
 volatile uint32_t    otaBytesReceived = 0;
 volatile uint32_t    otaTotalSize     = 0;
 volatile bool        otaRebootPending = false;
+volatile bool        factoryResetPending = false;
 
 // Coda chunk OTA: la callback BLE accoda i dati ricevuti, il main loop li
 // scrive su flash (Update.write). Così la callback BLE resta velocissima
@@ -1130,24 +1133,37 @@ void resetForNewGame(unsigned long now) {
   legacyClearPersisted();
 }
 
-// Migrazione NVS: al primo boot di una nuova versione firmware,
-// resetta TUTTI i namespace (petcube + registro) per garantire coerenza dati.
-// Necessario perché la v12 introduce campi nuovi (sickEpisodes) e cambia la
-// semantica di altri (sessActive era ridondante).
-bool migrateNVSIfNeeded() {
+// Traccia la versione firmware nelle NVS, senza più effettuare reset
+// automatici sul bump di FW_VERSION: il salvataggio (partita + registro)
+// resta intatto tra un aggiornamento e l'altro. Il reset completo è ora
+// un'azione esplicita richiesta dalla companion (vedi performFactoryResetIfPending()).
+void trackFirmwareVersion() {
   prefs.begin("petcube", true);
   int storedVersion = prefs.getInt("fw_ver", 0);
   prefs.end();
-  if (storedVersion == FW_VERSION) return false;  // già migrato
-  // Reset totale: partita E registro
-  prefs.begin("petcube", false);  prefs.clear();  prefs.end();
-  prefs.begin("registro", false); prefs.clear();  prefs.end();
-  // Scrivo la nuova versione subito così non si ripete al prossimo boot
+  if (storedVersion == FW_VERSION) return;  // già aggiornato
   prefs.begin("petcube", false);
   prefs.putInt("fw_ver", FW_VERSION);
   prefs.end();
-  Serial.printf("NVS migrato a v%d (reset totale)\n", FW_VERSION);
-  return true;
+  Serial.printf("Firmware aggiornato a v%d (dati conservati)\n", FW_VERSION);
+}
+
+// Reset di fabbrica richiesto via BLE: il flag persiste nel namespace
+// "system" (separato da "petcube"/"registro") finché non viene eseguito
+// qui, al boot, prima di caricare qualsiasi dato.
+void performFactoryResetIfPending() {
+  prefs.begin("system", false);
+  bool pending = prefs.getBool("factory_reset", false);
+  if (pending) prefs.putBool("factory_reset", false);
+  prefs.end();
+  if (!pending) return;
+  prefs.begin("petcube", false);  prefs.clear();  prefs.end();
+  prefs.begin("registro", false); prefs.clear();  prefs.end();
+  prefs.begin("achv", false);     prefs.clear();  prefs.end();
+  prefs.begin("petcube", false);
+  prefs.putInt("fw_ver", FW_VERSION);
+  prefs.end();
+  Serial.println("Reset di fabbrica eseguito al boot.");
 }
 
 // ── ORIENTAMENTO ──────────────────────────────────────────────
@@ -2156,6 +2172,24 @@ class PetCubeIdentityCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
+// RESET characteristic:
+//   Write 0x01 → richiede un reset di fabbrica (wipe NVS completo) al
+//   prossimo boot, poi riavvia il cubo. Il wipe avviene in setup(),
+//   prima di caricare qualsiasi dato (vedi performFactoryResetIfPending()).
+class PetCubeResetCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* ch) override {
+    String val = ch->getValue();
+    if (val.length() == 0 || (uint8_t)val[0] != 0x01) return;
+    prefs.begin("system", false);
+    prefs.putBool("factory_reset", true);
+    prefs.end();
+    uint8_t ack = 0x01;
+    ch->setValue(&ack, 1);
+    factoryResetPending = true;  // riavvio gestito dal main loop
+    Serial.println("Reset di fabbrica richiesto via BLE — riavvio imminente");
+  }
+};
+
 // ── OTA Callbacks ────────────────────────────────────────────
 
 // CTRL characteristic:
@@ -2327,6 +2361,13 @@ void bleInit() {
   );
   bleIdentityChar->setCallbacks(new PetCubeIdentityCallbacks());
   bleIdentityChar->setValue(petTag.c_str());
+
+  // Caratteristica RESET — write + read per richiedere un reset di fabbrica
+  bleResetChar = svc->createCharacteristic(
+    BLE_CHAR_RESET_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ
+  );
+  bleResetChar->setCallbacks(new PetCubeResetCallbacks());
 
   // Caratteristica ACHIEVEMENTS (read-only) — bitmask 64 bit (LE) degli
   // achievement sbloccati, aggiornata da achvUnlock()
@@ -3046,8 +3087,11 @@ void setup() {
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
   lastMpuMs = millis();
 
-  // Migrazione NVS se siamo a una nuova versione firmware
-  migrateNVSIfNeeded();
+  // Reset di fabbrica richiesto dalla companion (se presente)
+  performFactoryResetIfPending();
+
+  // Traccia la versione firmware (senza reset automatici)
+  trackFirmwareVersion();
 
   bootHasData = loadFromNVS();
   registroLoad();
@@ -3073,8 +3117,9 @@ void setup() {
 }
 
 void loop() {
-  // Riavvio post-OTA: aspetta che il client BLE riceva l'ACK, poi reboot
-  if (otaRebootPending) {
+  // Riavvio post-OTA o post-richiesta reset di fabbrica: aspetta che il
+  // client BLE riceva l'ACK, poi reboot
+  if (otaRebootPending || factoryResetPending) {
     delay(500);
     ESP.restart();
   }

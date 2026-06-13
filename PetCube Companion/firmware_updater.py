@@ -23,7 +23,11 @@ BLE_SERVICE_UUID        = "12345678-1234-5678-1234-56789abcdef0"
 BLE_CHAR_VERSION_UUID   = "12345678-1234-5678-1234-56789abcdef2"
 BLE_CHAR_OTA_CTRL_UUID  = "12345678-1234-5678-1234-56789abcdef3"
 BLE_CHAR_OTA_DATA_UUID  = "12345678-1234-5678-1234-56789abcdef4"
+BLE_CHAR_RESET_UUID     = "12345678-1234-5678-1234-56789abcdef6"
 BLE_CHAR_ACHV_UUID      = "12345678-1234-5678-1234-56789abcdef7"
+
+# Comando RESET — wipe NVS completo (partita + registro) al prossimo boot
+RESET_CMD_FACTORY = 0x01
 
 # Comandi OTA CTRL
 OTA_CMD_START  = 0x01
@@ -81,6 +85,20 @@ async def read_fw_version_ble(address: str, timeout: float = 10.0) -> Optional[i
         except Exception as e:
             log.warning("Lettura versione BLE fallita: %s", e)
             return None
+
+
+async def factory_reset_ble(address: str, timeout: float = 10.0) -> bool:
+    """
+    Richiede al PetCube un reset di fabbrica (wipe completo di partita
+    e registro) e il riavvio. Il wipe avviene al successivo boot.
+    """
+    async with BleakClient(address, timeout=timeout) as client:
+        try:
+            await client.write_gatt_char(BLE_CHAR_RESET_UUID, bytes([RESET_CMD_FACTORY]))
+            return True
+        except Exception as e:
+            log.warning("Richiesta reset di fabbrica fallita: %s", e)
+            return False
 
 
 async def read_achievements_ble(address: str, timeout: float = 10.0) -> Optional[int]:
