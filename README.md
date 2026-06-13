@@ -406,8 +406,9 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 
 ## Changelog
 
-Firmware version history (`FW_VERSION` in `PetCube.ino`). Each bump triggers an automatic full NVS reset (save data migration) unless noted.
+Firmware version history (`FW_VERSION` in `PetCube.ino`). As of v26, a `FW_VERSION` bump no longer wipes saved data automatically — see the v26 entry below.
 
+- **v26**: Decoupled the NVS reset from the firmware version bump — updating the firmware now preserves the save game, registry, legends/legacy data, and achievements. A full factory reset (wiping `petcube`, `registro`, and `achv`) is now an explicit action: a new "🗑 Reset di fabbrica" button in the Companion's Aggiornamenti tab (with confirmation) writes a flag over a new read/write BLE RESET characteristic, the cube reboots, and wipes everything on the next boot before loading any data.
 - **v25**: Added the achievement system — 47 achievements tracked firmware-side as a bitmask (NVS namespace `achv`, not wiped by the version-bump reset), evaluated after every relevant gameplay event (evolutions, registry, legends, pomodoro sessions, care/illness, battles, notifications, orientation, time of day) and exposed read-only over a new BLE characteristic. The Companion app gained an "Achievements" tab showing all 47 entries grouped by category with locked/unlocked status, refreshed automatically on BLE connect or via a dedicated button. Also fixed the dead `battlesWon`/`battlesLost` per-life counters, which were tracked but never incremented.
 - **v24**: Fixed display rotation in the Work state (orientation Face up), which was showing upside-down — now correctly rotated 180°.
 - **v23**: Fixed orientation→state mapping (Normal=Sleep, Left=Training, Right=Study, Face up=Work, Upside down=DND, Face down=Idle) and the matching decay-suspension check. Added screen power saving: the display backlight turns off after 5 minutes of inactivity, waking on a BLE/Wi-Fi notification, a button press, or a state/orientation change; stays on during an active pomodoro/rest session.
