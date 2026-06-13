@@ -34,6 +34,7 @@
 #include "petcube_backgrounds.h"
 #include "petcube_battle.h"
 #include "petcube_notif_icons.h"
+#include "petcube_battery_icons.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -248,6 +249,15 @@ GameState    gState        = STATE_IDLE;
 Screen       gScreen       = SCR_MAIN;
 Orientation  gOrient       = ORI_NORMAL;
 Element      gElement      = FIRE;
+
+// ── BATTERIA ──────────────────────────────────────────────────
+// TODO: collegare la lettura reale (partitore di tensione su BAT+ verso
+// un pin ADC libero, ed eventualmente i pin CHRG/STDBY del TP4056 per lo
+// stato di carica). Per ora valori placeholder finché l'hardware non è
+// cablato.
+uint8_t batteryPercent  = 100;
+bool    batteryCharging = false;
+bool    batteryFull     = false;
 
 int statSTR   = 0, statINT  = 0, statENG = 0, statHAP = 50;
 int sessTotal = 0, sessActive = 0;   // sessActive: tracking sessioni completate (sessTotal include cancellate)
@@ -1071,6 +1081,16 @@ void enterStateFromOri(Orientation ori) {
   }
 }
 
+// ── Icona batteria ──────────────────────────────────────────────
+const uint16_t* getBatteryIconPx() {
+  if (batteryFull)          return ICON_BATTERY_FULL;
+  if (batteryCharging)      return ICON_BATTERY_CHARGING;
+  if (batteryPercent <= 25) return ICON_BATTERY_0_25;
+  if (batteryPercent <= 50) return ICON_BATTERY_26_50;
+  if (batteryPercent <= 75) return ICON_BATTERY_51_75;
+  return ICON_BATTERY_76_100;
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  DRAW FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
@@ -1418,6 +1438,12 @@ void drawMainScreen(unsigned long now) {
       canvas.drawString(cnt, bx+3, by);
       canvas.setTextSize(1);
     }
+  }
+
+  // ── Icona batteria ─────────────────────────────────────────────
+  if (useBg) {
+    int bx = (DISP_SIZE - ICON_BATTERY_SIZE) / 2, by = DISP_SIZE - ICON_BATTERY_SIZE - 4;
+    canvas.pushImage(bx, by, ICON_BATTERY_SIZE, ICON_BATTERY_SIZE, getBatteryIconPx(), (uint16_t)0x0000);
   }
 
   canvas.pushSprite(0, 0);
