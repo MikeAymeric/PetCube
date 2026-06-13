@@ -4,7 +4,7 @@
 
 PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise an original creature by completing real-life pomodoro sessions: tilt the cube **left to train**, **right to study**, **upside down to work**. A companion desktop app turns your real notifications (calendar events, emails, project deadlines) into in-game battles the pet must fight.
 
-**Status**: work in progress. Battle system, companion plugins (Calendar / Gmail / HacknPlan / Discord / Telegram), BLE transport, and OTA firmware updates are operational. Portable LiPo power and hardware assembly are in progress.
+**Status**: alpha. Battle system, companion plugins (Calendar / Gmail / HacknPlan / Discord / Telegram / WhatsApp), an achievement system (47 achievements), BLE transport, and OTA firmware updates are operational. Hardware is hand-soldered on two Electrocookie perfboards (breadboard form factor) with portable LiPo power, housed in a 3D-printed case (final touches in progress).
 
 ---
 
@@ -70,10 +70,10 @@ PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise a
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Companion app (PC, Python)                  │
 │                                                                  │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│   │ Calendar │  │  Gmail   │  │ HacknPlan│  │ Discord  │  (plugins)│
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘          │
-│        └─────────────┼──────────────┴──────────────┘             │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │ Calendar · Gmail · HacknPlan · Discord · Telegram ·      │   │
+│   │ WhatsApp                                  (plugins)       │   │
+│   └────────────────────────┬────────────────────────────────┘   │
 │                      ▼                                           │
 │               ┌──────────────┐                                   │
 │               │  Sentiment   │  (spaCy IT — categorizes event)   │
@@ -96,7 +96,7 @@ PetCube is a handheld virtual pet device built on the XIAO ESP32-S3. You raise a
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-External sources (Google Calendar, Gmail, HacknPlan REST, Discord, Telegram) → companion polls/listens to them → each new event is wrapped in a `NotifPacket` and sent via BLE GATT to the cube. The cube shows an icon on its idle screen; long-pressing **B** starts a battle where the enemy's stats and element derive deterministically from the notification's text and source.
+External sources (Google Calendar, Gmail, HacknPlan REST, Discord, Telegram, WhatsApp Web) → companion polls/listens to them → each new event is wrapped in a `NotifPacket` and sent via BLE GATT to the cube. The cube shows an icon on its idle screen; long-pressing **B** starts a battle where the enemy's stats and element derive deterministically from the notification's text and source.
 
 ---
 
@@ -119,11 +119,12 @@ PetCube/
 │   ├── plugin_manager.py           # Plugin lifecycle + dispatch
 │   ├── config_schema.py            # config.json schema, defaults, helpers
 │   ├── ble_sender.py               # BLE GATT client
-│   ├── firmware_updater.py         # Firmware version check + BLE/USB OTA flashing
+│   ├── firmware_updater.py         # Firmware version check + BLE/USB OTA flashing + factory reset
 │   ├── app_updater.py              # Companion self-update from GitHub Releases
 │   ├── playwright_env.py           # Persistent Playwright browser path (PyInstaller)
 │   ├── sentiment.py                # Italian text classifier
 │   ├── notification_packet.py      # Packet schema
+│   ├── achievements.py             # 47 achievement definitions + unlock/cache helpers
 │   ├── version.py                  # Companion app version
 │   ├── plugins/
 │   │   ├── base.py                 # Plugin base class + seen_ids persistence
@@ -131,11 +132,15 @@ PetCube/
 │   │   ├── discord_plugin.py
 │   │   ├── gmail_plugin.py
 │   │   ├── hacknplan_plugin.py
-│   │   └── telegram_plugin.py
+│   │   ├── telegram_plugin.py
+│   │   └── whatsapp_plugin.py      # WhatsApp Web via Playwright (Chromium)
 │   ├── setup_telegram_session.py   # One-time Telethon login (run once)
 │   ├── list_telegram_chats.py      # List chat IDs for monitor_chat_ids
+│   ├── install_playwright.bat      # One-time Chromium install for the packaged .exe
+│   ├── test_e2e.py                 # End-to-end smoke tests (no hardware required)
 │   ├── config.example.json         # Config template (copy to config.json)
 │   ├── config.json                 # User config (gitignored)
+│   ├── achievements_cache.json     # Last-known achievement bitmask (gitignored)
 │   ├── history/                    # Persisted seen_ids (gitignored)
 │   └── requirements.txt
 ├── Sprite/
@@ -174,7 +179,7 @@ The serial monitor (115200 baud) shows the boot sequence, plugin events received
 
 ### First-time setup on the cube
 
-On first boot the cube enters **boot screen** → asks **Continue / New Game** → asks to set the CEST clock (A=+1h, B=+1min, C=save). For a new game, it then prompts for the starter element (Fire or Water).
+On first boot the cube enters **boot screen** → asks **Continue / New Game**. For a new game, it then prompts for the starter element (Fire or Water). The clock is synced automatically over BLE the first time the Companion connects (see [Changelog v27](#changelog)) — until then, the clock screen shows "Sincronizzazione...".
 
 ---
 
@@ -188,6 +193,7 @@ On first boot the cube enters **boot screen** → asks **Continue / New Game** �
 - A HacknPlan API key (optional, for the HacknPlan plugin)
 - A Discord Bot token (optional, for the Discord plugin)
 - Telegram API credentials from [my.telegram.org](https://my.telegram.org) (optional, for the Telegram plugin)
+- Playwright + Chromium (optional, for the WhatsApp Web plugin)
 
 ### Install
 
@@ -252,6 +258,22 @@ The Telegram plugin uses [Telethon](https://docs.telethon.dev/) as a **user clie
 
 **Behaviour**: any DM is HIGH priority. Messages in `monitor_chat_ids` are NORMAL priority, upgraded to HIGH if your username is mentioned (`@yourusername`).
 
+### WhatsApp setup
+
+The WhatsApp plugin monitors unread chats on **WhatsApp Web** by driving a Chromium browser via [Playwright](https://playwright.dev/) — there's no official API, so it works the same way as opening web.whatsapp.com in a browser and keeping it logged in.
+
+1. Install Playwright's Chromium build:
+   - Running from source: `pip install playwright` (already in `requirements.txt`), then `playwright install chromium`.
+   - Running the packaged `.exe`: double-click `install_playwright.bat` once (browsers are installed to `%LOCALAPPDATA%\PetCube Companion\playwright-browsers`, since the exe's temp folder doesn't persist between runs).
+2. In `config.json` → `plugins.whatsapp`, set `enabled: true` and **`headless: false`** for the first run.
+3. Start the companion. A Chromium window opens on web.whatsapp.com — scan the QR code with your phone (WhatsApp → Linked devices → Link a device). The session is saved under `session_dir` (default `whatsapp_session`, gitignored).
+4. Stop the companion, set `headless: true` back in `config.json`, and restart. From now on the browser runs in the background and the session persists.
+5. Optional: set `monitor_chats` to a list of substrings (case-insensitive) to only get notified about specific chats/groups — DMs are always notified regardless of this filter. Leave empty to be notified about any chat with an unread badge.
+
+**Behaviour**: any DM is HIGH priority. Messages in groups/channels matching `monitor_chats` are NORMAL priority. The phone must stay connected to the internet (WhatsApp Web requirement).
+
+> **Note**: WhatsApp Web's DOM selectors may change with WhatsApp updates — if the plugin stops detecting messages, the selectors in `plugins/whatsapp_plugin.py` may need updating.
+
 ### Run
 
 CLI (no GUI):
@@ -265,6 +287,16 @@ GUI (dashboard + tray icon):
 ```powershell
 python gui.py
 ```
+
+### Companion GUI tabs
+
+| Tab | Purpose |
+|---|---|
+| **Dashboard** | Live status, connection state, recent notification log, start/stop the companion engine. |
+| **Impostazioni** | Edit `config.json` — device identity, plugin credentials/toggles, transport and logging settings. |
+| **Test** | Send fake notifications per source/category without waiting for a real event, to test the cube's reaction. |
+| **Achievements** | All 47 achievements grouped by category, with locked/unlocked status and progress. Refreshes automatically on BLE connect, or via the "🔄 Aggiorna via BLE" button. |
+| **Aggiornamenti** | Check/install firmware updates over BLE or USB, view Companion app version/update, and the "🗑 Reset di fabbrica" button (wipes save data, registry, and achievements on the cube after confirmation). |
 
 ---
 
@@ -331,6 +363,13 @@ If the cube is not in idle (e.g. in a session, sleep, or menu), the BLE advertis
       "session_file": "telegram_session",
       "poll_interval_sec": 30,
       "monitor_chat_ids": []
+    },
+    "whatsapp": {
+      "enabled": false,
+      "session_dir": "whatsapp_session",
+      "poll_interval_sec": 30,
+      "headless": true,
+      "monitor_chats": []
     }
   },
   "transport": {
@@ -347,7 +386,7 @@ If the cube is not in idle (e.g. in a session, sleep, or menu), the BLE advertis
 }
 ```
 
-> `config.example.json` also lists `whatsapp`, `slack`, `github` and `trello` plugin stubs (all `enabled: false`). They're reserved for future plugins (see [Roadmap](#roadmap)) and have no effect yet.
+> `config.example.json` also lists `slack`, `github` and `trello` plugin stubs (all `enabled: false`). They're reserved for future plugins (see [Roadmap](#roadmap)) and have no effect yet.
 
 > **Easier setup**: on first launch (no `config.json`), `python gui.py` opens a setup wizard that walks through enabling plugins and entering credentials instead of editing JSON by hand.
 
@@ -360,6 +399,7 @@ If the cube is not in idle (e.g. in a session, sleep, or menu), the BLE advertis
 | HacknPlan | 2 h | Work items assigned to me with `dueDate` within `lookahead_hours` (default 48). Not in `stage.status: completed`. Skips user stories. | Source shown as TRELLO in firmware (shared enum value). |
 | Discord | 10 s | **@mentions** of your personal account (`user_id`) in any server (priority HIGH). **@here / @everyone** in channels visible to the bot (priority NORMAL). **Messages in `monitor_channel_ids`** (priority NORMAL). | Requires `Message Content Intent` enabled in Discord Developer Portal. Events are real-time (WebSocket); the 10 s interval only controls how often the queue is drained. |
 | Telegram | 30 s | **Any DM** (priority HIGH). **Messages in `monitor_chat_ids`** (priority NORMAL, upgraded to HIGH on `@username` mention). | User client via Telethon (logs in as you, not a bot). Requires one-time `setup_telegram_session.py` login. Events are real-time; the interval only controls queue drain. |
+| WhatsApp | 30 s | **Any DM** (priority HIGH). **Chats/groups matching `monitor_chats`** (priority NORMAL). Empty `monitor_chats` = any chat with an unread badge. | WhatsApp Web via Playwright/Chromium. Requires one-time QR-code login (`headless: false`). DOM-selector based — may need updates if WhatsApp Web changes. |
 
 All plugins persist their seen-IDs to `history/<plugin>.json` (FIFO cap 5000) so the same event is not re-sent after a restart.
 
@@ -369,7 +409,7 @@ All plugins persist their seen-IDs to `history/<plugin>.json` (FIFO cap 5000) so
 
 1. **Notification arrives**: a plugin detects a new event, builds a `NotifPacket` with `source`, `priority`, `category` (computed by the spaCy sentiment classifier), and `seed` (the event text, capped at 50 chars).
 2. **BLE write**: the companion writes the packet to the cube's GATT characteristic.
-3. **Idle screen icon**: the cube shows a 12×12 pixel icon for the source (📅 Calendar, 📧 Gmail, 📋 HacknPlan, 💬 Discord, ✈️ Telegram).
+3. **Idle screen icon**: the cube shows a 32×32 color icon with a badge for the unread count, one per source (📅 Calendar, 📧 Gmail, 📋 HacknPlan, 💬 Discord, ✈️ Telegram, 📱 WhatsApp).
 4. **Player triggers battle**: long-pressing **B** for 5 seconds starts the encounter.
 5. **Enemy generation**: deterministic hash of `seed + source + category` selects a creature from the bestiary and assigns its stats. Element (Fire / Water) derives from the source; morale alignment (Light / Dark) derives from the sentiment category.
 6. **Battle**: best-of-3 *clashes*. Each clash is a real-time timing minigame where the player presses **B** when a moving cursor enters a critical window (its width depends on `seed` length).
@@ -386,20 +426,23 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 - Pomodoro session loop with orientation-based input
 - Battle system (firmware + GATT BLE transport)
 - OTA firmware updates over BLE, segmented/resumable across reconnects
-- Companion app with Calendar, Gmail, HacknPlan, Discord, and Telegram plugins
+- Factory reset over BLE, decoupled from firmware version bumps
+- Achievement system (47 achievements, firmware bitmask + Companion tab)
+- Companion app with Calendar, Gmail, HacknPlan, Discord, Telegram, and WhatsApp plugins
 - Italian sentiment classifier (spaCy `it_core_news_sm`)
 - GUI: dark dashboard + tray icon + live log + setup wizard + config editor
 - Companion self-update from GitHub Releases
+- Hardware assembled: all components hand-soldered on two Electrocookie perfboards (breadboard form factor) with portable LiPo power, 3D-printed case
+- Automatic clock sync from the Companion's PC clock over BLE (no more manual time-setting)
 
 ### In progress
 - GUI test console with fake-notification buttons per source/category
-- Hardware assembly: solder all components on breadboard/PCB
+- Final adjustments to the 3D-printed case
 
 ### Future
-- 3D-printed case
 - WiFi transport fallback for when BLE is unavailable
-- PCB instead of breadboard
-- Additional plugins: WhatsApp, Instagram, Slack, GitHub, Trello
+- PCB instead of perfboard
+- Additional plugins: Instagram, Slack, GitHub, Trello
 - Optional: asynchronous PvP — trade battle-ready creatures between cubes via cloud
 
 ---
@@ -408,6 +451,7 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 
 Firmware version history (`FW_VERSION` in `PetCube.ino`). As of v26, a `FW_VERSION` bump no longer wipes saved data automatically — see the v26 entry below.
 
+- **v27**: Removed the manual clock-setting screen. The cube now syncs its clock automatically from the Companion's PC clock over a new write-only BLE TIME characteristic (seconds since local midnight), sent on every BLE connection. Until the first sync after boot, the clock screen shows "Sincronizzazione...".
 - **v26**: Decoupled the NVS reset from the firmware version bump — updating the firmware now preserves the save game, registry, legends/legacy data, and achievements. A full factory reset (wiping `petcube`, `registro`, and `achv`) is now an explicit action: a new "🗑 Reset di fabbrica" button in the Companion's Aggiornamenti tab (with confirmation) writes a flag over a new read/write BLE RESET characteristic, the cube reboots, and wipes everything on the next boot before loading any data.
 - **v25**: Added the achievement system — 47 achievements tracked firmware-side as a bitmask (NVS namespace `achv`, not wiped by the version-bump reset), evaluated after every relevant gameplay event (evolutions, registry, legends, pomodoro sessions, care/illness, battles, notifications, orientation, time of day) and exposed read-only over a new BLE characteristic. The Companion app gained an "Achievements" tab showing all 47 entries grouped by category with locked/unlocked status, refreshed automatically on BLE connect or via a dedicated button. Also fixed the dead `battlesWon`/`battlesLost` per-life counters, which were tracked but never incremented.
 - **v24**: Fixed display rotation in the Work state (orientation Face up), which was showing upside-down — now correctly rotated 180°.
