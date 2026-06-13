@@ -35,6 +35,7 @@ except ImportError:
 from companion_engine import CompanionEngine, load_config
 import firmware_updater as fw_upd
 import app_updater as app_upd
+import achievements as achv
 import setup_wizard
 from config_schema import (
     PLUGIN_FIELDS as _PLUGIN_FIELDS,
@@ -170,6 +171,13 @@ class CompanionGUI(ctk.CTk):
         self._fw_lbl_progress: Optional[ctk.CTkLabel] = None
         self._fw_log: Optional[ctk.CTkTextbox] = None
         self._fw_port_menu: Optional[ctk.CTkOptionMenu] = None
+
+        # Achievements tab state
+        self._achv_mask: int = achv.load_cached_mask()
+        self._achv_rows: dict[int, dict] = {}
+        self._achv_lbl_progress: Optional[ctk.CTkLabel] = None
+        self._achv_lbl_status: Optional[ctk.CTkLabel] = None
+        self._achv_btn_refresh: Optional[ctk.CTkButton] = None
 
         # Companion app self-update state
         self._app_release_info: Optional[app_upd.AppReleaseInfo] = None
@@ -342,11 +350,13 @@ class CompanionGUI(ctk.CTk):
         dash_tab = tabview.add("Dashboard")
         settings_tab = tabview.add("Impostazioni")
         test_tab = tabview.add("Test")
+        achv_tab = tabview.add("Achievements")
         fw_tab = tabview.add("Aggiornamenti")
 
         self._build_dashboard_tab(dash_tab)
         self._build_settings_tab(settings_tab)
         self._build_test_tab(test_tab)
+        self._build_achievements_tab(achv_tab)
         self._build_firmware_tab(fw_tab)
 
         tabview.set("Dashboard")
@@ -917,6 +927,161 @@ class CompanionGUI(ctk.CTk):
         self.after(4000, lambda: self._test_feedback_lbl.configure(
             text="", text_color=TEXT_DIM
         ) if self._test_feedback_lbl.winfo_exists() else None)
+
+    # ═══════════════════════════════════════════════════════════
+    # Achievements Tab
+    # ═══════════════════════════════════════════════════════════
+
+    def _build_achievements_tab(self, parent) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        # ── Header: refresh button + progress ──
+        header_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        header_card.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        header_card.grid_columnconfigure(2, weight=1)
+
+        ctk.CTkLabel(
+            header_card, text="ACHIEVEMENTS",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=TEXT_DIM, anchor="w",
+        ).grid(row=0, column=0, columnspan=3, sticky="ew", padx=15, pady=(10, 6))
+
+        self._achv_btn_refresh = ctk.CTkButton(
+            header_card, text="🔄  Aggiorna via BLE", width=180,
+            fg_color=ACCENT, hover_color=ACCENT_HOVER, font=ctk.CTkFont(size=12),
+            command=self._achv_on_refresh,
+        )
+        self._achv_btn_refresh.grid(row=1, column=0, padx=(12, 8), pady=(0, 10), sticky="w")
+
+        self._achv_lbl_progress = ctk.CTkLabel(
+            header_card, text="", text_color=TEXT_PRIMARY,
+            font=ctk.CTkFont(size=13, weight="bold"), anchor="w",
+        )
+        self._achv_lbl_progress.grid(row=1, column=1, padx=4, pady=(0, 10), sticky="w")
+
+        self._achv_lbl_status = ctk.CTkLabel(
+            header_card, text="", text_color=TEXT_DIM,
+            font=ctk.CTkFont(size=12), anchor="w",
+        )
+        self._achv_lbl_status.grid(row=1, column=2, padx=(20, 12), pady=(0, 10), sticky="e")
+
+        # ── Lista achievement, raggruppati per categoria ──
+        scroll = ctk.CTkScrollableFrame(parent, fg_color=BG_PRIMARY, corner_radius=0)
+        scroll.grid(row=1, column=0, sticky="nsew")
+        scroll.grid_columnconfigure(0, weight=1)
+
+        row = 0
+        for category in achv.CATEGORY_ORDER:
+            ctk.CTkLabel(
+                scroll, text=category.upper(),
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color=TEXT_DIM, anchor="w",
+            ).grid(row=row, column=0, sticky="ew", padx=4, pady=(12 if row else 0, 4))
+            row += 1
+
+            for a in achv.ACHIEVEMENTS:
+                if a.category != category:
+                    continue
+                card = ctk.CTkFrame(scroll, fg_color=BG_SECONDARY, corner_radius=8)
+                card.grid(row=row, column=0, sticky="ew", pady=(0, 4))
+                card.grid_columnconfigure(1, weight=1)
+
+                icon_lbl = ctk.CTkLabel(
+                    card, text=a.icon, font=ctk.CTkFont(size=22), width=40,
+                )
+                icon_lbl.grid(row=0, column=0, rowspan=2, padx=(12, 10), pady=8)
+
+                title_lbl = ctk.CTkLabel(
+                    card, text=a.title, font=ctk.CTkFont(size=13, weight="bold"),
+                    text_color=TEXT_DIM, anchor="w",
+                )
+                title_lbl.grid(row=0, column=1, sticky="ew", padx=(0, 10), pady=(8, 0))
+
+                desc_lbl = ctk.CTkLabel(
+                    card, text=a.description, font=ctk.CTkFont(size=11),
+                    text_color=TEXT_DIM, anchor="w",
+                )
+                desc_lbl.grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=(0, 8))
+
+                status_lbl = ctk.CTkLabel(
+                    card, text="🔒", font=ctk.CTkFont(size=16), width=30,
+                )
+                status_lbl.grid(row=0, column=2, rowspan=2, padx=(0, 12))
+
+                self._achv_rows[a.id] = {
+                    "card": card, "icon": icon_lbl, "title": title_lbl,
+                    "desc": desc_lbl, "status": status_lbl,
+                }
+                row += 1
+
+        self._achv_refresh_display()
+
+    def _achv_refresh_display(self) -> None:
+        """Aggiorna l'aspetto di ogni riga in base alla bitmask corrente."""
+        for achv_id, widgets in self._achv_rows.items():
+            unlocked = achv.is_unlocked(self._achv_mask, achv_id)
+            if unlocked:
+                widgets["icon"].configure(text_color=TEXT_PRIMARY)
+                widgets["title"].configure(text_color=TEXT_PRIMARY)
+                widgets["desc"].configure(text_color=TEXT_DIM)
+                widgets["status"].configure(text="✅", text_color=SUCCESS)
+            else:
+                widgets["icon"].configure(text_color=TEXT_DIM)
+                widgets["title"].configure(text_color=TEXT_DIM)
+                widgets["desc"].configure(text_color=TEXT_DIM)
+                widgets["status"].configure(text="🔒", text_color=TEXT_DIM)
+
+        if self._achv_lbl_progress:
+            count = achv.unlocked_count(self._achv_mask)
+            self._achv_lbl_progress.configure(
+                text=f"🏆  {count} / {achv.ACHIEVEMENTS_COUNT} sbloccati"
+            )
+
+    def _achv_on_refresh(self) -> None:
+        if self._achv_btn_refresh:
+            self._achv_btn_refresh.configure(state="disabled", text="Scansione...")
+        if self._achv_lbl_status:
+            self._achv_lbl_status.configure(text="Scansione BLE in corso...", text_color=TEXT_DIM)
+
+        def run():
+            loop = asyncio.new_event_loop()
+            try:
+                addr = loop.run_until_complete(fw_upd.scan_for_petcube(timeout=10.0))
+                mask = loop.run_until_complete(fw_upd.read_achievements_ble(addr)) if addr else None
+                self.after(0, lambda: self._achv_refresh_done(addr, mask))
+            except Exception as e:
+                self.after(0, lambda: self._achv_refresh_done(None, None, str(e)))
+            finally:
+                loop.close()
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _achv_refresh_done(self, addr: Optional[str], mask: Optional[int], err: str = "") -> None:
+        if self._achv_btn_refresh:
+            self._achv_btn_refresh.configure(state="normal", text="🔄  Aggiorna via BLE")
+        if not self._achv_lbl_status:
+            return
+        if err:
+            self._achv_lbl_status.configure(text=f"Errore: {err}", text_color=ERROR)
+            return
+        if mask is None:
+            self._achv_lbl_status.configure(
+                text="Nessun PetCube trovato o caratteristica non disponibile (FW < v25?)",
+                text_color=ERROR,
+            )
+            return
+        self._on_achv_mask_update(mask)
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._achv_lbl_status.configure(text=f"Aggiornato {ts}  ({addr})", text_color=SUCCESS)
+
+    def _on_achv_mask_update(self, mask: int) -> None:
+        """Chiamato (sul thread GUI) quando una nuova bitmask è disponibile."""
+        if mask == self._achv_mask:
+            return
+        self._achv_mask = mask
+        achv.save_cached_mask(mask)
+        self._achv_refresh_display()
 
     # ═══════════════════════════════════════════════════════════
     # Firmware Tab
@@ -1499,7 +1664,7 @@ class CompanionGUI(ctk.CTk):
     def _on_start(self) -> None:
         if self.engine and self.engine.is_running():
             return
-        self.engine = CompanionEngine(self.config_data)
+        self.engine = CompanionEngine(self.config_data, on_achievements_update=self._on_achv_ble_event)
         self.engine.add_log_listener(self._on_log_record)
         self.engine.add_event_listener(self._on_event)
         self.engine.start()
@@ -1551,6 +1716,10 @@ class CompanionGUI(ctk.CTk):
     def _on_event(self, pkt: NotifPacket, send_ok: bool) -> None:
         self.event_queue.put(("notif", pkt, send_ok))
 
+    def _on_achv_ble_event(self, mask: int) -> None:
+        """Callback dal thread engine quando la connessione BLE legge la bitmask achievement."""
+        self.event_queue.put(("achv", mask))
+
     @staticmethod
     def _log_broadcaster_format(record: logging.LogRecord) -> str:
         ts = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
@@ -1579,6 +1748,8 @@ class CompanionGUI(ctk.CTk):
                     self._append_log_line(item[1], color=item[2])
                 elif kind == "notif":
                     self._append_notification(item[1], item[2])
+                elif kind == "achv":
+                    self._on_achv_mask_update(item[1])
         except queue.Empty:
             pass
         finally:

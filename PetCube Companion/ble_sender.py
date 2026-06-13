@@ -12,6 +12,7 @@ non ancora implementato — sarà v0.10).
 import asyncio
 import logging
 import time
+from typing import Callable, Optional
 
 from notification_packet import NotifPacket, PACKET_SIZE
 from config_schema import device_tag
@@ -23,6 +24,10 @@ logger = logging.getLogger(__name__)
 # riceve il tag multiplayer "username#12345" assegnato dalla Companion App.
 DEFAULT_IDENTITY_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef5"
 
+# Characteristic ACHV del firmware (vedi PetCube.ino BLE_CHAR_ACHV_UUID):
+# bitmask uint64 little-endian di sblocco achievement, read-only.
+DEFAULT_ACHV_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef7"
+
 
 class BLESender:
     """
@@ -33,11 +38,15 @@ class BLESender:
 
     def __init__(self, device_name: str, service_uuid: str, char_uuid: str,
                  scan_timeout_sec: int = 10,
-                 identity_char_uuid: str = DEFAULT_IDENTITY_CHAR_UUID):
+                 identity_char_uuid: str = DEFAULT_IDENTITY_CHAR_UUID,
+                 achv_char_uuid: str = DEFAULT_ACHV_CHAR_UUID,
+                 on_achievements: Optional[Callable[[int], None]] = None):
         self.device_name = device_name
         self.service_uuid = service_uuid
         self.char_uuid = char_uuid
         self.identity_char_uuid = identity_char_uuid
+        self.achv_char_uuid = achv_char_uuid
+        self.on_achievements = on_achievements
         self.scan_timeout = scan_timeout_sec
         self._client = None
         self._lock = asyncio.Lock()
@@ -70,6 +79,7 @@ class BLESender:
             logger.info("Connesso al PetCube via BLE.")
             self._identity_sent = False
             await self._send_identity_if_needed()
+            await self._read_achievements_if_needed()
             return True
         except Exception as e:
             logger.error(f"Connessione fallita: {e}")
@@ -96,6 +106,20 @@ class BLESender:
             logger.info(f"📡 Tag identità inviato al cubo: {self._identity_tag!r}")
         except Exception as e:
             logger.warning(f"Invio tag identità fallito: {e}")
+
+    async def _read_achievements_if_needed(self) -> None:
+        """Legge la bitmask achievement e notifica la callback (best-effort)."""
+        if not self.on_achievements:
+            return
+        if not (self._client and self._client.is_connected):
+            return
+        try:
+            data = await self._client.read_gatt_char(self.achv_char_uuid)
+            mask = int.from_bytes(data[:8], "little")
+            self.on_achievements(mask)
+            logger.info(f"🏆 Achievement bitmask letta via BLE: {mask:#x}")
+        except Exception as e:
+            logger.debug(f"Lettura achievement BLE fallita (FW < v25?): {e}")
 
     async def send(self, packet: NotifPacket) -> bool:
         """Invia un pacchetto. Ritorna True se inviato con successo."""
@@ -167,7 +191,7 @@ class Sender:
     Ha anche una modalità 'mock' per testing senza hardware reale.
     """
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, on_achievements: Optional[Callable[[int], None]] = None):
         device_cfg = config.get("device", {})
         transport_cfg = config.get("transport", {})
         self.prefer = transport_cfg.get("prefer", "ble")
@@ -182,6 +206,7 @@ class Sender:
                 service_uuid=device_cfg.get("ble_service_uuid", ""),
                 char_uuid=device_cfg.get("ble_char_uuid", ""),
                 scan_timeout_sec=transport_cfg.get("ble_scan_timeout_sec", 10),
+                on_achievements=on_achievements,
             )
             # Invia il tag solo se un device_id è già stato assegnato (wizard/impostazioni):
             # evita di propagare al cubo un ID generato al volo e non persistito.

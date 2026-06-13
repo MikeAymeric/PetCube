@@ -91,8 +91,9 @@ class CompanionEngine:
     Una volta fermato, può essere riavviato (start() di nuovo).
     """
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, on_achievements_update: Optional[Callable[[int], None]] = None):
         self.config = config
+        self._on_achievements_update = on_achievements_update
         self._event_listeners: list[EventListener] = []
         self._log_broadcaster = _LogBroadcaster()
         self._log_broadcaster.setLevel(logging.INFO)
@@ -191,7 +192,7 @@ class CompanionEngine:
         """Logica principale del motore (in event loop dedicato)."""
         self._stop_event = asyncio.Event()
         self._pending_queue = asyncio.Queue()
-        self._sender = Sender(self.config)
+        self._sender = Sender(self.config, on_achievements=self._on_achievements_update)
         self._plugin_manager = PluginManager(self.config, self._on_notification)
 
         # Snapshot iniziale dello status
