@@ -89,7 +89,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           22   // bump al cambio struttura NVS
+#define FW_VERSION           23   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -1177,7 +1177,7 @@ void drawBootScreen() {
   canvas.setTextFont(4); canvas.setTextColor(C_CYAN, C_BG);
   canvas.drawString("PetCube", 72, 40);
   canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
-  canvas.drawString("v0.22", 98, 74);
+  canvas.drawString("v0.23", 98, 74);
   canvas.drawFastHLine(30, 96, 180, C_DIM);
 
   // Opzione 0: continua
@@ -2604,7 +2604,7 @@ void setup() {
   canvas.setTextColor(C_FG, C_BG);
   canvas.drawString("PetCube", 80, 100);
   canvas.setTextFont(2);
-  canvas.drawString("v0.22  Loading...", 55, 135);
+  canvas.drawString("v0.23  Loading...", 55, 135);
   canvas.pushSprite(0, 0);
 
   if (!mpu.begin()) {
