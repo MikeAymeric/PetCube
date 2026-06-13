@@ -89,7 +89,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           22   // bump al cambio struttura NVS
+#define FW_VERSION           23   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -262,6 +262,12 @@ unsigned long lastSessionMs   = 0;
 unsigned long lastDecayMs     = 0;
 unsigned long evolveStartMs   = 0;
 
+// ── SCREEN SLEEP (risparmio energetico) ─────────────────────────
+const unsigned long SCREEN_TIMEOUT_MS = 5UL * 60UL * 1000UL;  // 5 minuti
+const uint8_t       SCREEN_BRIGHTNESS = 255;
+bool          screenOn        = true;
+unsigned long lastActivityMs  = 0;
+
 // Pomodoro
 PomoPhase     pomoPhase   = POMO_NONE;
 unsigned long pomodoroMs  = POMO_DEFAULT_MS;
@@ -379,6 +385,16 @@ bool clockEditing = false;
 
 // Bottoni
 bool btnAPrev = HIGH, btnBPrev = HIGH, btnCPrev = HIGH;
+
+// ── Screen sleep ──────────────────────────────────────────────
+// Segna attività e riaccende lo schermo se era spento.
+void wakeScreen(unsigned long now) {
+  lastActivityMs = now;
+  if (!screenOn) {
+    display.setBrightness(SCREEN_BRIGHTNESS);
+    screenOn = true;
+  }
+}
 
 // Isteresi orientamento — richiede N letture consecutive prima di cambiare
 #define ORI_HYSTERESIS 8
@@ -940,8 +956,8 @@ void cancelPomodoro() {
 
 // ── DECAY ─────────────────────────────────────────────────────
 void checkDecay(unsigned long now) {
-  // Sospeso in Sleep (cubo con schermo verso l'alto)
-  if (gOrient == ORI_FACE_UP) { lastDecayMs = now; return; }
+  // Sospeso in Sleep (cubo in posizione normale)
+  if (gOrient == ORI_NORMAL) { lastDecayMs = now; return; }
   if (lastDecayMs == 0) { lastDecayMs = now; return; }
   if (now - lastDecayMs < DECAY_WINDOW_MS) return;
   bool noSess = lastSessionMs == 0 || (now - lastSessionMs >= DECAY_WINDOW_MS);
@@ -1062,12 +1078,12 @@ void enterStateFromOri(Orientation ori) {
   }
   updateDisplayRotation(ori);
   switch (ori) {
-    case ORI_NORMAL:      gState = STATE_IDLE;     break;
+    case ORI_NORMAL:      gState = STATE_SLEEP;     break;
     case ORI_LEFT:        gState = STATE_TRAINING;  break;
     case ORI_RIGHT:       gState = STATE_STUDY;     break;
-    case ORI_FACE_UP:     gState = STATE_SLEEP;     break;
-    case ORI_UPSIDE_DOWN: gState = STATE_WORK;      break;
-    case ORI_FACE_DOWN:   gState = STATE_DND;       break;
+    case ORI_FACE_UP:     gState = STATE_WORK;      break;
+    case ORI_UPSIDE_DOWN: gState = STATE_DND;       break;
+    case ORI_FACE_DOWN:   gState = STATE_IDLE;      break;
   }
 }
 
@@ -1161,7 +1177,7 @@ void drawBootScreen() {
   canvas.setTextFont(4); canvas.setTextColor(C_CYAN, C_BG);
   canvas.drawString("PetCube", 72, 40);
   canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
-  canvas.drawString("v0.22", 98, 74);
+  canvas.drawString("v0.23", 98, 74);
   canvas.drawFastHLine(30, 96, 180, C_DIM);
 
   // Opzione 0: continua
@@ -2573,6 +2589,7 @@ void setup() {
 
   display.init();
   display.setRotation(0);
+  display.setBrightness(SCREEN_BRIGHTNESS);
   display.fillScreen(C_BG);
   canvas.setColorDepth(16);
   canvas.createSprite(DISP_SIZE, DISP_SIZE);
@@ -2587,7 +2604,7 @@ void setup() {
   canvas.setTextColor(C_FG, C_BG);
   canvas.drawString("PetCube", 80, 100);
   canvas.setTextFont(2);
-  canvas.drawString("v0.22  Loading...", 55, 135);
+  canvas.drawString("v0.23  Loading...", 55, 135);
   canvas.pushSprite(0, 0);
 
   if (!mpu.begin()) {
@@ -2618,6 +2635,7 @@ void setup() {
   gScreen = SCR_BOOT;
   gState  = STATE_IDLE;  // stato neutro finché l'utente sceglie
   lastDecayMs = millis();
+  lastActivityMs = millis();
 
   delay(600);
   tone(BUZZER,523,80); delay(90);
@@ -2701,12 +2719,16 @@ void loop() {
   if (stableOri != gOrient) {
     gOrient = stableOri;
     if (gScreen == SCR_MAIN) enterStateFromOri(stableOri);
+    wakeScreen(now);
   }
 
   // ── Bottoni ───────────────────────────────────────────────────
   bool btnANow = digitalRead(BTN_A);
   bool btnBNow = digitalRead(BTN_B);
   bool btnCNow = digitalRead(BTN_C);
+  if ((btnAPrev==HIGH && btnANow==LOW) || (btnBPrev==HIGH && btnBNow==LOW) || (btnCPrev==HIGH && btnCNow==LOW)) {
+    wakeScreen(now);
+  }
 
   if (gScreen == SCR_BOOT) {
     if (btnAPrev==HIGH && btnANow==LOW) {
@@ -3007,9 +3029,25 @@ void loop() {
   // accodata e gestibile una volta tornati in Idle.
   if (pendingNotifBeep) {
     pendingNotifBeep = false;
+    wakeScreen(now);
     if (gState != STATE_SLEEP && gState != STATE_DND) {
       tone(BUZZER, 1200, 80);
     }
+  }
+
+  // ── Screen sleep (risparmio energetico) ─────────────────────────
+  // Spegne il backlight dopo SCREEN_TIMEOUT_MS di inattività, a meno
+  // che non sia in corso un pomodoro/riposo. wakeScreen() lo riaccende
+  // su notifica BLE/Wi-Fi, pressione di un tasto o cambio di stato.
+  if (sessionRunning) {
+    lastActivityMs = now;
+    if (!screenOn) {
+      display.setBrightness(SCREEN_BRIGHTNESS);
+      screenOn = true;
+    }
+  } else if (screenOn && now - lastActivityMs >= SCREEN_TIMEOUT_MS) {
+    display.setBrightness(0);
+    screenOn = false;
   }
 
   // ── Display ───────────────────────────────────────────────────
