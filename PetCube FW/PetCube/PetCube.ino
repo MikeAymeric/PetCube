@@ -262,6 +262,12 @@ unsigned long lastSessionMs   = 0;
 unsigned long lastDecayMs     = 0;
 unsigned long evolveStartMs   = 0;
 
+// ── SCREEN SLEEP (risparmio energetico) ─────────────────────────
+const unsigned long SCREEN_TIMEOUT_MS = 5UL * 60UL * 1000UL;  // 5 minuti
+const uint8_t       SCREEN_BRIGHTNESS = 255;
+bool          screenOn        = true;
+unsigned long lastActivityMs  = 0;
+
 // Pomodoro
 PomoPhase     pomoPhase   = POMO_NONE;
 unsigned long pomodoroMs  = POMO_DEFAULT_MS;
@@ -379,6 +385,16 @@ bool clockEditing = false;
 
 // Bottoni
 bool btnAPrev = HIGH, btnBPrev = HIGH, btnCPrev = HIGH;
+
+// ── Screen sleep ──────────────────────────────────────────────
+// Segna attività e riaccende lo schermo se era spento.
+void wakeScreen(unsigned long now) {
+  lastActivityMs = now;
+  if (!screenOn) {
+    display.setBrightness(SCREEN_BRIGHTNESS);
+    screenOn = true;
+  }
+}
 
 // Isteresi orientamento — richiede N letture consecutive prima di cambiare
 #define ORI_HYSTERESIS 8
@@ -2573,6 +2589,7 @@ void setup() {
 
   display.init();
   display.setRotation(0);
+  display.setBrightness(SCREEN_BRIGHTNESS);
   display.fillScreen(C_BG);
   canvas.setColorDepth(16);
   canvas.createSprite(DISP_SIZE, DISP_SIZE);
@@ -2618,6 +2635,7 @@ void setup() {
   gScreen = SCR_BOOT;
   gState  = STATE_IDLE;  // stato neutro finché l'utente sceglie
   lastDecayMs = millis();
+  lastActivityMs = millis();
 
   delay(600);
   tone(BUZZER,523,80); delay(90);
@@ -2701,12 +2719,16 @@ void loop() {
   if (stableOri != gOrient) {
     gOrient = stableOri;
     if (gScreen == SCR_MAIN) enterStateFromOri(stableOri);
+    wakeScreen(now);
   }
 
   // ── Bottoni ───────────────────────────────────────────────────
   bool btnANow = digitalRead(BTN_A);
   bool btnBNow = digitalRead(BTN_B);
   bool btnCNow = digitalRead(BTN_C);
+  if ((btnAPrev==HIGH && btnANow==LOW) || (btnBPrev==HIGH && btnBNow==LOW) || (btnCPrev==HIGH && btnCNow==LOW)) {
+    wakeScreen(now);
+  }
 
   if (gScreen == SCR_BOOT) {
     if (btnAPrev==HIGH && btnANow==LOW) {
@@ -3007,9 +3029,25 @@ void loop() {
   // accodata e gestibile una volta tornati in Idle.
   if (pendingNotifBeep) {
     pendingNotifBeep = false;
+    wakeScreen(now);
     if (gState != STATE_SLEEP && gState != STATE_DND) {
       tone(BUZZER, 1200, 80);
     }
+  }
+
+  // ── Screen sleep (risparmio energetico) ─────────────────────────
+  // Spegne il backlight dopo SCREEN_TIMEOUT_MS di inattività, a meno
+  // che non sia in corso un pomodoro/riposo. wakeScreen() lo riaccende
+  // su notifica BLE/Wi-Fi, pressione di un tasto o cambio di stato.
+  if (sessionRunning) {
+    lastActivityMs = now;
+    if (!screenOn) {
+      display.setBrightness(SCREEN_BRIGHTNESS);
+      screenOn = true;
+    }
+  } else if (screenOn && now - lastActivityMs >= SCREEN_TIMEOUT_MS) {
+    display.setBrightness(0);
+    screenOn = false;
   }
 
   // ── Display ───────────────────────────────────────────────────
