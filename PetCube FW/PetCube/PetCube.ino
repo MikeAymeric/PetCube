@@ -89,7 +89,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           26   // bump al cambio struttura NVS
+#define FW_VERSION           27   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -101,6 +101,7 @@ Preferences prefs;
 #define BLE_CHAR_IDENTITY_UUID  "12345678-1234-5678-1234-56789abcdef5"
 #define BLE_CHAR_RESET_UUID     "12345678-1234-5678-1234-56789abcdef6"
 #define BLE_CHAR_ACHV_UUID      "12345678-1234-5678-1234-56789abcdef7"
+#define BLE_CHAR_TIME_UUID      "12345678-1234-5678-1234-56789abcdef8"
 #define DISP_SIZE            240
 #define SPR_SCALE            7    // sprite 16×16 → 112×112
 #define SPR_SIZE             16
@@ -419,6 +420,7 @@ BLECharacteristic* bleOtaDataChar  = nullptr;
 BLECharacteristic* bleIdentityChar = nullptr;
 BLECharacteristic* bleResetChar    = nullptr;
 BLECharacteristic* bleAchvChar     = nullptr;
+BLECharacteristic* bleTimeChar     = nullptr;
 bool              bleAdvertising   = false;
 bool              bleClientConnected = false;
 bool              bleClientConnectedPrev = false;
@@ -459,16 +461,12 @@ QueueHandle_t otaChunkQueue = nullptr;
 float filtX = 0, filtY = 0;
 unsigned long lastMpuMs = 0;
 
-// Orologio CEST — l'utente imposta l'ora al primo avvio
-// CEST = UTC+2. Salviamo l'offset in secondi tra millis() e l'ora reale.
-// clockOffsetSec = epochSec - millis()/1000
-// Se 0 l'ora non è stata impostata.
+// Orologio — sincronizzato via BLE dalla Companion (ora locale del PC),
+// vedi BLE_CHAR_TIME_UUID / PetCubeTimeCallbacks.
+// clockOffsetSec = secondiDallaMezzanotteLocale - millis()/1000
+// clockSet=false finché non arriva la prima sincronizzazione dopo il boot.
 long clockOffsetSec = 0;  // secondi
 bool clockSet       = false;
-// Per impostare l'ora: nel menu STATUS tieni premuto B 3 sec (stub per ora)
-// Valori di editing orologio
-int  clockEditH  = 12, clockEditM = 0;
-bool clockEditing = false;
 
 // Bottoni
 bool btnAPrev = HIGH, btnBPrev = HIGH, btnCPrev = HIGH;
@@ -1127,9 +1125,8 @@ void resetForNewGame(unsigned long now) {
   lastSessionMs=0; lastDecayMs=now;
   nextPoopMs = now + randomPoopInterval();
   clockSet=false; clockOffsetSec=0;
-  clockEditH=12; clockEditM=0;
   gState  = STATE_SETUP;
-  gScreen = SCR_CLOCK;  // imposta prima l'orologio
+  gScreen = SCR_MAIN;
   legacyClearPersisted();
 }
 
@@ -1963,20 +1960,11 @@ void drawClockScreen(unsigned long now) {
 
   if (!clockSet) {
     canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
-    drawCenteredStr(28, "Imposta ora CEST:");
-    canvas.drawFastHLine(20, 50, 200, C_DIM);
-
-    char buf[12];
-    sprintf(buf, "%02d : %02d", clockEditH, clockEditM);
-    canvas.setTextFont(4); canvas.setTextColor(C_TIMER, C_BG);
-    int tw = canvas.textWidth(buf);
-    canvas.drawString(buf, (DISP_SIZE - tw) / 2, 90);
-
-    // Hint a size1 e centrati: a size2 la seconda riga era troppo larga
-    // per la corda del cerchio visibile e finiva tagliata.
+    drawCenteredStr(90, "Sincronizzazione...");
     canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
-    drawCenteredStr(160, "A=+ora B=+min");
-    drawCenteredStr(174, "C=salva (salta=C)");
+    drawCenteredStr(120, "Connetti la Companion");
+    drawCenteredStr(134, "per impostare l'ora");
+    drawCenteredStr(220, "C = chiudi");
   } else {
     char buf[10];
     sprintf(buf, "%02d:%02d", hh, mm);
@@ -2006,38 +1994,11 @@ void drawClockScreen(unsigned long now) {
 }
 
 void handleClockButtons(bool btnANow, bool btnBNow, bool btnCNow) {
-  if (!clockSet) {
-    // Modalità impostazione ora
-    if (btnAPrev==HIGH && btnANow==LOW) {
-      clockEditH = (clockEditH + 1) % 24;
-      tone(BUZZER, 660, 30);
-      delay(50);
-    }
-    if (btnBPrev==HIGH && btnBNow==LOW) {
-      clockEditM = (clockEditM + 1) % 60;
-      tone(BUZZER, 880, 30);
-      delay(50);
-    }
-    if (btnCPrev==HIGH && btnCNow==LOW) {
-      // Salva: calcola offset
-      long nowSec = (long)(millis() / 1000);
-      long inputSec = (long)clockEditH * 3600 + (long)clockEditM * 60;
-      clockOffsetSec = inputSec - nowSec;
-      clockSet = true;
-      tone(BUZZER, 784, 80); delay(90); tone(BUZZER, 1047, 150);
-      delay(50);
-      // Vai alla schermata giusta dopo l'orologio
-      if (gState == STATE_SETUP)
-        gScreen = SCR_MAIN;  // setup uovo (gState rimane STATE_SETUP)
-      else
-        gScreen = SCR_MAIN;  // gioco normale
-    }
-  } else {
-    // Orologio visibile — C chiude
-    if (btnCPrev==HIGH && btnCNow==LOW) {
-      gScreen = SCR_MAIN;
-      delay(50);
-    }
+  // L'ora è sincronizzata via BLE dalla Companion (vedi PetCubeTimeCallbacks):
+  // qui c'è solo da chiudere la schermata, sincronizzato o no.
+  if (btnCPrev==HIGH && btnCNow==LOW) {
+    gScreen = SCR_MAIN;
+    delay(50);
   }
 }
 
@@ -2187,6 +2148,25 @@ class PetCubeResetCallbacks : public BLECharacteristicCallbacks {
     ch->setValue(&ack, 1);
     factoryResetPending = true;  // riavvio gestito dal main loop
     Serial.println("Reset di fabbrica richiesto via BLE — riavvio imminente");
+  }
+};
+
+// TIME characteristic:
+//   Write uint32_le(secondsSinceLocalMidnight) → sincronizza l'orologio
+//   con l'ora locale del PC dove gira la Companion. Scritta ad ogni
+//   connessione BLE (vedi ble_sender.py _send_time_sync).
+class PetCubeTimeCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* ch) override {
+    String val = ch->getValue();
+    if (val.length() < 4) return;
+    uint32_t secOfDay;
+    memcpy(&secOfDay, val.c_str(), 4);
+    if (secOfDay >= 86400) return;
+    clockOffsetSec = (long)secOfDay - (long)(millis() / 1000);
+    if (clockOffsetSec < 0) clockOffsetSec += 86400;
+    clockSet = true;
+    Serial.printf("🕒 Ora sincronizzata via BLE: %02u:%02u:%02u\n",
+                   secOfDay / 3600, (secOfDay / 60) % 60, secOfDay % 60);
   }
 };
 
@@ -2376,6 +2356,14 @@ void bleInit() {
     BLECharacteristic::PROPERTY_READ
   );
   bleAchvChar->setValue((uint8_t*)&achvUnlocked, sizeof(achvUnlocked));
+
+  // Caratteristica TIME (write-only) — sincronizza l'orologio con l'ora
+  // locale del PC, inviata dalla Companion ad ogni connessione BLE.
+  bleTimeChar = svc->createCharacteristic(
+    BLE_CHAR_TIME_UUID,
+    BLECharacteristic::PROPERTY_WRITE
+  );
+  bleTimeChar->setCallbacks(new PetCubeTimeCallbacks());
 
   svc->start();
 
@@ -3216,12 +3204,10 @@ void loop() {
         // Nuova partita: reset (mantiene il registro e l'eredità persistenti)
         resetForNewGame(now);
       } else {
-        // Continua: imposta orologio poi vai in gioco
+        // Continua: vai in gioco. L'ora si sincronizza via BLE alla
+        // prima connessione della Companion (clockSet resta false finché).
         gState  = STATE_IDLE;
-        clockSet    = false;   // forza sempre la schermata di impostazione
-        clockEditH  = 12;
-        clockEditM  = 0;
-        gScreen = SCR_CLOCK;
+        gScreen = SCR_MAIN;
         if (nextPoopMs == 0)
           nextPoopMs = now + randomPoopInterval();
       }
@@ -3446,12 +3432,9 @@ void loop() {
       gScreen = SCR_MENU;
       delay(50);
     }
-    // B: reimpostazione orologio
+    // B: mostra l'orologio (sincronizzato via BLE dalla Companion)
     if (btnBPrev==HIGH && btnBNow==LOW) {
-      clockSet    = false;
-      clockEditH  = 12;
-      clockEditM  = 0;
-      gScreen     = SCR_CLOCK;
+      gScreen = SCR_CLOCK;
       delay(50);
     }
     // A non fa nulla in status

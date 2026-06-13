@@ -179,7 +179,7 @@ The serial monitor (115200 baud) shows the boot sequence, plugin events received
 
 ### First-time setup on the cube
 
-On first boot the cube enters **boot screen** → asks **Continue / New Game** → asks to set the CEST clock (A=+1h, B=+1min, C=save). For a new game, it then prompts for the starter element (Fire or Water).
+On first boot the cube enters **boot screen** → asks **Continue / New Game**. For a new game, it then prompts for the starter element (Fire or Water). The clock is synced automatically over BLE the first time the Companion connects (see [Changelog v27](#changelog)) — until then, the clock screen shows "Sincronizzazione...".
 
 ---
 
@@ -433,13 +433,14 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 - GUI: dark dashboard + tray icon + live log + setup wizard + config editor
 - Companion self-update from GitHub Releases
 - Hardware assembled: all components hand-soldered on two Electrocookie perfboards (breadboard form factor) with portable LiPo power, 3D-printed case
+- Automatic clock sync from the Companion's PC clock over BLE (no more manual time-setting)
 
 ### In progress
 - GUI test console with fake-notification buttons per source/category
 - Final adjustments to the 3D-printed case
 
 ### Future
-- WiFi transport fallback for when BLE is unavailable (and/or to sync the cube's clock from the internet)
+- WiFi transport fallback for when BLE is unavailable
 - PCB instead of perfboard
 - Additional plugins: Instagram, Slack, GitHub, Trello
 - Optional: asynchronous PvP — trade battle-ready creatures between cubes via cloud
@@ -450,6 +451,7 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 
 Firmware version history (`FW_VERSION` in `PetCube.ino`). As of v26, a `FW_VERSION` bump no longer wipes saved data automatically — see the v26 entry below.
 
+- **v27**: Removed the manual clock-setting screen. The cube now syncs its clock automatically from the Companion's PC clock over a new write-only BLE TIME characteristic (seconds since local midnight), sent on every BLE connection. Until the first sync after boot, the clock screen shows "Sincronizzazione...".
 - **v26**: Decoupled the NVS reset from the firmware version bump — updating the firmware now preserves the save game, registry, legends/legacy data, and achievements. A full factory reset (wiping `petcube`, `registro`, and `achv`) is now an explicit action: a new "🗑 Reset di fabbrica" button in the Companion's Aggiornamenti tab (with confirmation) writes a flag over a new read/write BLE RESET characteristic, the cube reboots, and wipes everything on the next boot before loading any data.
 - **v25**: Added the achievement system — 47 achievements tracked firmware-side as a bitmask (NVS namespace `achv`, not wiped by the version-bump reset), evaluated after every relevant gameplay event (evolutions, registry, legends, pomodoro sessions, care/illness, battles, notifications, orientation, time of day) and exposed read-only over a new BLE characteristic. The Companion app gained an "Achievements" tab showing all 47 entries grouped by category with locked/unlocked status, refreshed automatically on BLE connect or via a dedicated button. Also fixed the dead `battlesWon`/`battlesLost` per-life counters, which were tracked but never incremented.
 - **v24**: Fixed display rotation in the Work state (orientation Face up), which was showing upside-down — now correctly rotated 180°.
