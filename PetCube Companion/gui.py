@@ -17,7 +17,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from typing import Optional
 
 from playwright_env import setup_playwright_browsers_path
@@ -165,6 +165,7 @@ class CompanionGUI(ctk.CTk):
         self._fw_btn_scan: Optional[ctk.CTkButton] = None
         self._fw_btn_check_gh: Optional[ctk.CTkButton] = None
         self._fw_btn_ota: Optional[ctk.CTkButton] = None
+        self._fw_btn_reset: Optional[ctk.CTkButton] = None
         self._fw_btn_flash: Optional[ctk.CTkButton] = None
         self._fw_progressbar: Optional[ctk.CTkProgressBar] = None
         self._fw_lbl_progress: Optional[ctk.CTkLabel] = None
@@ -956,6 +957,14 @@ class CompanionGUI(ctk.CTk):
         )
         self._fw_lbl_status.grid(row=1, column=2, padx=(20, 12), pady=(0, 10), sticky="w")
 
+        self._fw_btn_reset = ctk.CTkButton(
+            ble_card, text="🗑  Reset di fabbrica", width=170,
+            fg_color="#5a1a1a", hover_color="#7a2a2a", font=ctk.CTkFont(size=12),
+            state="disabled",
+            command=self._fw_on_reset,
+        )
+        self._fw_btn_reset.grid(row=1, column=3, padx=(0, 12), pady=(0, 10), sticky="e")
+
         # ── 2. GitHub Releases ──
         gh_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
         gh_card.grid(row=1, column=0, sticky="ew", pady=(0, 6))
@@ -1183,6 +1192,13 @@ class CompanionGUI(ctk.CTk):
                     and app_upd.is_update_available(self._app_release_info)
                 )
                 self._app_btn_update.configure(state="normal" if can_update else "disabled")
+        if self._fw_btn_reset:
+            if locked:
+                self._fw_btn_reset.configure(state="disabled")
+            else:
+                self._fw_btn_reset.configure(
+                    state="normal" if self._fw_ble_address is not None else "disabled"
+                )
 
     # ── BLE Scan ─────────────────────────────────────────────
 
@@ -1234,6 +1250,53 @@ class CompanionGUI(ctk.CTk):
             )
             self._fw_log_append("Nessun dispositivo trovato. Assicurati che il PetCube sia in stato Idle.")
         self._fw_update_status_label()
+
+    # ── Reset di fabbrica ────────────────────────────────────
+
+    def _fw_on_reset(self) -> None:
+        if not self._fw_ble_address:
+            return
+        if not messagebox.askyesno(
+            "Reset di fabbrica",
+            "Questa operazione cancella TUTTI i dati salvati sul PetCube "
+            "(partita in corso, registro creature e leggende) e riavvia "
+            "il dispositivo.\n\nL'operazione non è reversibile. Continuare?",
+            icon="warning",
+        ):
+            return
+
+        self._fw_buttons_lock(True)
+        self._fw_btn_reset.configure(text="Reset in corso...")
+        self._fw_log_append("Invio richiesta di reset di fabbrica...")
+
+        addr = self._fw_ble_address
+
+        def run():
+            loop = asyncio.new_event_loop()
+            try:
+                ok = loop.run_until_complete(fw_upd.factory_reset_ble(addr))
+                self.after(0, lambda: self._fw_reset_done(ok))
+            except Exception as e:
+                self.after(0, lambda: self._fw_reset_done(False, str(e)))
+            finally:
+                loop.close()
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _fw_reset_done(self, ok: bool, err: str = "") -> None:
+        self._fw_btn_reset.configure(text="🗑  Reset di fabbrica")
+        if ok:
+            self._fw_log_append(
+                "Reset di fabbrica avviato: il PetCube cancellerà i dati e si riavvierà."
+            )
+            self._fw_ble_address = None
+            self._fw_device_ver = None
+            self._fw_lbl_device_ver.configure(
+                text="Versione installata:  —", text_color=TEXT_DIM
+            )
+        else:
+            self._fw_log_append(f"ERRORE reset di fabbrica: {err or 'scrittura BLE fallita'}")
+        self._fw_buttons_lock(False)
 
     # ── GitHub check ─────────────────────────────────────────
 
