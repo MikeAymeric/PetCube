@@ -23,6 +23,7 @@ BLE_SERVICE_UUID        = "12345678-1234-5678-1234-56789abcdef0"
 BLE_CHAR_VERSION_UUID   = "12345678-1234-5678-1234-56789abcdef2"
 BLE_CHAR_OTA_CTRL_UUID  = "12345678-1234-5678-1234-56789abcdef3"
 BLE_CHAR_OTA_DATA_UUID  = "12345678-1234-5678-1234-56789abcdef4"
+BLE_CHAR_ACHV_UUID      = "12345678-1234-5678-1234-56789abcdef7"
 
 # Comandi OTA CTRL
 OTA_CMD_START  = 0x01
@@ -79,6 +80,17 @@ async def read_fw_version_ble(address: str, timeout: float = 10.0) -> Optional[i
             return int.from_bytes(data[:2], "little")
         except Exception as e:
             log.warning("Lettura versione BLE fallita: %s", e)
+            return None
+
+
+async def read_achievements_ble(address: str, timeout: float = 10.0) -> Optional[int]:
+    """Legge la bitmask achievement dalla caratteristica ACHV (uint64 LE)."""
+    async with BleakClient(address, timeout=timeout) as client:
+        try:
+            data = await client.read_gatt_char(BLE_CHAR_ACHV_UUID)
+            return int.from_bytes(data[:8], "little")
+        except Exception as e:
+            log.warning("Lettura achievement BLE fallita: %s", e)
             return None
 
 
