@@ -255,6 +255,14 @@ int evoStage  = 0, finalVariant = -1;
 int lineVariant = 0;  // 0=STR, 1=ENG, 2=INT (determinato a Child->Adult)
 int battlesWon = 0, battlesLost = 0;
 
+// ── Eredità genetica (Leggende) ──────────────────────────────────
+// Se un pet muore avendo raggiunto lo stadio finale (evoStage==5), lascia in
+// eredità il 20% delle sue stat STR/INT/ENG al prossimo baby. Slot singolo,
+// persistente nel namespace "registro" (sopravvive al reset di una partita).
+#define LEGACY_STAT_PCT 20
+int legacySTR = 0, legacyINT = 0, legacyENG = 0;
+int legendCount = 0;   // numero totale di Leggende raggiunte (badge permanente)
+
 bool          sessionRunning  = false;
 GameState     sessionType     = STATE_WORK;
 unsigned long sessionStartMs  = 0;
@@ -504,6 +512,43 @@ void registroLoad() {
     sprintf(key, "r%d", i);
     REGISTRO[i].obtained = prefs.getInt(key, 0);
   }
+  prefs.end();
+}
+
+// ── Eredità genetica: carica/salva nel namespace "registro" ──────
+void legacyLoad() {
+  prefs.begin("registro", true);
+  legendCount = prefs.getInt("legendCnt", 0);
+  legacySTR   = prefs.getInt("legSTR", 0);
+  legacyINT   = prefs.getInt("legINT", 0);
+  legacyENG   = prefs.getInt("legENG", 0);
+  prefs.end();
+}
+
+// Chiamata alla morte: se il pet ha raggiunto lo stadio finale, registra
+// l'eredità (20% delle stat) e incrementa il contatore Leggende.
+void legacyRecordOnDeath() {
+  if (evoStage < 5) return;
+  legendCount++;
+  legacySTR = statSTR * LEGACY_STAT_PCT / 100;
+  legacyINT = statINT * LEGACY_STAT_PCT / 100;
+  legacyENG = statENG * LEGACY_STAT_PCT / 100;
+  prefs.begin("registro", false);
+  prefs.putInt("legendCnt", legendCount);
+  prefs.putInt("legSTR", legacySTR);
+  prefs.putInt("legINT", legacyINT);
+  prefs.putInt("legENG", legacyENG);
+  prefs.end();
+}
+
+// Consuma l'eredità su NVS (slot singolo, usa-e-getta): i valori restano in
+// RAM per il feedback nella schermata di scelta del baby, finché non viene
+// scelto l'elemento.
+void legacyClearPersisted() {
+  prefs.begin("registro", false);
+  prefs.putInt("legSTR", 0);
+  prefs.putInt("legINT", 0);
+  prefs.putInt("legENG", 0);
   prefs.end();
 }
 
@@ -791,6 +836,30 @@ bool loadFromNVS() {
   return ok;
 }
 
+// Reset per una nuova partita (mantiene il registro e l'eredità persistenti).
+// Usato sia da "Nuova partita" nella schermata di boot sia dopo la morte del
+// pet. Applica l'eredità genetica (se presente) come stat di partenza del
+// nuovo baby e consuma lo slot su NVS (resta in RAM per il feedback a schermo).
+void resetForNewGame(unsigned long now) {
+  prefs.begin("petcube",false); prefs.clear(); prefs.end();
+  // Riscrivo subito fw_version per evitare retrigger della migrazione
+  prefs.begin("petcube",false); prefs.putInt("fw_ver", FW_VERSION); prefs.end();
+  statSTR = legacySTR; statINT = legacyINT; statENG = legacyENG;
+  statHAP = 50;
+  sessTotal=sessActive=0; evoStage=0; finalVariant=-1; lineVariant=0;
+  battlesWon=battlesLost=0; poopCount=0; poopMega=false;
+  isSick=false; sickStartMs=0;
+  sickEpisodes=0;
+  pomoPhase=POMO_NONE; pomodoroMs=POMO_DEFAULT_MS; restMs=REST_DEFAULT_MS;
+  lastSessionMs=0; lastDecayMs=now;
+  nextPoopMs = now + randomPoopInterval();
+  clockSet=false; clockOffsetSec=0;
+  clockEditH=12; clockEditM=0;
+  gState  = STATE_SETUP;
+  gScreen = SCR_CLOCK;  // imposta prima l'orologio
+  legacyClearPersisted();
+}
+
 // Migrazione NVS: al primo boot di una nuova versione firmware,
 // resetta TUTTI i namespace (petcube + registro) per garantire coerenza dati.
 // Necessario perché la v12 introduce campi nuovi (sickEpisodes) e cambia la
@@ -1032,6 +1101,7 @@ void checkSick(unsigned long now) {
   }
   // Morte dopo 2 ore
   if (sickStartMs > 0 && now - sickStartMs >= SICK_DEATH_MS) {
+    legacyRecordOnDeath();  // se evoStage==5: registra eredità + Leggenda
     gState = STATE_DEAD;
     gScreen = SCR_MAIN;
     tone(BUZZER, 200, 1000);
@@ -1179,6 +1249,13 @@ void drawBootScreen() {
   canvas.drawString("PetCube", 72, 40);
   canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
   canvas.drawString("v0.24", 98, 74);
+  // Badge permanente: numero di Leggende raggiunte (evoStage finale)
+  if (legendCount > 0) {
+    char lb[20]; sprintf(lb, "Leggende: %d", legendCount);
+    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_HAP, C_BG);
+    drawCenteredStr(88, lb);
+    canvas.setTextSize(1);
+  }
   canvas.drawFastHLine(30, 96, 180, C_DIM);
 
   // Opzione 0: continua
@@ -1205,6 +1282,14 @@ void drawSetupScreen(unsigned long now) {
   canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
   drawCenteredStr(18, "Scegli elemento:");
   canvas.drawFastHLine(20, 40, 200, C_DIM);
+
+  // Eredità genetica: feedback delle stat ricevute dall'ultima Leggenda
+  if (legacySTR > 0 || legacyINT > 0 || legacyENG > 0) {
+    char buf[40];
+    sprintf(buf, "Eredita: STR+%d INT+%d ENG+%d", legacySTR, legacyINT, legacyENG);
+    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_FG, C_BG);
+    drawCenteredStr(46, buf);
+  }
 
   int frame = (now / 400) % 2;
   const SprFrame& botaFrame = SPR_KINDLEKIN.idle[frame];
@@ -1286,6 +1371,14 @@ void drawMainScreen(unsigned long now) {
 #else
     drawSpriteScaled(SPR_X, SPR_Y, SPR_SCALE, spr->sick[(now/600)%2]);
 #endif
+    // Stadio finale raggiunto: lascia un'eredità al prossimo baby
+    if (evoStage >= 5) {
+      canvas.setTextFont(2); canvas.setTextColor(C_HAP, C_BG);
+      drawCenteredStr(60, "LEGGENDA!");
+    }
+    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_DIM, C_BG);
+    drawCenteredStr(185, "B: nuovo inizio");
+    canvas.setTextSize(1);
     canvas.pushSprite(0, 0);
     return;
   }
@@ -2626,6 +2719,7 @@ void setup() {
 
   bootHasData = loadFromNVS();
   registroLoad();
+  legacyLoad();
   loadEnemyKnown();
 
   // 📡 Inizializza BLE GATT server (advertising verrà avviato quando entriamo in Idle)
@@ -2739,22 +2833,8 @@ void loop() {
     }
     if (btnBPrev==HIGH && btnBNow==LOW) {
       if (bootChoice == 1 || !bootHasData) {
-        // Nuova partita: reset (mantiene il registro persistente)
-        prefs.begin("petcube",false); prefs.clear(); prefs.end();
-        // Riscrivo subito fw_version per evitare retrigger della migrazione
-        prefs.begin("petcube",false); prefs.putInt("fw_ver", FW_VERSION); prefs.end();
-        statSTR=statINT=statENG=0; statHAP=50;
-        sessTotal=sessActive=0; evoStage=0; finalVariant=-1; lineVariant=0;
-        battlesWon=battlesLost=0; poopCount=0; poopMega=false;
-        isSick=false; sickStartMs=0;
-        sickEpisodes=0;
-        pomoPhase=POMO_NONE; pomodoroMs=POMO_DEFAULT_MS; restMs=REST_DEFAULT_MS;
-        lastSessionMs=0; lastDecayMs=now;
-        nextPoopMs = now + randomPoopInterval();
-        clockSet=false; clockOffsetSec=0;
-        clockEditH=12; clockEditM=0;
-        gState  = STATE_SETUP;
-        gScreen = SCR_CLOCK;  // imposta prima l'orologio
+        // Nuova partita: reset (mantiene il registro e l'eredità persistenti)
+        resetForNewGame(now);
       } else {
         // Continua: imposta orologio poi vai in gioco
         gState  = STATE_IDLE;
@@ -2830,17 +2910,20 @@ void loop() {
       saveToNVS();
       // Segna il Baby I di partenza nel registro
       registroMarkObtained(gElement == FIRE ? "Kindlekin" : "Drowsea");
+      // L'eredità (se presente) è già stata applicata e consumata su NVS
+      // da resetForNewGame(); ora azzero anche il feedback a schermo.
+      legacySTR = legacyINT = legacyENG = 0;
       tone(BUZZER,784,80); delay(90); tone(BUZZER,1047,200);
       delay(50);
     }
     // C: niente
   }
   else if (gState == STATE_DEAD) {
-    // Tieni premuto A+C per 3 secondi per resettare
-    if (btnANow==LOW && btnCNow==LOW) {
-      // Reset
-      prefs.begin("petcube",false); prefs.clear(); prefs.end();
-      ESP.restart();
+    // B: torna alla scelta del baby (mantiene registro ed eredità)
+    if (btnBPrev==HIGH && btnBNow==LOW) {
+      resetForNewGame(now);
+      tone(BUZZER,784,80); delay(90); tone(BUZZER,1047,150);
+      delay(50);
     }
   }
   else if (gState == STATE_EVOLVING) {
