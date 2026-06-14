@@ -21,7 +21,7 @@ ROOT_DIR   = os.path.dirname(SPRITE_DIR)
 HEADER_OUT = os.path.join(ROOT_DIR, "PetCube FW", "PetCube", "petcube_status_icons.h")
 
 SRC_FILE  = "Bluetooth_Icon.png"
-ICON_SIZE = 32
+ICON_SIZE = 24
 
 
 def rgb565(r, g, b):
