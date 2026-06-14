@@ -90,7 +90,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           31   // bump al cambio struttura NVS
+#define FW_VERSION           32   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -1881,13 +1881,13 @@ void drawMainScreen(unsigned long now) {
   // ── Icona BT ─────────────────────────────────────────────────
   // Posizionata entro l'area visibile circolare (Ø240px / 32.4mm):
   // a y=14 la corda visibile va da x≈64 a x≈176, quindi un'icona
-  // 32x32 a x=144 finisce esattamente a x=176.
+  // 24x24 a x=152 finisce esattamente a x=176.
   // Connessa: icona a colori. In advertising: icona in scala di grigio
   // lampeggiante (nessuna connessione attiva).
   if (bleClientConnected) {
-    canvas.pushImage(144, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT, (uint16_t)0x0000);
+    canvas.pushImage(152, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT, (uint16_t)0x0000);
   } else if (bleAdvertising && (now/700)%2 == 0) {
-    canvas.pushImage(144, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT_GRAY, (uint16_t)0x0000);
+    canvas.pushImage(152, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT_GRAY, (uint16_t)0x0000);
   }
 
   // ── Sprite ───────────────────────────────────────────────────
@@ -2012,6 +2012,13 @@ void drawMenuScreen(unsigned long now) {
   drawSpriteScaled(88, 10, 4, frame);
 #endif
 
+  // Tag identità multiplayer (es. "Mike#47213"), se assegnato dalla
+  // Companion App: centrato sotto lo sprite, sopra il divisore.
+  if (petTag.length() > 0) {
+    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
+    drawCenteredStr(76, petTag.c_str());
+  }
+
   canvas.drawFastHLine(20, 82, 200, C_DIM);
 
   // Voci come "card": quella selezionata ha sfondo evidenziato e una
@@ -2052,15 +2059,6 @@ void drawStatusScreen(unsigned long now) {
   // lunghi (es. "Noxfortress") finivano fuori dall'area circolare visibile.
   canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
   drawCenteredStr(16, getCurrentName());
-
-  // Tag identità multiplayer (es. "Mike#47213"), se assegnato dalla Companion App.
-  // In alto a destra, sopra il nome: a y=36 finiva troppo vicino al badge
-  // stadio sottostante (y=38) e ne veniva parzialmente coperto.
-  if (petTag.length() > 0) {
-    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
-    int tw = canvas.textWidth(petTag);
-    canvas.drawString(petTag, max(0, 197 - tw), 2);
-  }
 
   // ── Badge stadio evolutivo ───────────────────────────────────────
   String stagePill = STAGE_NAMES[min(evoStage,5)];
@@ -2127,32 +2125,9 @@ void drawStatusScreen(unsigned long now) {
   canvas.pushSprite(0, 0);
 }
 
-// ── Icona giorno/notte ───────────────────────────────────────────
-// Sole (07:00-18:59): cerchio giallo con raggi. Luna (19:00-06:59):
-// crescente bianco (cerchio chiaro con un "morso" scuro). Disegnata
-// a fianco dell'orologio nel footer.
-void drawDayNightIcon(int cx, int cy, int r, int hh) {
-  bool isDay = (hh >= 7 && hh < 19);
-  if (isDay) {
-    canvas.fillCircle(cx, cy, r - 2, C_ENG);
-    for (int i = 0; i < 8; i++) {
-      float ang = i * PI / 4.0f;
-      int x0 = cx + (int)((r - 1) * cosf(ang));
-      int y0 = cy + (int)((r - 1) * sinf(ang));
-      int x1 = cx + (int)((r + 2) * cosf(ang));
-      int y1 = cy + (int)((r + 2) * sinf(ang));
-      canvas.drawLine(x0, y0, x1, y1, C_ENG);
-    }
-  } else {
-    canvas.fillCircle(cx, cy, r - 1, C_FG);
-    canvas.fillCircle(cx + 3, cy - 2, r - 1, C_BG);
-  }
-}
-
 // ── Orologio (footer condiviso) ─────────────────────────────────
-// Disegna l'ora corrente (HH:MM) in bianco, con un'icona sole/luna
-// alla sua destra, centrati in basso su tutte le schermate
-// principali. Sincronizzato via BLE dalla Companion (vedi
+// Disegna l'ora corrente (HH:MM), centrata in basso, su tutte le
+// schermate principali. Sincronizzato via BLE dalla Companion (vedi
 // PetCubeTimeCallbacks); non disegna nulla finché clockSet è false
 // (nessuna sincronizzazione ricevuta dal boot).
 void drawClockFooter(unsigned long now) {
@@ -2162,18 +2137,9 @@ void drawClockFooter(unsigned long now) {
   int mm = (totalSec / 60)   % 60;
   char buf[6];
   sprintf(buf, "%02d:%02d", hh, mm);
-  canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
+  canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
   int tw = canvas.textWidth(buf);
-  int fh = canvas.fontHeight();
-  const int gap   = 8;
-  const int iconR = 7;
-  int groupW = tw + gap + iconR * 2;
-  int textX  = (DISP_SIZE - groupW) / 2;
-  int textY  = 198;
-  canvas.drawString(buf, textX, textY);
-  int iconX = textX + tw + gap + iconR;
-  int iconY = textY + fh / 2;
-  drawDayNightIcon(iconX, iconY, iconR, hh);
+  canvas.drawString(buf, (DISP_SIZE - tw) / 2, 212);
 }
 
 void drawEvolvingScreen(unsigned long now) {
