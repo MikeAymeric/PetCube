@@ -25,6 +25,7 @@ BLE_CHAR_OTA_CTRL_UUID  = "12345678-1234-5678-1234-56789abcdef3"
 BLE_CHAR_OTA_DATA_UUID  = "12345678-1234-5678-1234-56789abcdef4"
 BLE_CHAR_RESET_UUID     = "12345678-1234-5678-1234-56789abcdef6"
 BLE_CHAR_ACHV_UUID      = "12345678-1234-5678-1234-56789abcdef7"
+BLE_CHAR_TIME_UUID      = "12345678-1234-5678-1234-56789abcdef8"
 
 # Comandi RESET (vedi PetCube.ino PetCubeResetCallbacks)
 RESET_CMD_FACTORY      = 0x01  # wipe NVS completo (partita + registro) al prossimo boot
@@ -77,9 +78,26 @@ async def scan_for_petcube(timeout: float = 10.0) -> Optional[str]:
     return None
 
 
+async def send_time_sync_ble(client: BleakClient) -> bool:
+    """
+    Sincronizza l'orologio del cubo con l'ora locale del PC (best-effort,
+    FW >= v27). Va chiamata su ogni connessione BLE attiva.
+    """
+    try:
+        now = time.localtime()
+        seconds_of_day = now.tm_hour * 3600 + now.tm_min * 60 + now.tm_sec
+        await client.write_gatt_char(BLE_CHAR_TIME_UUID, seconds_of_day.to_bytes(4, "little"))
+        log.info("🕒 Ora sincronizzata via BLE: %02d:%02d:%02d", now.tm_hour, now.tm_min, now.tm_sec)
+        return True
+    except Exception as e:
+        log.debug("Sincronizzazione ora BLE fallita (FW < v27?): %s", e)
+        return False
+
+
 async def read_fw_version_ble(address: str, timeout: float = 10.0) -> Optional[int]:
     """Legge la versione firmware dalla caratteristica VERSION (uint16 LE)."""
     async with BleakClient(address, timeout=timeout) as client:
+        await send_time_sync_ble(client)
         try:
             data = await client.read_gatt_char(BLE_CHAR_VERSION_UUID)
             return int.from_bytes(data[:2], "little")
@@ -119,6 +137,7 @@ async def reset_achievements_ble(address: str, timeout: float = 10.0) -> bool:
 async def read_achievements_ble(address: str, timeout: float = 10.0) -> Optional[int]:
     """Legge la bitmask achievement dalla caratteristica ACHV (uint64 LE)."""
     async with BleakClient(address, timeout=timeout) as client:
+        await send_time_sync_ble(client)
         try:
             data = await client.read_gatt_char(BLE_CHAR_ACHV_UUID)
             return int.from_bytes(data[:8], "little")
