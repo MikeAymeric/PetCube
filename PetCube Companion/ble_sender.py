@@ -36,8 +36,10 @@ DEFAULT_TIME_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef8"
 class BLESender:
     """
     Invia pacchetti via BLE.
-    Mantiene la connessione aperta tra invii per ridurre overhead.
-    Re-scan automatico se il device si disconnette.
+    Connessione on-demand: si connette solo quando deve inviare un
+    pacchetto (sincronizzando anche identità/achievement/ora), poi
+    disconnette subito dopo per ridurre il consumo del cubo quando non
+    c'è nulla da inviare.
     """
 
     def __init__(self, device_name: str, service_uuid: str, char_uuid: str,
@@ -155,23 +157,27 @@ class BLESender:
             ok = await self._ensure_connected()
             if not ok:
                 return False
+            success = False
             try:
                 await self._client.write_gatt_char(self.char_uuid, data)
                 logger.debug(f"BLE write OK ({len(data)} byte).")
-                return True
+                success = True
             except Exception as e:
-                logger.warning(f"BLE write fallita: {e}. Tento reconnect al prossimo invio.")
-                try:
-                    await self._client.disconnect()
-                except Exception:
-                    pass
-                self._client = None
-                return False
+                logger.warning(f"BLE write fallita: {e}.")
+            finally:
+                # Connessione on-demand: disconnetti subito, si riconnette
+                # al prossimo invio (vedi _ensure_connected).
+                await self.close()
+            return success
 
     async def close(self) -> None:
         if self._client and self._client.is_connected:
-            await self._client.disconnect()
-            logger.info("BLE disconnesso.")
+            try:
+                await self._client.disconnect()
+                logger.info("🔌 BLE disconnesso.")
+            except Exception as e:
+                logger.debug(f"Disconnessione BLE fallita: {e}")
+        self._client = None
 
 
 class WiFiFallbackSender:

@@ -89,7 +89,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           27   // bump al cambio struttura NVS
+#define FW_VERSION           28   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -102,6 +102,10 @@ Preferences prefs;
 #define BLE_CHAR_RESET_UUID     "12345678-1234-5678-1234-56789abcdef6"
 #define BLE_CHAR_ACHV_UUID      "12345678-1234-5678-1234-56789abcdef7"
 #define BLE_CHAR_TIME_UUID      "12345678-1234-5678-1234-56789abcdef8"
+
+// Comandi della caratteristica RESET (vedi PetCubeResetCallbacks)
+#define RESET_CMD_FACTORY      0x01  // wipe NVS completo + riavvio
+#define RESET_CMD_ACHIEVEMENTS 0x02  // azzera solo achievement/contatori lifetime
 #define DISP_SIZE            240
 #define SPR_SCALE            7    // sprite 16×16 → 112×112
 #define SPR_SIZE             16
@@ -671,6 +675,32 @@ void achvSaveCounters() {
   prefs.putBool("crisi", crisiSeenEver);
   prefs.putBool("touchDep", touchDeprivedEver);
   prefs.end();
+}
+
+// Azzera solo achievement e contatori lifetime (namespace "achv"), senza
+// toccare partita/registro. Eseguito subito via BLE, nessun riavvio
+// (vedi PetCubeResetCallbacks, comando RESET_CMD_ACHIEVEMENTS).
+void resetAchievementsOnly() {
+  prefs.begin("achv", false);
+  prefs.clear();
+  prefs.end();
+  achvUnlocked         = 0;
+  lifetimeSessions     = 0;
+  lifetimeBattlesWon   = 0;
+  lifetimeBattlesLost  = 0;
+  deathsTotal          = 0;
+  poopCleanedCount     = 0;
+  healCount            = 0;
+  lifetimeSickEpisodes = 0;
+  elementsPlayedMask   = 0;
+  sessionTypeMask      = 0;
+  notifSourceMask      = 0;
+  orientationMask      = 0;
+  hapHitZeroEver       = false;
+  hapHit100Ever        = false;
+  crisiSeenEver        = false;
+  touchDeprivedEver    = false;
+  if (bleAchvChar) bleAchvChar->setValue((uint8_t*)&achvUnlocked, sizeof(achvUnlocked));
 }
 
 // Sblocca un achievement (no-op se già sbloccato): persiste la bitmask e
@@ -2134,20 +2164,30 @@ class PetCubeIdentityCallbacks : public BLECharacteristicCallbacks {
 };
 
 // RESET characteristic:
-//   Write 0x01 → richiede un reset di fabbrica (wipe NVS completo) al
-//   prossimo boot, poi riavvia il cubo. Il wipe avviene in setup(),
-//   prima di caricare qualsiasi dato (vedi performFactoryResetIfPending()).
+//   Write RESET_CMD_FACTORY (0x01) → richiede un reset di fabbrica (wipe NVS
+//   completo) al prossimo boot, poi riavvia il cubo. Il wipe avviene in
+//   setup(), prima di caricare qualsiasi dato (vedi performFactoryResetIfPending()).
+//   Write RESET_CMD_ACHIEVEMENTS (0x02) → azzera solo achievement e contatori
+//   lifetime, subito, senza riavvio (vedi resetAchievementsOnly()).
 class PetCubeResetCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* ch) override {
     String val = ch->getValue();
-    if (val.length() == 0 || (uint8_t)val[0] != 0x01) return;
-    prefs.begin("system", false);
-    prefs.putBool("factory_reset", true);
-    prefs.end();
-    uint8_t ack = 0x01;
-    ch->setValue(&ack, 1);
-    factoryResetPending = true;  // riavvio gestito dal main loop
-    Serial.println("Reset di fabbrica richiesto via BLE — riavvio imminente");
+    if (val.length() == 0) return;
+    uint8_t cmd = (uint8_t)val[0];
+    if (cmd == RESET_CMD_FACTORY) {
+      prefs.begin("system", false);
+      prefs.putBool("factory_reset", true);
+      prefs.end();
+      uint8_t ack = 0x01;
+      ch->setValue(&ack, 1);
+      factoryResetPending = true;  // riavvio gestito dal main loop
+      Serial.println("Reset di fabbrica richiesto via BLE — riavvio imminente");
+    } else if (cmd == RESET_CMD_ACHIEVEMENTS) {
+      resetAchievementsOnly();
+      uint8_t ack = 0x01;
+      ch->setValue(&ack, 1);
+      Serial.println("🏆 Achievement azzerati via BLE.");
+    }
   }
 };
 
