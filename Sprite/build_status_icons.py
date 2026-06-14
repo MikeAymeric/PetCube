@@ -3,7 +3,7 @@
 Genera PetCube FW/PetCube/petcube_status_icons.h a partire da
 Sprite/Bluetooth_Icon.png (32x32 RGBA).
 
-Produce due varianti 16x16 RGB565 (PROGMEM):
+Produce due varianti 32x32 RGB565 (PROGMEM):
   - ICON_BT:      icona a colori (connessione BLE attiva)
   - ICON_BT_GRAY: stessa icona in scala di grigio (advertising, lampeggiante)
 
@@ -21,7 +21,7 @@ ROOT_DIR   = os.path.dirname(SPRITE_DIR)
 HEADER_OUT = os.path.join(ROOT_DIR, "PetCube FW", "PetCube", "petcube_status_icons.h")
 
 SRC_FILE  = "Bluetooth_Icon.png"
-ICON_SIZE = 16
+ICON_SIZE = 32
 
 
 def rgb565(r, g, b):
@@ -60,7 +60,7 @@ def format_array(name, px):
 def main():
     out = []
     out.append("// ══════════════════════════════════════════════════════")
-    out.append("//  PetCube — Icona stato BLE RGB565 16x16 (da Sprite/Bluetooth_Icon.png)")
+    out.append(f"//  PetCube — Icona stato BLE RGB565 {ICON_SIZE}x{ICON_SIZE} (da Sprite/Bluetooth_Icon.png)")
     out.append("//  0x0000 = trasparente. Disegnare con canvas.setSwapBytes(true) +")
     out.append("//  canvas.pushImage(x, y, ICON_BT_SIZE, ICON_BT_SIZE, ICON_x, 0x0000)")
     out.append("// ══════════════════════════════════════════════════════")

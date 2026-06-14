@@ -23,9 +23,12 @@ BLE_SERVICE_UUID        = "12345678-1234-5678-1234-56789abcdef0"
 BLE_CHAR_VERSION_UUID   = "12345678-1234-5678-1234-56789abcdef2"
 BLE_CHAR_OTA_CTRL_UUID  = "12345678-1234-5678-1234-56789abcdef3"
 BLE_CHAR_OTA_DATA_UUID  = "12345678-1234-5678-1234-56789abcdef4"
+BLE_CHAR_IDENTITY_UUID  = "12345678-1234-5678-1234-56789abcdef5"
 BLE_CHAR_RESET_UUID     = "12345678-1234-5678-1234-56789abcdef6"
 BLE_CHAR_ACHV_UUID      = "12345678-1234-5678-1234-56789abcdef7"
 BLE_CHAR_TIME_UUID      = "12345678-1234-5678-1234-56789abcdef8"
+BLE_CHAR_BRIGHTNESS_UUID = "12345678-1234-5678-1234-56789abcdef9"
+BLE_CHAR_STATS_UUID     = "12345678-1234-5678-1234-56789abcdefa"
 
 # Comandi RESET (vedi PetCube.ino PetCubeResetCallbacks)
 RESET_CMD_FACTORY      = 0x01  # wipe NVS completo (partita + registro) al prossimo boot
@@ -120,6 +123,17 @@ async def factory_reset_ble(address: str, timeout: float = 10.0) -> bool:
             return False
 
 
+async def set_brightness_ble(address: str, value: int, timeout: float = 10.0) -> bool:
+    """Imposta la luminosità del display (0-255, FW >= v30), persistita in NVS."""
+    async with BleakClient(address, timeout=timeout) as client:
+        try:
+            await client.write_gatt_char(BLE_CHAR_BRIGHTNESS_UUID, bytes([max(0, min(255, value))]))
+            return True
+        except Exception as e:
+            log.warning("Impostazione luminosità BLE fallita: %s", e)
+            return False
+
+
 async def reset_achievements_ble(address: str, timeout: float = 10.0) -> bool:
     """
     Azzera achievement e contatori lifetime sul PetCube (namespace NVS
@@ -134,16 +148,59 @@ async def reset_achievements_ble(address: str, timeout: float = 10.0) -> bool:
             return False
 
 
-async def read_achievements_ble(address: str, timeout: float = 10.0) -> Optional[int]:
-    """Legge la bitmask achievement dalla caratteristica ACHV (uint64 LE)."""
+async def _read_lifetime_sessions(client: BleakClient) -> Optional[int]:
+    """Legge il contatore lifetime sessioni Pomodoro (STATS, uint32 LE, FW >= v30)."""
+    try:
+        data = await client.read_gatt_char(BLE_CHAR_STATS_UUID)
+        return int.from_bytes(data[:4], "little")
+    except Exception as e:
+        log.debug("Lettura statistiche BLE fallita (FW < v30?): %s", e)
+        return None
+
+
+async def sync_now_ble(
+    address: str, identity_tag: str = "", timeout: float = 10.0
+) -> tuple[Optional[int], Optional[int]]:
+    """
+    Sincronizzazione manuale "on demand": connette al PetCube, sincronizza
+    l'orologio, invia il tag identità multiplayer (se presente) e legge la
+    bitmask achievement e il contatore sessioni lifetime aggiornati.
+    Ritorna (bitmask, lifetime_sessions); ciascuno None se la lettura fallisce.
+    """
     async with BleakClient(address, timeout=timeout) as client:
         await send_time_sync_ble(client)
+        if identity_tag:
+            try:
+                await client.write_gatt_char(BLE_CHAR_IDENTITY_UUID, identity_tag.encode("utf-8"))
+                log.info("📡 Tag identità sincronizzato: %s", identity_tag)
+            except Exception as e:
+                log.debug("Sync tag identità fallita: %s", e)
+        mask = None
         try:
             data = await client.read_gatt_char(BLE_CHAR_ACHV_UUID)
-            return int.from_bytes(data[:8], "little")
+            mask = int.from_bytes(data[:8], "little")
         except Exception as e:
             log.warning("Lettura achievement BLE fallita: %s", e)
-            return None
+        sessions = await _read_lifetime_sessions(client)
+        return mask, sessions
+
+
+async def read_achievements_ble(address: str, timeout: float = 10.0) -> tuple[Optional[int], Optional[int]]:
+    """
+    Legge la bitmask achievement (ACHV, uint64 LE) e il contatore lifetime
+    sessioni Pomodoro (STATS, uint32 LE, FW >= v30).
+    Ritorna (bitmask, lifetime_sessions); ciascuno None se la lettura fallisce.
+    """
+    async with BleakClient(address, timeout=timeout) as client:
+        await send_time_sync_ble(client)
+        mask = None
+        try:
+            data = await client.read_gatt_char(BLE_CHAR_ACHV_UUID)
+            mask = int.from_bytes(data[:8], "little")
+        except Exception as e:
+            log.warning("Lettura achievement BLE fallita: %s", e)
+        sessions = await _read_lifetime_sessions(client)
+        return mask, sessions
 
 
 # ── GitHub Releases ──────────────────────────────────────────

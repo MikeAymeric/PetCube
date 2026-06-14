@@ -12,11 +12,13 @@ import asyncio
 import json
 import logging
 import queue
+import socket
 import sys
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
+import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Optional
 
@@ -36,6 +38,7 @@ from companion_engine import CompanionEngine, load_config
 import firmware_updater as fw_upd
 import app_updater as app_upd
 import achievements as achv
+import pomodoro_history as pomo_history
 import setup_wizard
 from config_schema import (
     PLUGIN_FIELDS as _PLUGIN_FIELDS,
@@ -51,6 +54,36 @@ from notification_packet import (
     NotifPacket, NotifSource, NotifCategory, NotifPriority,
     compute_seed_hash,
 )
+
+
+# ── Single instance lock ────────────────────────────────────────
+# Usiamo un socket TCP su localhost come mutex: se il bind fallisce
+# un'altra istanza è già in esecuzione. Il socket si libera da solo
+# alla chiusura del processo (anche in caso di crash), niente lock
+# file da pulire manualmente.
+_SINGLE_INSTANCE_PORT = 47591
+
+
+def _acquire_single_instance_lock() -> Optional[socket.socket]:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(("127.0.0.1", _SINGLE_INSTANCE_PORT))
+    except OSError:
+        sock.close()
+        return None
+    sock.listen(1)
+    return sock
+
+
+def _notify_existing_instance() -> None:
+    """Chiede all'istanza già in esecuzione di portarsi in primo piano."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1.0)
+            s.connect(("127.0.0.1", _SINGLE_INSTANCE_PORT))
+            s.sendall(b"show")
+    except OSError:
+        pass
 
 
 # ── Dark theme palette (Discord/VS Code style) ─────────────────
@@ -126,6 +159,56 @@ _TEST_PRIORITY_MAP: dict[str, NotifPriority] = {
 }
 
 
+class PomodoroChart(ctk.CTkFrame):
+    """Grafico a barre dello storico sessioni Pomodoro completate
+    (ultimi N giorni), aggiornato ad ogni sincronizzazione BLE."""
+
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.canvas = tk.Canvas(self, bg=BG_PRIMARY, highlightthickness=0, height=110)
+        self.canvas.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self.canvas.bind("<Configure>", lambda e: self._redraw())
+        self._history: list[tuple[str, int]] = []
+
+    def draw(self, history: list[tuple[str, int]]) -> None:
+        self._history = history
+        self._redraw()
+
+    def _redraw(self) -> None:
+        c = self.canvas
+        c.delete("all")
+        if not self._history:
+            return
+        w = c.winfo_width()
+        h = c.winfo_height()
+        if w < 10 or h < 10:
+            return
+
+        n = len(self._history)
+        max_count = max((count for _, count in self._history), default=0) or 1
+        margin_bottom = 16
+        margin_top = 14
+        usable_h = h - margin_bottom - margin_top
+        bar_w = w / n
+
+        for i, (day_iso, count) in enumerate(self._history):
+            x0 = i * bar_w + bar_w * 0.15
+            x1 = (i + 1) * bar_w - bar_w * 0.15
+            bar_h = (count / max_count) * usable_h if count else 0
+            y1 = h - margin_bottom
+            y0 = y1 - bar_h
+            color = SUCCESS if count > 0 else BORDER
+            if count > 0:
+                c.create_rectangle(x0, y0, x1, y1, fill=color, outline="")
+                c.create_text((x0 + x1) / 2, y0 - 7, text=str(count),
+                               fill=TEXT_PRIMARY, font=("Arial", 9))
+            else:
+                c.create_line(x0, y1, x1, y1, fill=color, width=2)
+            day_label = datetime.strptime(day_iso, "%Y-%m-%d").strftime("%d/%m")
+            c.create_text((x0 + x1) / 2, h - margin_bottom / 2, text=day_label,
+                           fill=TEXT_DIM, font=("Arial", 8))
+
+
 class CompanionGUI(ctk.CTk):
     def __init__(self, config: dict):
         super().__init__()
@@ -172,6 +255,9 @@ class CompanionGUI(ctk.CTk):
         self._fw_lbl_progress: Optional[ctk.CTkLabel] = None
         self._fw_log: Optional[ctk.CTkTextbox] = None
         self._fw_port_menu: Optional[ctk.CTkOptionMenu] = None
+
+        # Dashboard: grafico storico sessioni Pomodoro
+        self._pomo_chart: Optional["PomodoroChart"] = None
 
         # Achievements tab state
         self._achv_mask: int = achv.load_cached_mask()
@@ -251,7 +337,14 @@ class CompanionGUI(ctk.CTk):
             fg_color=BG_TERTIARY, hover_color="#444",
             command=self._on_stop, state="disabled",
         )
-        self.stop_btn.grid(row=0, column=4, padx=(5, 15), pady=10)
+        self.stop_btn.grid(row=0, column=4, padx=5, pady=10)
+
+        self.sync_now_btn = ctk.CTkButton(
+            header, text="🔄 Sincronizza ora", width=140,
+            fg_color=BG_TERTIARY, hover_color="#444",
+            command=self._on_sync_now,
+        )
+        self.sync_now_btn.grid(row=0, column=5, padx=(5, 15), pady=10)
 
     def _build_body(self) -> None:
         body = ctk.CTkFrame(self, fg_color=BG_PRIMARY, corner_radius=0)
@@ -368,6 +461,7 @@ class CompanionGUI(ctk.CTk):
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_rowconfigure(0, weight=3)
         parent.grid_rowconfigure(1, weight=2)
+        parent.grid_rowconfigure(2, weight=0)
 
         # ── LOG STREAM ──
         log_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
@@ -413,6 +507,21 @@ class CompanionGUI(ctk.CTk):
             text_color=TEXT_DIM, font=ctk.CTkFont(size=11),
         )
         self._notif_placeholder.pack(pady=20)
+
+        # ── STORICO SESSIONI POMODORO ──
+        pomo_card = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        pomo_card.grid(row=2, column=0, sticky="nsew", pady=(10, 0))
+        pomo_card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            pomo_card, text="SESSIONI POMODORO (ultimi 14 giorni)",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=TEXT_DIM, anchor="w",
+        ).grid(row=0, column=0, sticky="ew", padx=15, pady=(10, 5))
+
+        self._pomo_chart = PomodoroChart(pomo_card, fg_color=BG_PRIMARY, corner_radius=6)
+        self._pomo_chart.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self._pomo_chart.draw(pomo_history.get_recent_history())
 
     # ═══════════════════════════════════════════════════════════
     # Settings Tab
@@ -460,6 +569,48 @@ class CompanionGUI(ctk.CTk):
                               padx=12, pady=(0, 8), sticky="w")
         self._sv_device["username"].trace_add("write", lambda *_: self._update_tag_label())
         self._update_tag_label()
+
+        # Sezione Display (luminosità schermo, FW >= v30)
+        self._build_section_header(scroll, "DISPLAY")
+        display_frame = ctk.CTkFrame(scroll, fg_color=BG_TERTIARY, corner_radius=8)
+        display_frame.pack(fill="x", padx=10, pady=(0, 10))
+        display_frame.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            display_frame, text="Luminosità schermo", anchor="w",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12), width=180,
+        ).grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
+
+        self._sv_brightness = ctk.IntVar(value=255)
+        self._brightness_value_label = ctk.CTkLabel(
+            display_frame, text="255", width=40,
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12),
+        )
+
+        def _on_brightness_slide(value):
+            self._brightness_value_label.configure(text=str(int(float(value))))
+
+        self._brightness_slider = ctk.CTkSlider(
+            display_frame, from_=10, to=255, number_of_steps=49,
+            variable=self._sv_brightness, command=_on_brightness_slide,
+            fg_color=BG_PRIMARY, progress_color=ACCENT, button_color=ACCENT,
+            button_hover_color=ACCENT_HOVER,
+        )
+        self._brightness_slider.grid(row=0, column=1, padx=8, pady=8, sticky="ew")
+        self._brightness_value_label.grid(row=0, column=2, padx=(0, 8), pady=8)
+
+        self._brightness_btn_apply = ctk.CTkButton(
+            display_frame, text="Applica al PetCube", width=160,
+            fg_color=ACCENT, hover_color=ACCENT_HOVER,
+            command=self._on_apply_brightness,
+        )
+        self._brightness_btn_apply.grid(row=1, column=0, columnspan=2, padx=12, pady=(0, 4), sticky="w")
+
+        self._brightness_status_label = ctk.CTkLabel(
+            display_frame, text="", anchor="w",
+            text_color=TEXT_DIM, font=ctk.CTkFont(size=11),
+        )
+        self._brightness_status_label.grid(row=2, column=0, columnspan=3, padx=12, pady=(0, 8), sticky="w")
 
         # Sezione Plugin
         self._build_section_header(scroll, "PLUGIN")
@@ -1057,8 +1208,8 @@ class CompanionGUI(ctk.CTk):
             loop = asyncio.new_event_loop()
             try:
                 addr = loop.run_until_complete(fw_upd.scan_for_petcube(timeout=10.0))
-                mask = loop.run_until_complete(fw_upd.read_achievements_ble(addr)) if addr else None
-                self.after(0, lambda: self._achv_refresh_done(addr, mask))
+                mask, sessions = loop.run_until_complete(fw_upd.read_achievements_ble(addr)) if addr else (None, None)
+                self.after(0, lambda: self._achv_refresh_done(addr, mask, sessions=sessions))
             except Exception as e:
                 self.after(0, lambda: self._achv_refresh_done(None, None, str(e)))
             finally:
@@ -1066,7 +1217,7 @@ class CompanionGUI(ctk.CTk):
 
         threading.Thread(target=run, daemon=True).start()
 
-    def _achv_refresh_done(self, addr: Optional[str], mask: Optional[int], err: str = "") -> None:
+    def _achv_refresh_done(self, addr: Optional[str], mask: Optional[int], err: str = "", sessions: Optional[int] = None) -> None:
         if self._achv_btn_refresh:
             self._achv_btn_refresh.configure(state="normal", text="🔄  Aggiorna via BLE")
         if not self._achv_lbl_status:
@@ -1081,6 +1232,8 @@ class CompanionGUI(ctk.CTk):
             )
             return
         self._on_achv_mask_update(mask)
+        if sessions is not None:
+            self._on_pomodoro_session_count_update(sessions)
         ts = datetime.now().strftime("%H:%M:%S")
         self._achv_lbl_status.configure(text=f"Aggiornato {ts}  ({addr})", text_color=SUCCESS)
 
@@ -1088,9 +1241,36 @@ class CompanionGUI(ctk.CTk):
         """Chiamato (sul thread GUI) quando una nuova bitmask è disponibile."""
         if mask == self._achv_mask:
             return
+        newly_unlocked = mask & ~self._achv_mask
         self._achv_mask = mask
         achv.save_cached_mask(mask)
         self._achv_refresh_display()
+        for a in achv.ACHIEVEMENTS:
+            if newly_unlocked & (1 << a.id):
+                self._show_achievement_toast(a)
+
+    def _show_achievement_toast(self, a: "achv.Achievement") -> None:
+        """Mostra una notifica desktop (toast/balloon dalla tray icon) per un
+        achievement appena sbloccato."""
+        title = f"{a.icon}  Achievement sbloccato!"
+        message = f"{a.title} — {a.description}"
+        if HAS_TRAY and self.tray_icon:
+            try:
+                self.tray_icon.notify(message, title)
+            except Exception as e:
+                logging.getLogger(__name__).debug(f"Notifica achievement fallita: {e}")
+
+    def _on_pomodoro_session_count_update(self, total: int) -> None:
+        """Chiamato (sul thread GUI) con il contatore lifetime sessioni
+        Pomodoro letto via BLE (STATS, FW >= v30): aggiorna lo storico
+        locale e ridisegna il grafico in Dashboard."""
+        pomo_history.record_session_count(total)
+        self._refresh_pomodoro_chart()
+
+    def _refresh_pomodoro_chart(self) -> None:
+        if not self._pomo_chart:
+            return
+        self._pomo_chart.draw(pomo_history.get_recent_history())
 
     def _achv_on_reset(self) -> None:
         if not messagebox.askyesno(
@@ -1816,6 +1996,77 @@ class CompanionGUI(ctk.CTk):
             self._test_send_btn.configure(state="disabled", fg_color=BG_TERTIARY,
                                           hover_color=BG_TERTIARY)
 
+    def _on_sync_now(self) -> None:
+        """Connessione BLE on-demand: sincronizza orologio, tag identità e
+        bitmask achievement del PetCube, indipendentemente dal motore."""
+        self.sync_now_btn.configure(state="disabled", text="Sincronizzazione...")
+        self._append_log_line("🔄 Sincronizzazione manuale in corso...", color=TEXT_DIM)
+
+        tag = device_tag(self._sv_device["username"].get(), self._device_id)
+
+        def run():
+            loop = asyncio.new_event_loop()
+            try:
+                addr = loop.run_until_complete(fw_upd.scan_for_petcube(timeout=10.0))
+                mask, sessions = loop.run_until_complete(fw_upd.sync_now_ble(addr, tag)) if addr else (None, None)
+                self.after(0, lambda: self._sync_now_done(addr, mask, sessions=sessions))
+            except Exception as e:
+                self.after(0, lambda: self._sync_now_done(None, None, str(e)))
+            finally:
+                loop.close()
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _sync_now_done(self, addr: Optional[str], mask: Optional[int], err: str = "", sessions: Optional[int] = None) -> None:
+        self.sync_now_btn.configure(state="normal", text="🔄 Sincronizza ora")
+        if err:
+            self._append_log_line(f"❌ Sincronizzazione fallita: {err}", color=ERROR)
+            return
+        if addr is None:
+            self._append_log_line("❌ Nessun PetCube trovato via BLE.", color=ERROR)
+            return
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._append_log_line(f"✅ Sincronizzato con {addr} alle {ts} (orologio + identità).", color=SUCCESS)
+        if mask is not None:
+            self._on_achv_mask_update(mask)
+        if sessions is not None:
+            self._on_pomodoro_session_count_update(sessions)
+
+    def _on_apply_brightness(self) -> None:
+        """Invia la luminosità impostata dal cursore al PetCube via BLE (FW >= v30)."""
+        value = int(self._sv_brightness.get())
+        self._brightness_btn_apply.configure(state="disabled", text="Applicazione...")
+        self._brightness_status_label.configure(text="Scansione BLE in corso...", text_color=TEXT_DIM)
+
+        def run():
+            loop = asyncio.new_event_loop()
+            try:
+                addr = loop.run_until_complete(fw_upd.scan_for_petcube(timeout=10.0))
+                ok = loop.run_until_complete(fw_upd.set_brightness_ble(addr, value)) if addr else False
+                self.after(0, lambda: self._apply_brightness_done(addr, ok))
+            except Exception as e:
+                self.after(0, lambda: self._apply_brightness_done(None, False, str(e)))
+            finally:
+                loop.close()
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _apply_brightness_done(self, addr: Optional[str], ok: bool, err: str = "") -> None:
+        self._brightness_btn_apply.configure(state="normal", text="Applica al PetCube")
+        if err:
+            self._brightness_status_label.configure(text=f"Errore: {err}", text_color=ERROR)
+            return
+        if addr is None:
+            self._brightness_status_label.configure(text="Nessun PetCube trovato via BLE.", text_color=ERROR)
+            return
+        if not ok:
+            self._brightness_status_label.configure(
+                text="Scrittura fallita (caratteristica non disponibile, FW < v30?)", text_color=ERROR,
+            )
+            return
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._brightness_status_label.configure(text=f"Applicata alle {ts} ({addr}).", text_color=SUCCESS)
+
         for dot in self.plugin_labels.values():
             dot.configure(text_color=TEXT_DIM)
         self.transport_dot.configure(text_color=TEXT_DIM)
@@ -2010,6 +2261,31 @@ class CompanionGUI(ctk.CTk):
                 pass
         self.destroy()
 
+    def show_window(self) -> None:
+        """Riporta la finestra in primo piano (da tray icon o da una
+        seconda istanza avviata per errore, vedi _start_single_instance_listener)."""
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+        self._tray_visible = True
+
+    def _start_single_instance_listener(self, sock: socket.socket) -> None:
+        """Ascolta sul socket di lock: se una seconda istanza viene avviata,
+        la richiesta "show" che invia ci fa riportare la finestra in primo piano."""
+        def _loop():
+            while True:
+                try:
+                    conn, _ = sock.accept()
+                except OSError:
+                    return
+                try:
+                    conn.recv(16)
+                finally:
+                    conn.close()
+                self.after(0, self.show_window)
+
+        threading.Thread(target=_loop, daemon=True).start()
+
     def _setup_tray(self) -> None:
         img = Image.new("RGB", (64, 64), color=(30, 30, 30))
         d = ImageDraw.Draw(img)
@@ -2017,10 +2293,7 @@ class CompanionGUI(ctk.CTk):
         d.text((23, 21), "PC", fill=(30, 30, 30))
 
         def on_show(icon, item):
-            self.deiconify()
-            self.lift()
-            self.focus_force()
-            self._tray_visible = True
+            self.after(0, self.show_window)
 
         def on_quit(icon, item):
             self.after(0, self._real_quit)
@@ -2039,6 +2312,12 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
+
+    lock_sock = _acquire_single_instance_lock()
+    if lock_sock is None:
+        print("PetCube Companion è già in esecuzione — porto la finestra esistente in primo piano.")
+        _notify_existing_instance()
+        return
 
     logging.basicConfig(
         level=logging.INFO,
@@ -2062,6 +2341,7 @@ def main() -> None:
             sys.exit(1)
 
     app = CompanionGUI(config)
+    app._start_single_instance_listener(lock_sock)
     app.mainloop()
 
 
