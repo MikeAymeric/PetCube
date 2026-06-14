@@ -11,11 +11,11 @@ non ancora implementato — sarà v0.10).
 """
 import asyncio
 import logging
-import time
 from typing import Callable, Optional
 
 from notification_packet import NotifPacket, PACKET_SIZE
 from config_schema import device_tag
+from firmware_updater import send_time_sync_ble
 
 
 logger = logging.getLogger(__name__)
@@ -27,10 +27,6 @@ DEFAULT_IDENTITY_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef5"
 # Characteristic ACHV del firmware (vedi PetCube.ino BLE_CHAR_ACHV_UUID):
 # bitmask uint64 little-endian di sblocco achievement, read-only.
 DEFAULT_ACHV_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef7"
-
-# Characteristic TIME del firmware (vedi PetCube.ino BLE_CHAR_TIME_UUID):
-# uint32 little-endian, secondi dalla mezzanotte locale, write-only.
-DEFAULT_TIME_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef8"
 
 
 class BLESender:
@@ -46,14 +42,12 @@ class BLESender:
                  scan_timeout_sec: int = 10,
                  identity_char_uuid: str = DEFAULT_IDENTITY_CHAR_UUID,
                  achv_char_uuid: str = DEFAULT_ACHV_CHAR_UUID,
-                 time_char_uuid: str = DEFAULT_TIME_CHAR_UUID,
                  on_achievements: Optional[Callable[[int], None]] = None):
         self.device_name = device_name
         self.service_uuid = service_uuid
         self.char_uuid = char_uuid
         self.identity_char_uuid = identity_char_uuid
         self.achv_char_uuid = achv_char_uuid
-        self.time_char_uuid = time_char_uuid
         self.on_achievements = on_achievements
         self.scan_timeout = scan_timeout_sec
         self._client = None
@@ -134,15 +128,7 @@ class BLESender:
         """Sincronizza l'orologio del cubo con l'ora locale del PC (best-effort)."""
         if not (self._client and self._client.is_connected):
             return
-        try:
-            now = time.localtime()
-            seconds_of_day = now.tm_hour * 3600 + now.tm_min * 60 + now.tm_sec
-            await self._client.write_gatt_char(
-                self.time_char_uuid, seconds_of_day.to_bytes(4, "little")
-            )
-            logger.info(f"🕒 Ora sincronizzata via BLE: {now.tm_hour:02d}:{now.tm_min:02d}:{now.tm_sec:02d}")
-        except Exception as e:
-            logger.debug(f"Sincronizzazione ora BLE fallita (FW < v27?): {e}")
+        await send_time_sync_ble(self._client)
 
     async def send(self, packet: NotifPacket) -> bool:
         """Invia un pacchetto. Ritorna True se inviato con successo."""
