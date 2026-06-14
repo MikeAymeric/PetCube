@@ -179,6 +179,7 @@ class CompanionGUI(ctk.CTk):
         self._achv_lbl_progress: Optional[ctk.CTkLabel] = None
         self._achv_lbl_status: Optional[ctk.CTkLabel] = None
         self._achv_btn_refresh: Optional[ctk.CTkButton] = None
+        self._achv_btn_reset: Optional[ctk.CTkButton] = None
 
         # Companion app self-update state
         self._app_release_info: Optional[app_upd.AppReleaseInfo] = None
@@ -946,7 +947,7 @@ class CompanionGUI(ctk.CTk):
             header_card, text="ACHIEVEMENTS",
             font=ctk.CTkFont(size=11, weight="bold"),
             text_color=TEXT_DIM, anchor="w",
-        ).grid(row=0, column=0, columnspan=3, sticky="ew", padx=15, pady=(10, 6))
+        ).grid(row=0, column=0, columnspan=4, sticky="ew", padx=15, pady=(10, 6))
 
         self._achv_btn_refresh = ctk.CTkButton(
             header_card, text="🔄  Aggiorna via BLE", width=180,
@@ -965,7 +966,14 @@ class CompanionGUI(ctk.CTk):
             header_card, text="", text_color=TEXT_DIM,
             font=ctk.CTkFont(size=12), anchor="w",
         )
-        self._achv_lbl_status.grid(row=1, column=2, padx=(20, 12), pady=(0, 10), sticky="e")
+        self._achv_lbl_status.grid(row=1, column=2, padx=(20, 8), pady=(0, 10), sticky="e")
+
+        self._achv_btn_reset = ctk.CTkButton(
+            header_card, text="🗑  Reset achievements", width=180,
+            fg_color="#5a1a1a", hover_color="#7a2a2a", font=ctk.CTkFont(size=12),
+            command=self._achv_on_reset,
+        )
+        self._achv_btn_reset.grid(row=1, column=3, padx=(0, 12), pady=(0, 10), sticky="e")
 
         # ── Lista achievement, raggruppati per categoria ──
         scroll = ctk.CTkScrollableFrame(parent, fg_color=BG_PRIMARY, corner_radius=0)
@@ -1083,6 +1091,55 @@ class CompanionGUI(ctk.CTk):
         self._achv_mask = mask
         achv.save_cached_mask(mask)
         self._achv_refresh_display()
+
+    def _achv_on_reset(self) -> None:
+        if not messagebox.askyesno(
+            "Reset achievements",
+            "Questa operazione azzera TUTTI gli achievement e i contatori "
+            "lifetime salvati sul PetCube (sessioni, vittorie, decessi, ecc.), "
+            "senza toccare la partita in corso o il registro.\n\n"
+            "L'operazione non è reversibile. Continuare?",
+            icon="warning",
+        ):
+            return
+
+        if self._achv_btn_reset:
+            self._achv_btn_reset.configure(state="disabled", text="Reset in corso...")
+        if self._achv_lbl_status:
+            self._achv_lbl_status.configure(text="Reset achievement in corso...", text_color=TEXT_DIM)
+
+        def run():
+            loop = asyncio.new_event_loop()
+            try:
+                addr = loop.run_until_complete(fw_upd.scan_for_petcube(timeout=10.0))
+                ok = loop.run_until_complete(fw_upd.reset_achievements_ble(addr)) if addr else False
+                self.after(0, lambda: self._achv_reset_done(addr, ok))
+            except Exception as e:
+                self.after(0, lambda: self._achv_reset_done(None, False, str(e)))
+            finally:
+                loop.close()
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _achv_reset_done(self, addr: Optional[str], ok: bool, err: str = "") -> None:
+        if self._achv_btn_reset:
+            self._achv_btn_reset.configure(state="normal", text="🗑  Reset achievements")
+        if not self._achv_lbl_status:
+            return
+        if err:
+            self._achv_lbl_status.configure(text=f"Errore: {err}", text_color=ERROR)
+            return
+        if not addr:
+            self._achv_lbl_status.configure(text="Nessun PetCube trovato.", text_color=ERROR)
+            return
+        if not ok:
+            self._achv_lbl_status.configure(text="Reset fallito (FW < v28?).", text_color=ERROR)
+            return
+        self._achv_mask = 0
+        achv.save_cached_mask(0)
+        self._achv_refresh_display()
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._achv_lbl_status.configure(text=f"Achievement azzerati {ts}  ({addr})", text_color=SUCCESS)
 
     # ═══════════════════════════════════════════════════════════
     # Firmware Tab
