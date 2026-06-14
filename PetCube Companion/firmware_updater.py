@@ -26,8 +26,9 @@ BLE_CHAR_OTA_DATA_UUID  = "12345678-1234-5678-1234-56789abcdef4"
 BLE_CHAR_RESET_UUID     = "12345678-1234-5678-1234-56789abcdef6"
 BLE_CHAR_ACHV_UUID      = "12345678-1234-5678-1234-56789abcdef7"
 
-# Comando RESET — wipe NVS completo (partita + registro) al prossimo boot
-RESET_CMD_FACTORY = 0x01
+# Comandi RESET (vedi PetCube.ino PetCubeResetCallbacks)
+RESET_CMD_FACTORY      = 0x01  # wipe NVS completo (partita + registro) al prossimo boot
+RESET_CMD_ACHIEVEMENTS = 0x02  # azzera solo achievement/contatori lifetime, subito
 
 # Comandi OTA CTRL
 OTA_CMD_START  = 0x01
@@ -98,6 +99,20 @@ async def factory_reset_ble(address: str, timeout: float = 10.0) -> bool:
             return True
         except Exception as e:
             log.warning("Richiesta reset di fabbrica fallita: %s", e)
+            return False
+
+
+async def reset_achievements_ble(address: str, timeout: float = 10.0) -> bool:
+    """
+    Azzera achievement e contatori lifetime sul PetCube (namespace NVS
+    "achv"), senza toccare partita/registro e senza riavvio (FW >= v28).
+    """
+    async with BleakClient(address, timeout=timeout) as client:
+        try:
+            await client.write_gatt_char(BLE_CHAR_RESET_UUID, bytes([RESET_CMD_ACHIEVEMENTS]))
+            return True
+        except Exception as e:
+            log.warning("Richiesta reset achievement fallita: %s", e)
             return False
 
 
