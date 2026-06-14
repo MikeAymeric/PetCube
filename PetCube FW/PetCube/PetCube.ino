@@ -90,7 +90,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           30   // bump al cambio struttura NVS
+#define FW_VERSION           31   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -514,6 +514,10 @@ int  menuCursor   = 0;
 const int MENU_ITEMS = 4;
 const char* MENU_LABELS[] = { "Status", "Clean", "Heal", "Registro" };
 
+// Nomi degli stadi evolutivi (0-5), usati dal badge stadio sia nella
+// schermata Status (creatura attuale) sia nel Registro (voce selezionata).
+const char* STAGE_NAMES[] = {"Spark","Wisp","Sprite","Spirit","Avatar","Primal"};
+
 
 // ── REGISTRO ──────────────────────────────────────────────────
 // Tutte le creature del gioco in ordine
@@ -573,6 +577,23 @@ PetEntry REGISTRO[] = {
 };
 const int REGISTRO_SIZE = 28;
 int registroCursor = 0;  // Creatura corrente nel registro
+
+// Determina lo stadio evolutivo (0-5, indice in STAGE_NAMES) e la linea
+// (0=STR, 1=ENG, 2=INT, -1=nessuna) di una voce del Registro a partire dal
+// suo indice. Ogni elemento (Fire, Water) occupa 14 voci: 3 forme condivise
+// (stadi 0-2), poi le linee STR/ENG/INT da 3 forme ciascuna (stadi 3-5),
+// con una forma Leggendaria "Light" in coda alla linea STR (stadio 5, senza
+// linea) e infine una forma Leggendaria "Dark" condivisa (stadio 5).
+void getRegistroStage(int idx, uint8_t& stage, int& line) {
+  int li = idx % 14;
+  line = -1;
+  if (li <= 2)       { stage = li; }
+  else if (li <= 5)  { stage = li;     line = 0; }  // STR: stadi 3,4,5
+  else if (li == 6)  { stage = 5; }                  // Leggenda Light
+  else if (li <= 9)  { stage = li - 4; line = 1; }  // ENG: stadi 3,4,5
+  else if (li <= 12) { stage = li - 7; line = 2; }  // INT: stadi 3,4,5
+  else               { stage = 5; }                  // Leggenda Dark
+}
 
 // Aggiorna ottenuto nel registro quando evolve
 void registroMarkObtained(const char* name) {
@@ -1590,30 +1611,58 @@ void drawRegistroScreen(unsigned long now) {
     drawCenteredStr(150, "Non ancora");
     drawCenteredStr(172, "scoperto...");
   } else {
-    // Sprite spostata a (28,50): a (14,40) l'angolo superiore sinistro
-    // finiva fuori dall'area circolare visibile.
+    // Sprite grande e centrata, sotto la riga dell'header.
     const SprFrame& frame = e.sprites->idle[(now/ANIM_IDLE_MS)%3];
-    drawSpriteScaled(28, 50, 4, frame);
+    const int sscale = 4;
+    int sx = (DISP_SIZE - SPR_SIZE*sscale) / 2;
+    drawSpriteScaled(sx, 42, sscale, frame);
 
-    // Nome in font2 (anziché font4) e spostato a destra della sprite,
-    // così i nomi lunghi non finiscono fuori dal cerchio visibile.
+    // Nome centrato sotto la sprite
     canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
-    canvas.drawString(e.name, 100, 52);
+    drawCenteredStr(110, e.name);
 
-    // Badge elemento + contatore, colorato in base all'elemento
-    char ob[20]; sprintf(ob, "%s x%d", e.element, e.obtained);
+    // Badge tipo (elemento + contatore, colorato in base all'elemento) e
+    // badge stadio evolutivo (es. "Wisp" o "Primal / STR"), centrati insieme.
+    char typeBuf[20]; sprintf(typeBuf, "%s x%d", e.element, e.obtained);
+    uint8_t stg; int line;
+    getRegistroStage(registroCursor, stg, line);
+    String stagePill = STAGE_NAMES[stg];
+    if (line >= 0) {
+      const char* lnames[] = {"STR", "ENG", "INT"};
+      stagePill += " / ";
+      stagePill += lnames[line];
+    }
+
     canvas.setTextFont(1); canvas.setTextSize(1);
-    int obw = canvas.textWidth(ob) + 16;
-    canvas.fillRoundRect(100, 76, obw, 18, 6, accent);
-    canvas.setTextColor(C_BG, accent);
-    canvas.drawString(ob, 108, 81);
+    int typeW = canvas.textWidth(typeBuf) + 16;
+    canvas.setTextFont(2);
+    int stageW = canvas.textWidth(stagePill) + 20;
+    int groupW = typeW + 8 + stageW;
+    int gx = (DISP_SIZE - groupW) / 2;
+    const int by = 130;
 
-    // Cuori: S, I, E, H — colorati in base alla categoria di stat
-    canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
-    canvas.drawString("S", 84, 102); drawHearts(100, 100, e.strH, 3, C_STR);
-    canvas.drawString("I", 84, 126); drawHearts(100, 124, e.intH, 3, C_INT);
-    canvas.drawString("E", 84, 150); drawHearts(100, 148, e.engH, 3, C_ENG);
-    canvas.drawString("H", 84, 174); drawHearts(100, 172, e.hapH, 3, C_HAP);
+    canvas.setTextFont(1); canvas.setTextSize(1);
+    canvas.fillRoundRect(gx, by, typeW, 18, 6, accent);
+    canvas.setTextColor(C_BG, accent);
+    canvas.drawString(typeBuf, gx + 8, by + 5);
+
+    canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
+    canvas.drawRoundRect(gx + typeW + 8, by - 1, stageW, 20, 8, C_CYAN);
+    canvas.drawString(stagePill, gx + typeW + 8 + 10, by + 3);
+
+    // Statistiche S/I/E/H, due per riga, colorate in base alla categoria
+    struct { const char* label; int val; uint16_t color; } regStats[] = {
+      {"S", e.strH, C_STR}, {"I", e.intH, C_INT},
+      {"E", e.engH, C_ENG}, {"H", e.hapH, C_HAP},
+    };
+    const int col1X = 30, col2X = 130;
+    for (int i = 0; i < 4; i++) {
+      int colX = (i % 2 == 0) ? col1X : col2X;
+      int y = 158 + (i / 2) * 22;
+      canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
+      canvas.drawString(regStats[i].label, colX, y);
+      drawHearts(colX + 18, y - 2, regStats[i].val, 3, regStats[i].color);
+    }
   }
 
   canvas.drawFastHLine(20, 196, DISP_SIZE - 40, C_DIM);
@@ -1919,6 +1968,38 @@ void drawMainScreen(unsigned long now) {
   canvas.pushSprite(0, 0);
 }
 
+// ── Icone voci menu ──────────────────────────────────────────────
+// Icone 16x16 disegnate con lo stesso colore del testo della voce,
+// così risultano automaticamente attenuate (C_DIM) quando disabilitata:
+// 0=Status (mini grafico a barre), 1=Clean (cacca), 2=Heal (cuore),
+// 3=Registro (pila di card).
+void drawMenuIcon(int idx, int x, int y, uint16_t color) {
+  switch (idx) {
+    case 0:
+      canvas.fillRect(x,    y+10, 3, 6,  color);
+      canvas.fillRect(x+5,  y+2,  3, 14, color);
+      canvas.fillRect(x+10, y+6,  3, 10, color);
+      break;
+    case 1: {
+      const int s = 2;
+      canvas.fillRect(x+2*s, y,     3*s, s, color);
+      canvas.fillRect(x+s,   y+s,   5*s, s, color);
+      canvas.fillRect(x+2*s, y+2*s, 3*s, s, color);
+      canvas.fillRect(x+s,   y+3*s, 5*s, s, color);
+      canvas.fillRect(x,     y+4*s, 7*s, s, color);
+      canvas.fillRect(x,     y+5*s, 7*s, s, color);
+      break;
+    }
+    case 2:
+      drawHeart(x, y, true, color);
+      break;
+    case 3:
+      canvas.drawRoundRect(x+3, y+3, 13, 10, 2, color);
+      canvas.drawRoundRect(x,   y,   13, 10, 2, color);
+      break;
+  }
+}
+
 void drawMenuScreen(unsigned long now) {
   canvas.fillSprite(C_BG);
 
@@ -1933,20 +2014,27 @@ void drawMenuScreen(unsigned long now) {
 
   canvas.drawFastHLine(20, 82, 200, C_DIM);
 
+  // Voci come "card": quella selezionata ha sfondo evidenziato e una
+  // barra colorata a sinistra; ogni voce ha un'icona a sinistra del testo.
   for (int i = 0; i < MENU_ITEMS; i++) {
-    int y = 90 + i * 26;
-
-    char label[20];
-    strcpy(label, MENU_LABELS[i]);
+    int y = 88 + i * 30;
 
     bool enabled = true;
     if (i == 1) enabled = (poopCount > 0 || poopMega);
     if (i == 2) enabled = isSick;
 
-    uint16_t c = !enabled ? C_DIM : (i == menuCursor ? C_TIMER : C_FG);
-    if (i == menuCursor) canvas.fillRect(20, y-2, 200, 22, 0x1082);
-    canvas.setTextFont(2); canvas.setTextColor(c, C_BG);
-    canvas.drawString(i == menuCursor ? (String(">") + label).c_str() : label, 30, y);
+    bool selected = (i == menuCursor);
+    uint16_t c = !enabled ? C_DIM : (selected ? C_TIMER : C_FG);
+    uint16_t rowBg = selected ? 0x1082 : C_BG;
+
+    if (selected) {
+      canvas.fillRoundRect(20, y, 200, 26, 8, rowBg);
+      canvas.fillRect(20, y, 5, 26, C_TIMER);
+    }
+
+    drawMenuIcon(i, 32, y + 5, c);
+    canvas.setTextFont(2); canvas.setTextColor(c, rowBg);
+    canvas.drawString(MENU_LABELS[i], 56, y + 4);
   }
 
   // Footer a size1 e centrato a y=216: a size2/y=226 il testo era
@@ -1965,16 +2053,17 @@ void drawStatusScreen(unsigned long now) {
   canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
   drawCenteredStr(16, getCurrentName());
 
-  // Tag identità multiplayer (es. "Mike#47213"), se assegnato dalla Companion App
+  // Tag identità multiplayer (es. "Mike#47213"), se assegnato dalla Companion App.
+  // In alto a destra, sopra il nome: a y=36 finiva troppo vicino al badge
+  // stadio sottostante (y=38) e ne veniva parzialmente coperto.
   if (petTag.length() > 0) {
     canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
     int tw = canvas.textWidth(petTag);
-    canvas.drawString(petTag, max(0, 197 - tw), 36);
+    canvas.drawString(petTag, max(0, 197 - tw), 2);
   }
 
   // ── Badge stadio evolutivo ───────────────────────────────────────
-  const char* stageNames[] = {"Spark","Wisp","Sprite","Spirit","Avatar","Primal"};
-  String stagePill = stageNames[min(evoStage,5)];
+  String stagePill = STAGE_NAMES[min(evoStage,5)];
   if (evoStage >= 3) {
     const char* lnames[] = { "STR", "ENG", "INT" };
     stagePill += " / ";
