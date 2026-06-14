@@ -34,6 +34,7 @@
 #include "petcube_backgrounds.h"
 #include "petcube_battle.h"
 #include "petcube_notif_icons.h"
+#include "petcube_status_icons.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -89,7 +90,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           28   // bump al cambio struttura NVS
+#define FW_VERSION           29   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -164,7 +165,7 @@ enum GameState {
   STATE_BATTLE_RESOLVE,  // calcolo + animazione danno
   STATE_BATTLE_RESULT    // schermata finale V/L
 };
-enum Screen { SCR_MAIN, SCR_MENU, SCR_STATUS, SCR_CLOCK, SCR_BOOT, SCR_REGISTRO, SCR_BATTLE };
+enum Screen { SCR_MAIN, SCR_MENU, SCR_STATUS, SCR_BOOT, SCR_REGISTRO, SCR_BATTLE };
 enum Orientation {
   ORI_NORMAL, ORI_LEFT, ORI_RIGHT,
   ORI_FACE_UP, ORI_UPSIDE_DOWN, ORI_FACE_DOWN
@@ -1070,6 +1071,15 @@ void drawBar(int x, int y, int w, int h, int val, uint16_t color = C_HAP) {
   if (fill > 0) canvas.fillRect(x+1, y+1, fill, h-2, color);
 }
 
+// Colore accento per elemento del Registro (Fire/Water/Light/Dark)
+uint16_t getElementColor(const char* element) {
+  if (strcmp(element, "Fire")  == 0) return C_STR;
+  if (strcmp(element, "Water") == 0) return C_INT;
+  if (strcmp(element, "Light") == 0) return C_ENG;
+  if (strcmp(element, "Dark")  == 0) return C_MAGENTA;
+  return C_CYAN;
+}
+
 // ── NVS ───────────────────────────────────────────────────────
 void saveToNVS() {
   prefs.begin("petcube", false);
@@ -1518,9 +1528,9 @@ void setDisplayRotation(Orientation ori) {
 }
 
 // ── Cuori helper ──────────────────────────────────────────────
-void drawHeart(int x, int y, bool filled) {
+void drawHeart(int x, int y, bool filled, uint16_t color = C_STR) {
   const int s = 3;
-  uint16_t c = filled ? C_STR : C_DIM;
+  uint16_t c = filled ? color : C_DIM;
   if (filled) {
     canvas.fillRect(x+s,   y,     s,   s,   c);
     canvas.fillRect(x+3*s, y,     s,   s,   c);
@@ -1540,9 +1550,9 @@ void drawHeart(int x, int y, bool filled) {
   }
 }
 
-void drawHearts(int x, int y, int filled, int total=3) {
+void drawHearts(int x, int y, int filled, int total=3, uint16_t color = C_STR) {
   for (int i = 0; i < total; i++) {
-    drawHeart(x + i*20, y, i < filled);
+    drawHeart(x + i*20, y, i < filled, color);
   }
 }
 
@@ -1550,19 +1560,27 @@ void drawHearts(int x, int y, int filled, int total=3) {
 void drawRegistroScreen(unsigned long now) {
   canvas.fillSprite(C_BG);
   const PetEntry& e = REGISTRO[registroCursor];
+  uint16_t accent = (e.obtained > 0) ? getElementColor(e.element) : C_DIM;
 
-  canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
-  char hdr[24];
-  sprintf(hdr, "%d/%d  Registro", registroCursor+1, REGISTRO_SIZE);
-  drawCenteredStr(14, hdr);
-  canvas.drawFastHLine(0, 32, DISP_SIZE, C_DIM);
+  // ── Header: indice, badge colorato in base all'elemento ──────────
+  char hdr[16];
+  sprintf(hdr, "%d / %d", registroCursor+1, REGISTRO_SIZE);
+  canvas.setTextFont(2); canvas.setTextColor(accent, C_BG);
+  int htw = canvas.textWidth(hdr);
+  int hx = (DISP_SIZE - htw) / 2;
+  canvas.drawRoundRect(hx - 12, 10, htw + 24, 20, 8, accent);
+  canvas.drawString(hdr, hx, 14);
+
+  canvas.drawFastHLine(20, 38, DISP_SIZE - 40, C_DIM);
 
   if (e.obtained == 0) {
+    canvas.drawCircle(120, 100, 36, C_DIM);
     canvas.setTextFont(4); canvas.setTextColor(C_DIM, C_BG);
-    drawCenteredStr(100, "???");
+    int qtw = canvas.textWidth("?");
+    canvas.drawString("?", 120 - qtw/2, 84);
     canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
     drawCenteredStr(150, "Non ancora");
-    drawCenteredStr(172, "ottenuto!");
+    drawCenteredStr(172, "scoperto...");
   } else {
     // Sprite spostata a (28,50): a (14,40) l'angolo superiore sinistro
     // finiva fuori dall'area circolare visibile.
@@ -1572,24 +1590,31 @@ void drawRegistroScreen(unsigned long now) {
     // Nome in font2 (anziché font4) e spostato a destra della sprite,
     // così i nomi lunghi non finiscono fuori dal cerchio visibile.
     canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
-    canvas.drawString(e.name, 100, 58);
-    canvas.setTextColor(C_CYAN, C_BG);
-    char ob[20]; sprintf(ob, "%s  x%d", e.element, e.obtained);
-    canvas.drawString(ob, 100, 80);
+    canvas.drawString(e.name, 100, 52);
 
-    // Cuori: S, I, E, H — due colonne
-    canvas.setTextColor(C_FG, C_BG);
-    canvas.drawString("S", 84, 102); drawHearts(100, 100, e.strH);
-    canvas.drawString("I", 84, 130); drawHearts(100, 128, e.intH);
-    canvas.drawString("E", 84, 158); drawHearts(100, 156, e.engH);
-    canvas.drawString("H", 84, 186); drawHearts(100, 184, e.hapH);
+    // Badge elemento + contatore, colorato in base all'elemento
+    char ob[20]; sprintf(ob, "%s x%d", e.element, e.obtained);
+    canvas.setTextFont(1); canvas.setTextSize(1);
+    int obw = canvas.textWidth(ob) + 16;
+    canvas.fillRoundRect(100, 76, obw, 18, 6, accent);
+    canvas.setTextColor(C_BG, accent);
+    canvas.drawString(ob, 108, 81);
+
+    // Cuori: S, I, E, H — colorati in base alla categoria di stat
+    canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
+    canvas.drawString("S", 84, 102); drawHearts(100, 100, e.strH, 3, C_STR);
+    canvas.drawString("I", 84, 126); drawHearts(100, 124, e.intH, 3, C_INT);
+    canvas.drawString("E", 84, 150); drawHearts(100, 148, e.engH, 3, C_ENG);
+    canvas.drawString("H", 84, 174); drawHearts(100, 172, e.hapH, 3, C_HAP);
   }
 
-  canvas.drawFastHLine(0, 215, DISP_SIZE, C_DIM);
+  canvas.drawFastHLine(20, 196, DISP_SIZE - 40, C_DIM);
   // Font ridotto a size1 e centrato: a size2 il testo era troppo largo
   // per la corda del cerchio visibile a quest'altezza.
   canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
-  drawCenteredStr(222, "A=cicla  C=esci");
+  drawCenteredStr(200, "A=cicla  C=esci");
+
+  drawClockFooter(now);
   canvas.pushSprite(0, 0);
 }
 
@@ -1798,13 +1823,14 @@ void drawMainScreen(unsigned long now) {
 
   // ── Icona BT ─────────────────────────────────────────────────
   // Posizionata entro l'area visibile circolare (Ø240px / 32.4mm):
-  // a (188,12) l'icona finiva fuori dal cerchio e veniva tagliata dalla cornice.
+  // a (168,14) un'icona 16x16 finirebbe a x=184, fuori dalla corda
+  // visibile (max x≈176 a quest'altezza), quindi spostata a (160,14).
+  // Connessa: icona a colori. In advertising: icona in scala di grigio
+  // lampeggiante (nessuna connessione attiva).
   if (bleClientConnected) {
-    canvas.setTextFont(1); canvas.setTextSize(2); canvas.setTextColor(C_CYAN, C_BG);
-    canvas.drawString("B", 168, 14);
-    canvas.setTextSize(1);
+    canvas.pushImage(160, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT, (uint16_t)0x0000);
   } else if (bleAdvertising && (now/700)%2 == 0) {
-    canvas.fillRect(168, 18, 6, 6, C_DIM);
+    canvas.pushImage(160, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT_GRAY, (uint16_t)0x0000);
   }
 
   // ── Sprite ───────────────────────────────────────────────────
@@ -1881,6 +1907,7 @@ void drawMainScreen(unsigned long now) {
     }
   }
 
+  drawClockFooter(now);
   canvas.pushSprite(0, 0);
 }
 
@@ -1922,10 +1949,10 @@ void drawMenuScreen(unsigned long now) {
   canvas.pushSprite(0, 0);
 }
 
-void drawStatusScreen() {
+void drawStatusScreen(unsigned long now) {
   canvas.fillSprite(C_BG);
 
-  // Nome + stadio. Font ridotto a 2 e centrato: a font4/x=20 i nomi più
+  // Nome. Font ridotto a 2 e centrato: a font4/x=20 i nomi più
   // lunghi (es. "Noxfortress") finivano fuori dall'area circolare visibile.
   canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
   drawCenteredStr(16, getCurrentName());
@@ -1937,99 +1964,87 @@ void drawStatusScreen() {
     canvas.drawString(petTag, max(0, 197 - tw), 36);
   }
 
+  // ── Badge stadio evolutivo ───────────────────────────────────────
   const char* stageNames[] = {"Spark","Wisp","Sprite","Spirit","Avatar","Primal"};
-  canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
-  canvas.drawString(stageNames[min(evoStage,5)], 24, 52);
+  String stagePill = stageNames[min(evoStage,5)];
   if (evoStage >= 3) {
     const char* lnames[] = { "STR", "ENG", "INT" };
-    canvas.drawString(lnames[lineVariant], 120, 52);
+    stagePill += " / ";
+    stagePill += lnames[lineVariant];
   }
-  canvas.drawFastHLine(10, 72, 220, C_DIM);
+  canvas.setTextFont(2); canvas.setTextColor(C_CYAN, C_BG);
+  int ptw = canvas.textWidth(stagePill);
+  int px = (DISP_SIZE - ptw) / 2;
+  canvas.drawRoundRect(px - 10, 38, ptw + 20, 22, 8, C_CYAN);
+  canvas.drawString(stagePill, px, 43);
 
-  // Barre stat
-  const int bx = 55, bw = 130, bh = 10, lx = 14;
-  canvas.setTextFont(2);
-  canvas.setTextColor(C_HAP, C_BG); canvas.drawString("HAP", lx, 80);
-  drawBar(bx, 82, bw, bh, statHAP, C_HAP);
-  canvas.setTextColor(C_STR, C_BG); canvas.drawString("STR", lx, 100);
-  drawBar(bx, 102, bw, bh, statSTR, C_STR);
-  canvas.setTextColor(C_INT, C_BG); canvas.drawString("INT", lx, 120);
-  drawBar(bx, 122, bw, bh, statINT, C_INT);
-  canvas.setTextColor(C_ENG, C_BG); canvas.drawString("ENG", lx, 140);
-  drawBar(bx, 142, bw, bh, statENG, C_ENG);
+  canvas.drawFastHLine(14, 68, DISP_SIZE - 28, C_DIM);
 
-  canvas.drawFastHLine(10, 160, 220, C_DIM);
-
-  // Sessioni / Evo / Battaglie
-  char buf[24];
-  canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
-  sprintf(buf, "Sess: %d", sessTotal); canvas.drawString(buf, 20, 168);
-  if (evoStage < 5) {
-    sprintf(buf, "Evo: %d", EVO_THRESH[evoStage+1]); canvas.drawString(buf, 130, 168);
-  }
-  sprintf(buf, "W:%d  L:%d", battlesWon, battlesLost); canvas.drawString(buf, 24, 192);
-  if (isSick) {
-    canvas.setTextColor(C_STR, C_BG); canvas.drawString("MALATO!", 140, 192);
-  }
-
-  // Footer a size1 e centrato a y=218: a size2/y=220 era troppo largo
-  // per la corda del cerchio visibile e finiva tagliato.
-  canvas.drawFastHLine(10, 214, 220, C_DIM);
-  canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
-  drawCenteredStr(218, "B=ora C=indietro");
-  canvas.pushSprite(0, 0);
-}
-
-void drawClockScreen(unsigned long now) {
-  canvas.fillSprite(C_BG);
-
-  long totalSec = (long)(now / 1000) + clockOffsetSec;
-  int  hh = (totalSec / 3600) % 24;
-  int  mm = (totalSec / 60)   % 60;
-  int  ss =  totalSec         % 60;
-
-  if (!clockSet) {
+  // ── Barre stat ────────────────────────────────────────────────
+  struct { const char* label; int val; uint16_t color; } stats[] = {
+    {"HAP", statHAP, C_HAP},
+    {"STR", statSTR, C_STR},
+    {"INT", statINT, C_INT},
+    {"ENG", statENG, C_ENG},
+  };
+  const int bx = 72, bw = 128, bh = 11;
+  for (int i = 0; i < 4; i++) {
+    int y = 76 + i * 27;
+    canvas.fillRoundRect(16, y, 12, 12, 3, stats[i].color);
     canvas.setTextFont(2); canvas.setTextColor(C_FG, C_BG);
-    drawCenteredStr(90, "Sincronizzazione...");
+    canvas.drawString(stats[i].label, 33, y - 1);
+    canvas.drawRoundRect(bx, y, bw, bh, 4, C_DIM);
+    int fill = stats[i].val * (bw - 4) / 100;
+    if (fill > 0) canvas.fillRoundRect(bx + 2, y + 2, fill, bh - 4, 3, stats[i].color);
+    char vbuf[5]; sprintf(vbuf, "%d", stats[i].val);
     canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
-    drawCenteredStr(120, "Connetti la Companion");
-    drawCenteredStr(134, "per impostare l'ora");
-    drawCenteredStr(220, "C = chiudi");
-  } else {
-    char buf[10];
-    sprintf(buf, "%02d:%02d", hh, mm);
-    canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
-    int tw = canvas.textWidth(buf);
-    canvas.drawString(buf, (DISP_SIZE - tw) / 2, 70);
-
-    // Barra secondi
-    canvas.drawRect(30, 110, 180, 10, C_DIM);
-    canvas.fillRect(31, 111, ss * 178 / 59, 8, C_CYAN);
-
-    // Sprite animato centrato. Y ridotta da 128 a 100: a y=128 il bordo
-    // inferiore (y=240) finiva ben fuori dall'area circolare visibile.
-#if SPRITES_PLACEHOLDER
-    drawSpritePlaceholder(SPR_X, 100, SPR_DRAW_SIZE, SPR_DRAW_SIZE, now);
-#else
-    const PetSprites* spr = getCurrentSprites();
-    drawSpriteScaled(SPR_X, 100, SPR_SCALE, spr->idle[(now/400)%3]);
-#endif
-
-    // Hint a size1 e centrato: a size2/x=75 finiva tagliato a destra.
-    canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
-    drawCenteredStr(220, "C = chiudi");
+    canvas.drawString(vbuf, bx + bw + 6, y + 2);
   }
 
+  canvas.drawFastHLine(14, 184, DISP_SIZE - 28, C_DIM);
+
+  // ── Badge info ────────────────────────────────────────────────
+  char buf[16];
+  canvas.setTextFont(1); canvas.setTextSize(1);
+  sprintf(buf, "Sess: %d", sessTotal);
+  int b1w = canvas.textWidth(buf) + 16;
+  canvas.fillRoundRect(26, 192, b1w, 18, 6, 0x2104);
+  canvas.setTextColor(C_FG, 0x2104);
+  canvas.drawString(buf, 26 + 8, 197);
+
+  if (isSick && (now/400)%2) {
+    const char* sick = "MALATO!";
+    int b2w = canvas.textWidth(sick) + 16;
+    canvas.fillRoundRect(214 - b2w, 192, b2w, 18, 6, C_STR);
+    canvas.setTextColor(C_BG, C_STR);
+    canvas.drawString(sick, 214 - b2w + 8, 197);
+  } else {
+    sprintf(buf, "W:%d L:%d", battlesWon, battlesLost);
+    int b2w = canvas.textWidth(buf) + 16;
+    canvas.fillRoundRect(214 - b2w, 192, b2w, 18, 6, 0x2104);
+    canvas.setTextColor(C_FG, 0x2104);
+    canvas.drawString(buf, 214 - b2w + 8, 197);
+  }
+
+  drawClockFooter(now);
   canvas.pushSprite(0, 0);
 }
 
-void handleClockButtons(bool btnANow, bool btnBNow, bool btnCNow) {
-  // L'ora è sincronizzata via BLE dalla Companion (vedi PetCubeTimeCallbacks):
-  // qui c'è solo da chiudere la schermata, sincronizzato o no.
-  if (btnCPrev==HIGH && btnCNow==LOW) {
-    gScreen = SCR_MAIN;
-    delay(50);
-  }
+// ── Orologio (footer condiviso) ─────────────────────────────────
+// Disegna l'ora corrente (HH:MM), centrata in basso, su tutte le
+// schermate principali. Sincronizzato via BLE dalla Companion (vedi
+// PetCubeTimeCallbacks); non disegna nulla finché clockSet è false
+// (nessuna sincronizzazione ricevuta dal boot).
+void drawClockFooter(unsigned long now) {
+  if (!clockSet) return;
+  long totalSec = (long)(now / 1000) + clockOffsetSec;
+  int hh = (totalSec / 3600) % 24;
+  int mm = (totalSec / 60)   % 60;
+  char buf[6];
+  sprintf(buf, "%02d:%02d", hh, mm);
+  canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
+  int tw = canvas.textWidth(buf);
+  canvas.drawString(buf, (DISP_SIZE - tw) / 2, 212);
 }
 
 void drawEvolvingScreen(unsigned long now) {
@@ -3294,11 +3309,7 @@ void loop() {
     return;
   }
 
-  if (gScreen == SCR_CLOCK) {
-    // SCR_CLOCK prima di tutto — anche durante STATE_SETUP
-    handleClockButtons(btnANow, btnBNow, btnCNow);
-  }
-  else if (gState == STATE_SETUP) {
+  if (gState == STATE_SETUP) {
     // A: cicla tra Fire e Water
     if (btnAPrev==HIGH && btnANow==LOW) {
       setupChoice = (setupChoice + 1) % 2;
@@ -3397,21 +3408,16 @@ void loop() {
     // B: in Training/Study/Work avvia/avanza il setup pomodoro
     //    (1° B = setup durata pomodoro, 2° B = setup durata riposo,
     //    3° B = avvio pomodoro)
-    //    in Idle → apri orologio (a meno che ci sia una notifica pendente)
+    //    in Idle → niente (se c'è una notifica pendente, il press B avvia
+    //    il tracking del long-press per la battle, gestito sopra)
     //    in Sleep/DND → niente
     if (btnBPrev==HIGH && btnBNow==LOW) {
       if (pomoPhase == POMO_SET_WORK || pomoPhase == POMO_SET_REST) {
         advancePomodoroSetup();
       } else if (!sessionRunning) {
         if (gState == STATE_IDLE) {
-          // Se c'è una notifica pendente, NON aprire l'orologio:
-          // l'utente potrebbe star iniziando un long-press B per battle.
-          // L'orologio resta disabilitato finché la notifica non è gestita.
-          if (!hasNotif) {
-            gScreen = SCR_CLOCK;  // orologio solo da Idle senza notifiche
-          }
-          // Se hasNotif: il press B avvia il tracking del long-press
-          // (gestito sopra), nessun'altra azione qui.
+          // Nessuna azione: B in Idle non fa nulla (a meno di long-press
+          // con notifica pendente, gestito sopra).
         } else if (gState == STATE_TRAINING ||
                    gState == STATE_STUDY    ||
                    gState == STATE_WORK) {
@@ -3472,12 +3478,7 @@ void loop() {
       gScreen = SCR_MENU;
       delay(50);
     }
-    // B: mostra l'orologio (sincronizzato via BLE dalla Companion)
-    if (btnBPrev==HIGH && btnBNow==LOW) {
-      gScreen = SCR_CLOCK;
-      delay(50);
-    }
-    // A non fa nulla in status
+    // A e B non fanno nulla in status
   }
   else if (gScreen == SCR_REGISTRO) {
     // A: cicla tra le creature
@@ -3543,8 +3544,6 @@ void loop() {
   // ── Display ───────────────────────────────────────────────────
   if (gScreen == SCR_BOOT) {
     drawBootScreen();
-  } else if (gScreen == SCR_CLOCK) {
-    drawClockScreen(now);   // SCR_CLOCK prima di STATE_SETUP
   } else if (gState == STATE_SETUP) {
     drawSetupScreen(now);
   } else if (gState == STATE_EVOLVING) {
@@ -3554,7 +3553,7 @@ void loop() {
   } else if (gScreen == SCR_MENU) {
     drawMenuScreen(now);
   } else if (gScreen == SCR_STATUS) {
-    drawStatusScreen();
+    drawStatusScreen(now);
   } else if (gScreen == SCR_REGISTRO) {
     drawRegistroScreen(now);
   } else {
