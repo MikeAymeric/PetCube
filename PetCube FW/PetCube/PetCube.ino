@@ -90,7 +90,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           32   // bump al cambio struttura NVS
+#define FW_VERSION           33   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -2014,9 +2014,11 @@ void drawMenuScreen(unsigned long now) {
 
   // Tag identità multiplayer (es. "Mike#47213"), se assegnato dalla
   // Companion App: centrato sotto lo sprite, sopra il divisore.
+  // A y=76 (font1, alto 8px) il testo arrivava a y=83 ed entrava in
+  // collisione col divisore a y=82.
   if (petTag.length() > 0) {
     canvas.setTextFont(1); canvas.setTextSize(1); canvas.setTextColor(C_DIM, C_BG);
-    drawCenteredStr(76, petTag.c_str());
+    drawCenteredStr(74, petTag.c_str());
   }
 
   canvas.drawFastHLine(20, 82, 200, C_DIM);
