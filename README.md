@@ -434,9 +434,9 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 - Companion self-update from GitHub Releases
 - Hardware assembled: all components hand-soldered on two Electrocookie perfboards (breadboard form factor) with portable LiPo power, 3D-printed case
 - Automatic clock sync from the Companion's PC clock over BLE (no more manual time-setting)
+- GUI test console with fake-notification buttons per source/category/priority
 
 ### In progress
-- GUI test console with fake-notification buttons per source/category
 - Final adjustments to the 3D-printed case
 
 ### Future
@@ -451,6 +451,7 @@ See the [GDD](docs/PetCube_GDD_v0_11.docx) §16 for the full design (stat formul
 
 Firmware version history (`FW_VERSION` in `PetCube.ino`). As of v26, a `FW_VERSION` bump no longer wipes saved data automatically — see the v26 entry below.
 
+- **v30 / Companion 0.2.10**: The Bluetooth icon and the clock footer on the cube's screen were enlarged and the clock is now drawn in white, with a small sun (07:00–19:00) or moon (19:00–07:00) icon shown to its right. Added a new read/write BLE BRIGHTNESS characteristic (persisted in NVS) and a STATS characteristic exposing the lifetime Pomodoro session counter; the Companion's Settings tab gained a "Display" section with a slider to adjust the cube's screen brightness remotely. On the Companion side: a new "🔄 Sincronizza ora" button in the header connects on demand to sync the clock, identity tag and achievements without waiting for a notification; newly unlocked achievements now trigger a Windows tray notification; the Dashboard gained a 14-day bar chart of completed Pomodoro sessions; and the app now enforces a single running instance, bringing the existing window to front if launched again.
 - **v29 / Companion 0.2.9**: Removed the dedicated clock screen — the current time (HH:MM) is now shown as a small persistent footer at the bottom of the main, stats and registry screens (once synced from the Companion). The B button no longer opens the clock from Idle or from the stats screen (it now does nothing in both cases). The BLE status indicator on the main screen was replaced with a Bluetooth icon: shown in color when a Companion is connected, in grayscale and blinking while advertising. The stats and registry screens were redesigned with a bolder layout — colored stat bars with value badges, an evolution-stage pill, session/battle info badges, and element-colored badges and hearts in the registry. On the Companion side, the clock sync over BLE (introduced in v27) now also happens when checking the firmware version or refreshing achievements, not just when sending a notification — so the cube's clock stays accurate even if no notifications are sent for a while.
 - **v28**: The Companion now uses an on-demand BLE connection — it connects only when there's a notification to send (or when the user manually refreshes achievements / updates the firmware), syncing identity, achievements and the clock on each connection, then disconnects immediately. This reduces the cube's power draw when idle. Also added a "🗑 Reset achievements" button to the Companion's Achievements tab: writes a new RESET command (`0x02`) that immediately zeroes the achievement bitmask and lifetime counters (NVS namespace `achv`) without rebooting or touching the save game/registry.
 - **v27**: Removed the manual clock-setting screen. The cube now syncs its clock automatically from the Companion's PC clock over a new write-only BLE TIME characteristic (seconds since local midnight), sent on every BLE connection. Until the first sync after boot, the clock screen shows "Sincronizzazione...".

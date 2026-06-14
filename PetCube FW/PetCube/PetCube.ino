@@ -90,7 +90,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           29   // bump al cambio struttura NVS
+#define FW_VERSION           30   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -103,6 +103,8 @@ Preferences prefs;
 #define BLE_CHAR_RESET_UUID     "12345678-1234-5678-1234-56789abcdef6"
 #define BLE_CHAR_ACHV_UUID      "12345678-1234-5678-1234-56789abcdef7"
 #define BLE_CHAR_TIME_UUID      "12345678-1234-5678-1234-56789abcdef8"
+#define BLE_CHAR_BRIGHTNESS_UUID "12345678-1234-5678-1234-56789abcdef9"
+#define BLE_CHAR_STATS_UUID     "12345678-1234-5678-1234-56789abcdefa"
 
 // Comandi della caratteristica RESET (vedi PetCubeResetCallbacks)
 #define RESET_CMD_FACTORY      0x01  // wipe NVS completo + riavvio
@@ -354,7 +356,7 @@ unsigned long evolveStartMs   = 0;
 
 // ── SCREEN SLEEP (risparmio energetico) ─────────────────────────
 const unsigned long SCREEN_TIMEOUT_MS = 5UL * 60UL * 1000UL;  // 5 minuti
-const uint8_t       SCREEN_BRIGHTNESS = 255;
+uint8_t       screenBrightness = 255;  // regolabile via BLE, persistito in NVS
 bool          screenOn        = true;
 unsigned long lastActivityMs  = 0;
 
@@ -426,6 +428,8 @@ BLECharacteristic* bleIdentityChar = nullptr;
 BLECharacteristic* bleResetChar    = nullptr;
 BLECharacteristic* bleAchvChar     = nullptr;
 BLECharacteristic* bleTimeChar     = nullptr;
+BLECharacteristic* bleBrightnessChar = nullptr;
+BLECharacteristic* bleStatsChar     = nullptr;
 bool              bleAdvertising   = false;
 bool              bleClientConnected = false;
 bool              bleClientConnectedPrev = false;
@@ -481,7 +485,7 @@ bool btnAPrev = HIGH, btnBPrev = HIGH, btnCPrev = HIGH;
 void wakeScreen(unsigned long now) {
   lastActivityMs = now;
   if (!screenOn) {
-    display.setBrightness(SCREEN_BRIGHTNESS);
+    display.setBrightness(screenBrightness);
     screenOn = true;
   }
 }
@@ -702,6 +706,7 @@ void resetAchievementsOnly() {
   crisiSeenEver        = false;
   touchDeprivedEver    = false;
   if (bleAchvChar) bleAchvChar->setValue((uint8_t*)&achvUnlocked, sizeof(achvUnlocked));
+  if (bleStatsChar) bleStatsChar->setValue((uint8_t*)&lifetimeSessions, sizeof(lifetimeSessions));
 }
 
 // Sblocca un achievement (no-op se già sbloccato): persiste la bitmask e
@@ -1143,6 +1148,8 @@ bool loadFromNVS() {
   // Tag identità multiplayer: caricato a prescindere, può essere stato scritto
   // via BLE prima ancora di un primo salvataggio completo della partita.
   petTag = prefs.getString("tag", "");
+  // Luminosità schermo: caricata a prescindere, regolabile via BLE.
+  screenBrightness = prefs.getUChar("bright", 255);
   prefs.end();
   return ok;
 }
@@ -1322,6 +1329,7 @@ void completePomodoroWork() {
 
   // ── Achievements: sessione completata ──
   lifetimeSessions++;
+  if (bleStatsChar) bleStatsChar->setValue((uint8_t*)&lifetimeSessions, sizeof(lifetimeSessions));
   achvSaveCounters();
   achvNoteSessionType(sessionType);
   if (clockSet) {
@@ -1823,14 +1831,14 @@ void drawMainScreen(unsigned long now) {
 
   // ── Icona BT ─────────────────────────────────────────────────
   // Posizionata entro l'area visibile circolare (Ø240px / 32.4mm):
-  // a (168,14) un'icona 16x16 finirebbe a x=184, fuori dalla corda
-  // visibile (max x≈176 a quest'altezza), quindi spostata a (160,14).
+  // a y=14 la corda visibile va da x≈64 a x≈176, quindi un'icona
+  // 32x32 a x=144 finisce esattamente a x=176.
   // Connessa: icona a colori. In advertising: icona in scala di grigio
   // lampeggiante (nessuna connessione attiva).
   if (bleClientConnected) {
-    canvas.pushImage(160, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT, (uint16_t)0x0000);
+    canvas.pushImage(144, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT, (uint16_t)0x0000);
   } else if (bleAdvertising && (now/700)%2 == 0) {
-    canvas.pushImage(160, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT_GRAY, (uint16_t)0x0000);
+    canvas.pushImage(144, 14, ICON_BT_SIZE, ICON_BT_SIZE, ICON_BT_GRAY, (uint16_t)0x0000);
   }
 
   // ── Sprite ───────────────────────────────────────────────────
@@ -2030,9 +2038,32 @@ void drawStatusScreen(unsigned long now) {
   canvas.pushSprite(0, 0);
 }
 
+// ── Icona giorno/notte ───────────────────────────────────────────
+// Sole (07:00-18:59): cerchio giallo con raggi. Luna (19:00-06:59):
+// crescente bianco (cerchio chiaro con un "morso" scuro). Disegnata
+// a fianco dell'orologio nel footer.
+void drawDayNightIcon(int cx, int cy, int r, int hh) {
+  bool isDay = (hh >= 7 && hh < 19);
+  if (isDay) {
+    canvas.fillCircle(cx, cy, r - 2, C_ENG);
+    for (int i = 0; i < 8; i++) {
+      float ang = i * PI / 4.0f;
+      int x0 = cx + (int)((r - 1) * cosf(ang));
+      int y0 = cy + (int)((r - 1) * sinf(ang));
+      int x1 = cx + (int)((r + 2) * cosf(ang));
+      int y1 = cy + (int)((r + 2) * sinf(ang));
+      canvas.drawLine(x0, y0, x1, y1, C_ENG);
+    }
+  } else {
+    canvas.fillCircle(cx, cy, r - 1, C_FG);
+    canvas.fillCircle(cx + 3, cy - 2, r - 1, C_BG);
+  }
+}
+
 // ── Orologio (footer condiviso) ─────────────────────────────────
-// Disegna l'ora corrente (HH:MM), centrata in basso, su tutte le
-// schermate principali. Sincronizzato via BLE dalla Companion (vedi
+// Disegna l'ora corrente (HH:MM) in bianco, con un'icona sole/luna
+// alla sua destra, centrati in basso su tutte le schermate
+// principali. Sincronizzato via BLE dalla Companion (vedi
 // PetCubeTimeCallbacks); non disegna nulla finché clockSet è false
 // (nessuna sincronizzazione ricevuta dal boot).
 void drawClockFooter(unsigned long now) {
@@ -2042,9 +2073,18 @@ void drawClockFooter(unsigned long now) {
   int mm = (totalSec / 60)   % 60;
   char buf[6];
   sprintf(buf, "%02d:%02d", hh, mm);
-  canvas.setTextFont(2); canvas.setTextColor(C_DIM, C_BG);
+  canvas.setTextFont(4); canvas.setTextColor(C_FG, C_BG);
   int tw = canvas.textWidth(buf);
-  canvas.drawString(buf, (DISP_SIZE - tw) / 2, 212);
+  int fh = canvas.fontHeight();
+  const int gap   = 8;
+  const int iconR = 7;
+  int groupW = tw + gap + iconR * 2;
+  int textX  = (DISP_SIZE - groupW) / 2;
+  int textY  = 198;
+  canvas.drawString(buf, textX, textY);
+  int iconX = textX + tw + gap + iconR;
+  int iconY = textY + fh / 2;
+  drawDayNightIcon(iconX, iconY, iconR, hh);
 }
 
 void drawEvolvingScreen(unsigned long now) {
@@ -2222,6 +2262,23 @@ class PetCubeTimeCallbacks : public BLECharacteristicCallbacks {
     clockSet = true;
     Serial.printf("🕒 Ora sincronizzata via BLE: %02u:%02u:%02u\n",
                    secOfDay / 3600, (secOfDay / 60) % 60, secOfDay % 60);
+  }
+};
+
+// BRIGHTNESS characteristic:
+//   Write/read uint8 (0-255) → imposta la luminosità del display, persistita
+//   in NVS e applicata immediatamente se lo schermo è acceso.
+class PetCubeBrightnessCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* ch) override {
+    String val = ch->getValue();
+    if (val.length() < 1) return;
+    screenBrightness = (uint8_t)val[0];
+    prefs.begin("petcube", false);
+    prefs.putUChar("bright", screenBrightness);
+    prefs.end();
+    if (screenOn) display.setBrightness(screenBrightness);
+    ch->setValue(&screenBrightness, 1);
+    Serial.printf("💡 Luminosità impostata a %d via BLE\n", screenBrightness);
   }
 };
 
@@ -2419,6 +2476,22 @@ void bleInit() {
     BLECharacteristic::PROPERTY_WRITE
   );
   bleTimeChar->setCallbacks(new PetCubeTimeCallbacks());
+
+  // Caratteristica BRIGHTNESS — luminosità schermo (read + write)
+  bleBrightnessChar = svc->createCharacteristic(
+    BLE_CHAR_BRIGHTNESS_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ
+  );
+  bleBrightnessChar->setCallbacks(new PetCubeBrightnessCallbacks());
+  bleBrightnessChar->setValue(&screenBrightness, 1);
+
+  // Caratteristica STATS (read-only) — numero totale di sessioni Pomodoro
+  // completate (lifetime), usata dalla Companion per lo storico/grafico.
+  bleStatsChar = svc->createCharacteristic(
+    BLE_CHAR_STATS_UUID,
+    BLECharacteristic::PROPERTY_READ
+  );
+  bleStatsChar->setValue((uint8_t*)&lifetimeSessions, sizeof(lifetimeSessions));
 
   svc->start();
 
@@ -3099,7 +3172,7 @@ void setup() {
 
   display.init();
   display.setRotation(0);
-  display.setBrightness(SCREEN_BRIGHTNESS);
+  display.setBrightness(screenBrightness);
   display.fillScreen(C_BG);
   canvas.setColorDepth(16);
   canvas.createSprite(DISP_SIZE, DISP_SIZE);
@@ -3533,7 +3606,7 @@ void loop() {
   if (sessionRunning) {
     lastActivityMs = now;
     if (!screenOn) {
-      display.setBrightness(SCREEN_BRIGHTNESS);
+      display.setBrightness(screenBrightness);
       screenOn = true;
     }
   } else if (screenOn && now - lastActivityMs >= SCREEN_TIMEOUT_MS) {
