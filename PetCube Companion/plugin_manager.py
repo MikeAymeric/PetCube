@@ -101,9 +101,13 @@ class PluginManager:
 
     def _dispatch(self, raw: RawEvent) -> None:
         """Trasforma un RawEvent in NotifPacket e invia alla callback."""
-        # Tronca seed alla prima frase o 50 char
+        # Tronca seed alla prima frase o 50 char (limite HW del packet BLE)
         seed = truncate_seed(raw.text, max_len=50)
-        sentiment, urgency, category = analyze(seed)
+        # L'analisi sentiment/urgency gira sul testo completo del plugin,
+        # non sul seed troncato: il vincolo a 50 char è solo del packet,
+        # e tagliarlo prima dell'analisi perdeva il contesto utile (es.
+        # subject Gmail dopo "Nome mittente — ").
+        sentiment, urgency, category = analyze(raw.text)
 
         # Se il plugin ha già impostato una priority HIGH, rispettala anche se
         # l'urgency analizzata dice 'low' (es. Calendar evento imminente <5 min)

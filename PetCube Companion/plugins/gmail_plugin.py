@@ -9,13 +9,14 @@ Filtri applicati:
   4. Skip mail con Precedence: bulk/list (automatiche)
   5. L'utente deve essere nei To/Cc diretti (non Bcc, non lista di distribuzione)
 
-Sentiment input: "Mittente — Oggetto"
+Sentiment input: "Mittente — Oggetto. Corpo email (troncato)"
 
 Setup richiesto (oltre a Calendar):
   1. Google Cloud Console → APIs & Services → Library → Gmail API → Enable
   2. OAuth consent screen → Add scope: gmail.readonly
   3. Cancella token.json esistente per forzare re-auth con nuovo scope
 """
+import base64
 import logging
 import re
 import datetime
@@ -69,6 +70,53 @@ def _extract_display_name(from_header: str) -> str:
         local = local.replace(".", " ").replace("_", " ").replace("-", " ")
         return local.title()
     return from_header.strip()[:30]
+
+
+def _decode_body_data(data: str) -> str:
+    """Decodifica il campo body.data (base64url) di Gmail in testo UTF-8."""
+    if not data:
+        return ""
+    try:
+        return base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
+
+
+def _strip_html(html: str) -> str:
+    """Rimuove tag/script/style HTML e collassa gli spazi, per usare il body HTML come testo."""
+    text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _extract_body_text(payload: dict, max_chars: int = 500) -> str:
+    """
+    Estrae il testo del corpo dell'email da un payload Gmail (format=full),
+    cercando ricorsivamente tra le parti multipart. Preferisce text/plain,
+    con fallback su text/html (tag rimossi). Troncato a max_chars.
+    """
+    def walk(part: dict) -> tuple[str, bool]:
+        mime = part.get("mimeType", "")
+        body = part.get("body", {})
+        if mime == "text/plain" and body.get("data"):
+            return _decode_body_data(body["data"]), True
+        if mime == "text/html" and body.get("data"):
+            return _strip_html(_decode_body_data(body["data"])), False
+        best, best_is_plain = "", False
+        for sub in part.get("parts", []) or []:
+            text, is_plain = walk(sub)
+            if text and (is_plain or not best_is_plain):
+                best, best_is_plain = text, is_plain
+                if is_plain:
+                    break
+        return best, best_is_plain
+
+    text, _ = walk(payload)
+    text = text.strip()
+    if len(text) > max_chars:
+        text = text[:max_chars] + "..."
+    return text
 
 
 class GmailPlugin(Plugin):
@@ -185,20 +233,19 @@ class GmailPlugin(Plugin):
                 continue
 
             try:
-                # Fetch metadata only (più veloce di full)
+                # Fetch full (serve anche il body per il sentiment, non solo l'oggetto)
                 msg = self.service.users().messages().get(
                     userId="me",
                     id=msg_id,
-                    format="metadata",
-                    metadataHeaders=["From", "Subject", "To", "Cc",
-                                     "List-Unsubscribe", "Precedence"],
+                    format="full",
                 ).execute()
             except Exception as e:
                 logger.warning(f"Errore Gmail get {msg_id}: {e}")
                 continue
 
+            payload = msg.get("payload", {})
             headers = {h["name"]: h["value"]
-                       for h in msg.get("payload", {}).get("headers", [])}
+                       for h in payload.get("headers", [])}
 
             # Filtro 1: skip se ha List-Unsubscribe (quasi sempre newsletter)
             if headers.get("List-Unsubscribe"):
@@ -228,7 +275,11 @@ class GmailPlugin(Plugin):
             if len(subject) > 60:
                 subject = subject[:57] + "..."
 
+            body = _extract_body_text(payload)
+
             text = f"{sender_name} — {subject}"
+            if body:
+                text += f". {body}"
 
             # Priority Gmail: sempre NORMAL per default. Il sentiment analyzer
             # alza a HIGH se trova keyword urgenti.
@@ -241,6 +292,6 @@ class GmailPlugin(Plugin):
                 text=text,
                 external_id=msg_id,
             ))
-            logger.info(f"📧 Mail rilevante: {text!r}")
+            logger.info(f"📧 Mail rilevante: {f'{sender_name} — {subject}'!r} ({len(text)} char totali per il sentiment)")
 
         return raw_events

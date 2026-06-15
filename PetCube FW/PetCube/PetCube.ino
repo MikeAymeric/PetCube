@@ -90,7 +90,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           33   // bump al cambio struttura NVS
+#define FW_VERSION           34   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -1925,8 +1925,8 @@ void drawMainScreen(unsigned long now) {
   if (gState == STATE_IDLE) {
     int n = countActiveNotifs();
     if (n > 0) {
-      int firstIdx = firstActiveNotif();
-      NotifSource src = pendingNotifs[firstIdx].pkt.source;
+      int latestIdx = latestActiveNotif();
+      NotifSource src = pendingNotifs[latestIdx].pkt.source;
       int ix = (DISP_SIZE - ICON_NOTIF_SIZE) / 2, iy = 8;
 
       const uint16_t* iconPx = nullptr;
@@ -2711,12 +2711,18 @@ int countActiveNotifs() {
   return n;
 }
 
-// Restituisce indice del primo slot attivo (per default visualizzazione)
-int firstActiveNotif() {
+// Restituisce indice dello slot attivo con la notifica arrivata più di recente
+// (usata per icona/badge e per le azioni long-press, così agiscono sempre
+// sulla stessa notifica mostrata a schermo).
+int latestActiveNotif() {
   int idx = -1;
+  unsigned long latest = 0;
   portENTER_CRITICAL(&notifsMux);
   for (int i = 0; i < MAX_PENDING_NOTIFS; i++) {
-    if (pendingNotifs[i].active) { idx = i; break; }
+    if (pendingNotifs[i].active && (idx == -1 || pendingNotifs[i].arrivalMs >= latest)) {
+      latest = pendingNotifs[i].arrivalMs;
+      idx = i;
+    }
   }
   portEXIT_CRITICAL(&notifsMux);
   return idx;
@@ -3489,7 +3495,7 @@ void loop() {
         if (longPressBMs == 0) longPressBMs = now;
         else if (now - longPressBMs >= LONG_PRESS_MS) {
           // Trigger battle
-          int idx = firstActiveNotif();
+          int idx = latestActiveNotif();
           if (idx >= 0) {
             startBattle(idx);
             longPressBMs = 0;
@@ -3505,7 +3511,7 @@ void loop() {
       if (btnCNow == LOW) {
         if (longPressCMs == 0) longPressCMs = now;
         else if (now - longPressCMs >= LONG_PRESS_MS) {
-          int idx = firstActiveNotif();
+          int idx = latestActiveNotif();
           if (idx >= 0) {
             dismissNotification(idx);
             longPressCMs = 0;
