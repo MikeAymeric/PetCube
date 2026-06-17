@@ -29,6 +29,7 @@ BLE_CHAR_ACHV_UUID      = "12345678-1234-5678-1234-56789abcdef7"
 BLE_CHAR_TIME_UUID      = "12345678-1234-5678-1234-56789abcdef8"
 BLE_CHAR_BRIGHTNESS_UUID = "12345678-1234-5678-1234-56789abcdef9"
 BLE_CHAR_STATS_UUID     = "12345678-1234-5678-1234-56789abcdefa"
+BLE_CHAR_SNAPSHOT_UUID  = "12345678-1234-5678-1234-56789abcdefb"
 
 # Comandi RESET (vedi PetCube.ino PetCubeResetCallbacks)
 RESET_CMD_FACTORY      = 0x01  # wipe NVS completo (partita + registro) al prossimo boot
@@ -158,14 +159,57 @@ async def _read_lifetime_sessions(client: BleakClient) -> Optional[int]:
         return None
 
 
+async def read_snapshot_ble(client: BleakClient) -> Optional[dict]:
+    """
+    Legge l'obituario dell'ultima creatura morta (SNAPSHOT, 20 byte, FW >= v35).
+    Restituisce un dict con i dati della creatura caduta, o None se non disponibile.
+
+    Layout (20 byte, little-endian):
+      [0]    element      (0=Fire 1=Water)
+      [1]    evo_stage    (0-5)
+      [2]    line_variant (0=STR 1=ENG 2=INT)
+      [3]    final_variant (255=none, 0=STD 1=Light 2=Dark)
+      [4]    stat_str
+      [5]    stat_int
+      [6]    stat_eng
+      [7]    stat_hap
+      [8-11] sessions     (uint32 LE)
+      [12-13] battles_won (uint16 LE)
+      [14-15] battles_lost (uint16 LE)
+      [16-19] deaths_total (uint32 LE)
+    """
+    try:
+        data = await client.read_gatt_char(BLE_CHAR_SNAPSHOT_UUID)
+        if len(data) < 20:
+            return None
+        fv_raw = data[3]
+        return {
+            "element":       "Fire" if data[0] == 0 else "Water",
+            "evo_stage":     int(data[1]),
+            "line_variant":  int(data[2]),
+            "final_variant": -1 if fv_raw == 255 else int(fv_raw),
+            "stat_str":      int(data[4]),
+            "stat_int":      int(data[5]),
+            "stat_eng":      int(data[6]),
+            "stat_hap":      int(data[7]),
+            "sessions":      int.from_bytes(data[8:12],  "little"),
+            "battles_won":   int.from_bytes(data[12:14], "little"),
+            "battles_lost":  int.from_bytes(data[14:16], "little"),
+            "deaths_total":  int.from_bytes(data[16:20], "little"),
+        }
+    except Exception as e:
+        log.debug("Lettura SNAPSHOT BLE fallita (FW < v35?): %s", e)
+        return None
+
+
 async def sync_now_ble(
     address: str, identity_tag: str = "", timeout: float = 10.0
-) -> tuple[Optional[int], Optional[int]]:
+) -> tuple[Optional[int], Optional[int], Optional[dict]]:
     """
     Sincronizzazione manuale "on demand": connette al PetCube, sincronizza
     l'orologio, invia il tag identità multiplayer (se presente) e legge la
-    bitmask achievement e il contatore sessioni lifetime aggiornati.
-    Ritorna (bitmask, lifetime_sessions); ciascuno None se la lettura fallisce.
+    bitmask achievement, il contatore sessioni e lo snapshot obituary.
+    Ritorna (bitmask, lifetime_sessions, snapshot); ciascuno None se non disponibile.
     """
     async with BleakClient(address, timeout=timeout) as client:
         await send_time_sync_ble(client)
@@ -182,14 +226,15 @@ async def sync_now_ble(
         except Exception as e:
             log.warning("Lettura achievement BLE fallita: %s", e)
         sessions = await _read_lifetime_sessions(client)
-        return mask, sessions
+        snapshot = await read_snapshot_ble(client)
+        return mask, sessions, snapshot
 
 
-async def read_achievements_ble(address: str, timeout: float = 10.0) -> tuple[Optional[int], Optional[int]]:
+async def read_achievements_ble(address: str, timeout: float = 10.0) -> tuple[Optional[int], Optional[int], Optional[dict]]:
     """
-    Legge la bitmask achievement (ACHV, uint64 LE) e il contatore lifetime
-    sessioni Pomodoro (STATS, uint32 LE, FW >= v30).
-    Ritorna (bitmask, lifetime_sessions); ciascuno None se la lettura fallisce.
+    Legge la bitmask achievement (ACHV, uint64 LE), il contatore lifetime
+    sessioni Pomodoro (STATS, uint32 LE, FW >= v30) e lo snapshot obituary (FW >= v35).
+    Ritorna (bitmask, lifetime_sessions, snapshot).
     """
     async with BleakClient(address, timeout=timeout) as client:
         await send_time_sync_ble(client)
@@ -200,7 +245,8 @@ async def read_achievements_ble(address: str, timeout: float = 10.0) -> tuple[Op
         except Exception as e:
             log.warning("Lettura achievement BLE fallita: %s", e)
         sessions = await _read_lifetime_sessions(client)
-        return mask, sessions
+        snapshot = await read_snapshot_ble(client)
+        return mask, sessions, snapshot
 
 
 # ── GitHub Releases ──────────────────────────────────────────
