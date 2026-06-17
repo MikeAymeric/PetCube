@@ -197,4 +197,7 @@ def default_config() -> dict:
             "github_owner": "MikeAymeric",
             "github_repo": "PetCube",
         },
+        "valhalla": {
+            "firebase_url": "",
+        },
     }
