@@ -1194,6 +1194,7 @@ class CompanionGUI(ctk.CTk):
 
     # ── Konami code easter egg ───────────────────────────────────
 
+    # ↑↑↓↓←→←→BA + Enter (Enter sostituisce Start, che non esiste su tastiera)
     _KONAMI_SEQ = ["Up","Up","Down","Down","Left","Right","Left","Right","b","a","Return"]
 
     def _on_konami_key(self, event) -> None:
@@ -1204,7 +1205,8 @@ class CompanionGUI(ctk.CTk):
                 self._konami_idx = 0
                 self._vlh_konami_unlock()
         else:
-            # reset, ma se il tasto corrisponde all'inizio della sequenza riprova
+            # Se il tasto sbagliato è lo stesso con cui inizia la sequenza,
+            # conta già come primo passo (es. ↑↑↑ non azzera dopo il terzo ↑)
             self._konami_idx = 1 if event.keysym == self._KONAMI_SEQ[0] else 0
 
     def _vlh_konami_unlock(self) -> None:
@@ -1250,7 +1252,7 @@ class CompanionGUI(ctk.CTk):
             battles_won=random.randint(0, 10 + evo * 3),
             battles_lost=random.randint(0, 8 + evo * 2),
             deaths_total=vlh.load_deaths_cache() + 1,
-            owner=self.config.get("device", {}).get("username", "") or "TEST",
+            owner=self.config_data.get("device", {}).get("username", "") or "TEST",
             death_timestamp=_time.time(),
         )
         vlh.add_entry(entry)
