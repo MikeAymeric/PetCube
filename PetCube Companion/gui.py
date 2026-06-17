@@ -307,7 +307,6 @@ class CompanionGUI(ctk.CTk):
 
         self._build_ui()
         self.bind_all("<KeyPress>", self._on_konami_key)
-        self.attributes("-topmost", True)
         self.protocol("WM_DELETE_WINDOW", self._on_close_window)
         self.after(100, self._poll_event_queue)
 
@@ -1739,7 +1738,7 @@ class CompanionGUI(ctk.CTk):
         # Glow selezione
         if selected:
             c.create_oval(x - r - 6, y - r - 8, x + r + 6, y + r + 8,
-                           fill="", outline="#ffffffaa", width=4, tags=(tag,))
+                           fill="", outline="#ffffff", width=4, tags=(tag,))
 
         # Prova a usare la sprite pixel art; fallback all'ovale colorato
         photos = self._vlh_load_sprite(entry.name)
