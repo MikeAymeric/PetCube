@@ -1414,6 +1414,7 @@ class CompanionGUI(ctk.CTk):
         self._vlh_bg_source: Optional[object] = None  # PIL Image originale
         self._vlh_bg_photo:  Optional[object] = None  # ImageTk.PhotoImage in uso
         self._vlh_bg_last_size: tuple = (0, 0)
+        self._vlh_sprite_imgs: dict = {}   # name → ImageTk.PhotoImage (evita GC)
         try:
             import sys as _sys
             from PIL import Image as _PILImage
@@ -1532,6 +1533,34 @@ class CompanionGUI(ctk.CTk):
         c.create_rectangle(0, h * self._VLH_MEADOW_TOP, w, h,
                             fill=self._VLH_BG, outline="")
 
+    def _vlh_load_sprite(self, name: str):
+        """Carica e scala (2×, NEAREST) la PNG di una creatura; ritorna ImageTk.PhotoImage o None."""
+        if name in self._vlh_sprite_imgs:
+            return self._vlh_sprite_imgs[name]
+        try:
+            import sys as _sys
+            from PIL import Image as _PILImage
+            from PIL import ImageTk as _ImageTkLocal
+            # Risolvi il percorso (exe bundled o sviluppo)
+            if getattr(_sys, "_MEIPASS", None):
+                base = Path(_sys._MEIPASS)
+            else:
+                base = Path(__file__).resolve().parent.parent / "Sprite"
+            # Prova esatto, poi lowercase (pyruff.png vs Pyruff)
+            for candidate in (f"{name}.png", f"{name.lower()}.png"):
+                path = base / candidate
+                if path.exists():
+                    img = _PILImage.open(path).convert("RGBA")
+                    # Scala 2× con NEAREST per mantenere i pixel nitidi
+                    img = img.resize((img.width * 2, img.height * 2), _PILImage.NEAREST)
+                    photo = _ImageTkLocal.PhotoImage(img)
+                    self._vlh_sprite_imgs[name] = photo
+                    return photo
+        except Exception:
+            pass
+        self._vlh_sprite_imgs[name] = None  # non ritentare
+        return None
+
     def _vlh_draw_sprite(self, c: tk.Canvas, spr: dict) -> None:
         x, y, r = spr["x"], spr["y"], spr["radius"]
         idx  = spr["idx"]
@@ -1540,40 +1569,37 @@ class CompanionGUI(ctk.CTk):
             return
         entry = self._vlh_entries[idx]
 
-        # Colore base per elemento
-        if entry.element == "Fire":
-            fill, hi = self._VLH_FIRE_FILL, self._VLH_FIRE_DARK
-        else:
-            fill, hi = self._VLH_WATER_FILL, self._VLH_WATER_DARK
-
-        # Cerchio esterno (highlight / ring variant)
-        ring_color = ""
-        if entry.final_variant == 1:
-            ring_color = self._VLH_LIGHT_RING
-        elif entry.final_variant == 2:
-            ring_color = self._VLH_DARK_RING
-
         selected = (self._vlh_selected == idx)
-        outline_w = 3 if selected else 1
-        outline_c = "#ffffff" if selected else (ring_color if ring_color else "#555555")
 
-        # Glow se selezionato
+        # Glow selezione
         if selected:
-            c.create_oval(x - r - 5, y - r - 5, x + r + 5, y + r + 5,
-                           fill="", outline="#ffffff44", width=6, tags=(tag,))
+            c.create_oval(x - r - 6, y - r - 8, x + r + 6, y + r + 8,
+                           fill="", outline="#ffffffaa", width=4, tags=(tag,))
 
-        # Corpo
-        c.create_oval(x - r, y - r, x + r, y + r,
-                       fill=fill, outline=outline_c, width=outline_w, tags=(tag,))
+        # Prova a usare la sprite pixel art; fallback all'ovale colorato
+        photo = self._vlh_load_sprite(entry.name)
+        if photo is not None:
+            c.create_image(x, y, image=photo, anchor="center", tags=(tag,))
+        else:
+            if entry.element == "Fire":
+                fill = self._VLH_FIRE_FILL
+            else:
+                fill = self._VLH_WATER_FILL
+            ring_color = ""
+            if entry.final_variant == 1:
+                ring_color = self._VLH_LIGHT_RING
+            elif entry.final_variant == 2:
+                ring_color = self._VLH_DARK_RING
+            outline_c = "#ffffff" if selected else (ring_color if ring_color else "#555555")
+            c.create_oval(x - r, y - r, x + r, y + r,
+                           fill=fill, outline=outline_c, width=2 if selected else 1, tags=(tag,))
+            c.create_text(x, y - 4, text=entry.display_icon,
+                           font=("Segoe UI Emoji", max(10, r // 3)), fill="#ffffff",
+                           anchor="center", tags=(tag,))
 
-        # Emoji elemento
-        c.create_text(x, y - 4, text=entry.display_icon,
-                       font=("Segoe UI Emoji", max(10, r // 3)), fill="#ffffff",
-                       anchor="center", tags=(tag,))
-
-        # Nome sotto il cerchio
-        c.create_text(x, y + r + 10, text=entry.name,
-                       font=("Arial", 8), fill="#aaaaaa",
+        # Nome sotto
+        c.create_text(x, y + r + 12, text=entry.name,
+                       font=("Arial", 8), fill="#cccccc",
                        anchor="center", tags=(tag,))
 
         # Bind click
