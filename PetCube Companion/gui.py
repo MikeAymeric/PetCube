@@ -40,6 +40,8 @@ import app_updater as app_upd
 import achievements as achv
 import pomodoro_history as pomo_history
 import setup_wizard
+import valhalla as vlh
+from valhalla_online import ValhallaBattleClient
 from config_schema import (
     PLUGIN_FIELDS as _PLUGIN_FIELDS,
     PLUGIN_DISPLAY_NAME as _PLUGIN_DISPLAY_NAME,
@@ -267,6 +269,15 @@ class CompanionGUI(ctk.CTk):
         self._achv_btn_refresh: Optional[ctk.CTkButton] = None
         self._achv_btn_reset: Optional[ctk.CTkButton] = None
 
+        # Valhalla tab state
+        self._vlh_entries: list[vlh.ValhallaEntry] = vlh.load_valhalla()
+        self._vlh_selected: Optional[int] = None       # index in _vlh_entries
+        self._vlh_sprites: list[dict] = []             # canvas sprite state
+        self._vlh_canvas: Optional[tk.Canvas] = None
+        self._vlh_detail_frame: Optional[ctk.CTkFrame] = None
+        self._vlh_battle_client: Optional[ValhallaBattleClient] = None
+        self._vlh_polling_started = False
+
         # Companion app self-update state
         self._app_release_info: Optional[app_upd.AppReleaseInfo] = None
         self._app_lbl_version: Optional[ctk.CTkLabel] = None
@@ -446,12 +457,14 @@ class CompanionGUI(ctk.CTk):
         settings_tab = tabview.add("Impostazioni")
         test_tab = tabview.add("Test")
         achv_tab = tabview.add("Achievements")
+        vlh_tab = tabview.add("Valhalla")
         fw_tab = tabview.add("Aggiornamenti")
 
         self._build_dashboard_tab(dash_tab)
         self._build_settings_tab(settings_tab)
         self._build_test_tab(test_tab)
         self._build_achievements_tab(achv_tab)
+        self._build_valhalla_tab(vlh_tab)
         self._build_firmware_tab(fw_tab)
 
         tabview.set("Dashboard")
@@ -646,6 +659,24 @@ class CompanionGUI(ctk.CTk):
         self._build_field_row(transport_frame, 1, "BLE scan timeout (sec)",
                               self._sv_transport_timeout, "int")
 
+        # Sezione Valhalla
+        self._build_section_header(scroll, "VALHALLA")
+        vlh_frame = ctk.CTkFrame(scroll, fg_color=BG_TERTIARY, corner_radius=8)
+        vlh_frame.pack(fill="x", padx=10, pady=(0, 10))
+        vlh_frame.grid_columnconfigure(1, weight=1)
+
+        vlh_cfg = self.config_data.get("valhalla", {})
+        sv_firebase = ctk.StringVar(value=str(vlh_cfg.get("firebase_url", "")))
+        self._sv_valhalla_firebase = sv_firebase
+        self._build_field_row(vlh_frame, 0, "Firebase URL", sv_firebase, "text")
+
+        ctk.CTkLabel(
+            vlh_frame,
+            text="URL del tuo Firebase Realtime Database (es. https://mio-db.firebaseio.com) "
+                 "per le battaglie online nel Valhalla.",
+            text_color=TEXT_DIM, font=ctk.CTkFont(size=10), wraplength=500, anchor="w",
+        ).grid(row=1, column=0, columnspan=2, padx=(12, 8), pady=(0, 8), sticky="w")
+
         # Sezione Logging
         self._build_section_header(scroll, "LOGGING")
         log_frame = ctk.CTkFrame(scroll, fg_color=BG_TERTIARY, corner_radius=8)
@@ -837,6 +868,10 @@ class CompanionGUI(ctk.CTk):
         # Logging
         raw.setdefault("logging", {})["level"] = self._sv_log_level.get()
 
+        # Valhalla
+        if hasattr(self, "_sv_valhalla_firebase"):
+            raw.setdefault("valhalla", {})["firebase_url"] = self._sv_valhalla_firebase.get().strip()
+
         try:
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                 json.dump(raw, f, indent=2, ensure_ascii=False)
@@ -898,6 +933,10 @@ class CompanionGUI(ctk.CTk):
 
         # Logging
         self._sv_log_level.set(raw.get("logging", {}).get("level", "INFO"))
+
+        # Valhalla
+        if hasattr(self, "_sv_valhalla_firebase"):
+            self._sv_valhalla_firebase.set(raw.get("valhalla", {}).get("firebase_url", ""))
 
         self._show_settings_message("↺ Configurazione ricaricata.", TEXT_PRIMARY)
 
@@ -1208,8 +1247,8 @@ class CompanionGUI(ctk.CTk):
             loop = asyncio.new_event_loop()
             try:
                 addr = loop.run_until_complete(fw_upd.scan_for_petcube(timeout=10.0))
-                mask, sessions = loop.run_until_complete(fw_upd.read_achievements_ble(addr)) if addr else (None, None)
-                self.after(0, lambda: self._achv_refresh_done(addr, mask, sessions=sessions))
+                mask, sessions, snapshot = loop.run_until_complete(fw_upd.read_achievements_ble(addr)) if addr else (None, None, None)
+                self.after(0, lambda: self._achv_refresh_done(addr, mask, sessions=sessions, snapshot=snapshot))
             except Exception as e:
                 self.after(0, lambda: self._achv_refresh_done(None, None, str(e)))
             finally:
@@ -1217,7 +1256,7 @@ class CompanionGUI(ctk.CTk):
 
         threading.Thread(target=run, daemon=True).start()
 
-    def _achv_refresh_done(self, addr: Optional[str], mask: Optional[int], err: str = "", sessions: Optional[int] = None) -> None:
+    def _achv_refresh_done(self, addr: Optional[str], mask: Optional[int], err: str = "", sessions: Optional[int] = None, snapshot: Optional[dict] = None) -> None:
         if self._achv_btn_refresh:
             self._achv_btn_refresh.configure(state="normal", text="🔄  Aggiorna via BLE")
         if not self._achv_lbl_status:
@@ -1234,6 +1273,8 @@ class CompanionGUI(ctk.CTk):
         self._on_achv_mask_update(mask)
         if sessions is not None:
             self._on_pomodoro_session_count_update(sessions)
+        if snapshot is not None:
+            self._vlh_check_new_death(snapshot)
         ts = datetime.now().strftime("%H:%M:%S")
         self._achv_lbl_status.configure(text=f"Aggiornato {ts}  ({addr})", text_color=SUCCESS)
 
@@ -1320,6 +1361,608 @@ class CompanionGUI(ctk.CTk):
         self._achv_refresh_display()
         ts = datetime.now().strftime("%H:%M:%S")
         self._achv_lbl_status.configure(text=f"Achievement azzerati {ts}  ({addr})", text_color=SUCCESS)
+
+    # ═══════════════════════════════════════════════════════════
+    # Valhalla Tab
+    # ═══════════════════════════════════════════════════════════
+
+    # Colori per le creature nel canvas
+    _VLH_FIRE_FILL   = "#c04010"
+    _VLH_FIRE_DARK   = "#e06030"
+    _VLH_WATER_FILL  = "#1060a0"
+    _VLH_WATER_DARK  = "#30a0c0"
+    _VLH_LIGHT_RING  = "#d4af37"
+    _VLH_DARK_RING   = "#7b2d8b"
+    _VLH_BG          = "#2a4a20"   # fallback se l'immagine non è disponibile
+    # Metà inferiore del canvas riservata ai mostri (0.0–1.0)
+    _VLH_MEADOW_TOP  = 0.50
+
+    def _build_valhalla_tab(self, parent) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        # ── Header ──
+        header = ctk.CTkFrame(parent, fg_color=BG_SECONDARY, corner_radius=8)
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        header.grid_columnconfigure(2, weight=1)
+
+        ctk.CTkLabel(
+            header, text="⚔  VALHALLA",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#c0a030", anchor="w",
+        ).grid(row=0, column=0, padx=(15, 20), pady=10, sticky="w")
+
+        ctk.CTkLabel(
+            header,
+            text="Le creature cadute riposano qui in eterno. Clicca su una per sfidarla online.",
+            font=ctk.CTkFont(size=11), text_color=TEXT_DIM, anchor="w",
+        ).grid(row=0, column=1, columnspan=2, pady=10, sticky="w")
+
+        self._vlh_lbl_count = ctk.CTkLabel(
+            header, text="", text_color=TEXT_DIM,
+            font=ctk.CTkFont(size=11), anchor="e",
+        )
+        self._vlh_lbl_count.grid(row=0, column=3, padx=(0, 15), pady=10, sticky="e")
+
+        # ── Body (canvas + side panel) ──
+        body = ctk.CTkFrame(parent, fg_color=BG_PRIMARY, corner_radius=0)
+        body.grid(row=1, column=0, sticky="nsew")
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_rowconfigure(0, weight=1)
+
+        # Carica l'immagine di sfondo Valhalla (pixel art)
+        self._vlh_bg_source: Optional[object] = None  # PIL Image originale
+        self._vlh_bg_photo:  Optional[object] = None  # ImageTk.PhotoImage in uso
+        self._vlh_bg_last_size: tuple = (0, 0)
+        try:
+            import sys as _sys
+            from PIL import Image as _PILImage
+            _base = Path(getattr(_sys, "_MEIPASS", Path(__file__).resolve().parent.parent / "Sprite"))
+            if getattr(_sys, "_MEIPASS", None):
+                _bg_path = _base / "Valhalla_BG.png"
+            else:
+                _bg_path = Path(__file__).resolve().parent.parent / "Sprite" / "Valhalla_BG.png"
+            self._vlh_bg_source = _PILImage.open(_bg_path).convert("RGBA")
+        except Exception:
+            self._vlh_bg_source = None
+
+        # Canvas principale — sfondo pixel art con creature animate
+        self._vlh_canvas = tk.Canvas(
+            body, bg=self._VLH_BG, highlightthickness=0,
+        )
+        self._vlh_canvas.grid(row=0, column=0, sticky="nsew")
+        self._vlh_canvas.bind("<Configure>", self._vlh_on_canvas_resize)
+
+        # Side panel (nascosto finché non si seleziona una creatura)
+        self._vlh_detail_frame = ctk.CTkFrame(
+            body, fg_color=BG_SECONDARY, width=260, corner_radius=8,
+        )
+        # Non la grid finché non c'è selezione
+
+        # Avvia animazione
+        self._vlh_init_sprites()
+        self.after(200, self._vlh_animate)
+        self._vlh_refresh_count_label()
+
+    def _vlh_refresh_count_label(self) -> None:
+        n = len(self._vlh_entries)
+        if hasattr(self, "_vlh_lbl_count") and self._vlh_lbl_count:
+            self._vlh_lbl_count.configure(
+                text=f"{n} {'creatura' if n == 1 else 'creature'} nel Valhalla"
+            )
+
+    def _vlh_init_sprites(self) -> None:
+        import random, math
+        self._vlh_sprites = []
+        # Spawn posizioni temporanee — saranno ricalibrate al primo frame
+        # con dimensioni canvas reali. Usiamo valori normalizzati (0-1)
+        # per x e y così scalano correttamente.
+        for i, entry in enumerate(self._vlh_entries):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(0.3, 0.7)
+            self._vlh_sprites.append({
+                "idx":    i,
+                "x":      random.uniform(0.05, 0.95),   # fraz. larghezza canvas
+                "y":      random.uniform(0.55, 0.90),   # fraz. altezza (metà inf.)
+                "vx":     math.cos(angle) * speed,
+                "vy":     math.sin(angle) * speed * 0.5,  # moto verticale più lento
+                "radius": 28 + min(entry.evo_stage, 5) * 3,
+                "tag":    f"creature_{i}",
+                "_px_ready": False,  # flag: coordinate ancora normalizzate
+            })
+
+    def _vlh_animate(self) -> None:
+        c = self._vlh_canvas
+        if not c.winfo_exists():
+            return
+        w = c.winfo_width()
+        h = c.winfo_height()
+        if w < 10 or h < 10:
+            self.after(200, self._vlh_animate)
+            return
+
+        c.delete("all")
+        self._vlh_draw_background(c, w, h)
+
+        meadow_top = h * self._VLH_MEADOW_TOP   # limite superiore del prato
+
+        for spr in self._vlh_sprites:
+            r = spr["radius"]
+
+            # Prima volta: converti coordinate normalizzate → pixel reali
+            if not spr.get("_px_ready"):
+                spr["x"] = spr["x"] * w
+                spr["y"] = meadow_top + spr["y"] * (h - meadow_top)
+                spr["_px_ready"] = True
+
+            # Bounce: pareti laterali
+            if spr["x"] - r < 8:
+                spr["vx"] = abs(spr["vx"])
+            elif spr["x"] + r > w - 8:
+                spr["vx"] = -abs(spr["vx"])
+            # Bounce: bordo superiore del prato (non salgono nella metà dell'immagine)
+            if spr["y"] - r < meadow_top + 4:
+                spr["vy"] = abs(spr["vy"])
+            # Bounce: fondo canvas
+            elif spr["y"] + r > h - 8:
+                spr["vy"] = -abs(spr["vy"])
+
+            spr["x"] += spr["vx"]
+            spr["y"] += spr["vy"]
+            self._vlh_draw_sprite(c, spr)
+
+        self.after(80, self._vlh_animate)
+
+    def _vlh_draw_background(self, c: tk.Canvas, w: int, h: int) -> None:
+        if self._vlh_bg_source is not None:
+            # Ridimensiona l'immagine solo se le dimensioni canvas sono cambiate
+            try:
+                from PIL import Image as _PILImage, ImageTk as _ImageTk
+                if self._vlh_bg_last_size != (w, h):
+                    scaled = self._vlh_bg_source.resize((w, h), _PILImage.NEAREST)
+                    self._vlh_bg_photo = _ImageTk.PhotoImage(scaled)
+                    self._vlh_bg_last_size = (w, h)
+                c.create_image(0, 0, anchor="nw", image=self._vlh_bg_photo)
+                return
+            except Exception:
+                pass
+        # Fallback: sfondo verde prato + cielo semplice
+        c.create_rectangle(0, 0, w, h * self._VLH_MEADOW_TOP,
+                            fill="#87ceeb", outline="")
+        c.create_rectangle(0, h * self._VLH_MEADOW_TOP, w, h,
+                            fill=self._VLH_BG, outline="")
+
+    def _vlh_draw_sprite(self, c: tk.Canvas, spr: dict) -> None:
+        x, y, r = spr["x"], spr["y"], spr["radius"]
+        idx  = spr["idx"]
+        tag  = spr["tag"]
+        if idx >= len(self._vlh_entries):
+            return
+        entry = self._vlh_entries[idx]
+
+        # Colore base per elemento
+        if entry.element == "Fire":
+            fill, hi = self._VLH_FIRE_FILL, self._VLH_FIRE_DARK
+        else:
+            fill, hi = self._VLH_WATER_FILL, self._VLH_WATER_DARK
+
+        # Cerchio esterno (highlight / ring variant)
+        ring_color = ""
+        if entry.final_variant == 1:
+            ring_color = self._VLH_LIGHT_RING
+        elif entry.final_variant == 2:
+            ring_color = self._VLH_DARK_RING
+
+        selected = (self._vlh_selected == idx)
+        outline_w = 3 if selected else 1
+        outline_c = "#ffffff" if selected else (ring_color if ring_color else "#555555")
+
+        # Glow se selezionato
+        if selected:
+            c.create_oval(x - r - 5, y - r - 5, x + r + 5, y + r + 5,
+                           fill="", outline="#ffffff44", width=6, tags=(tag,))
+
+        # Corpo
+        c.create_oval(x - r, y - r, x + r, y + r,
+                       fill=fill, outline=outline_c, width=outline_w, tags=(tag,))
+
+        # Emoji elemento
+        c.create_text(x, y - 4, text=entry.display_icon,
+                       font=("Segoe UI Emoji", max(10, r // 3)), fill="#ffffff",
+                       anchor="center", tags=(tag,))
+
+        # Nome sotto il cerchio
+        c.create_text(x, y + r + 10, text=entry.name,
+                       font=("Arial", 8), fill="#aaaaaa",
+                       anchor="center", tags=(tag,))
+
+        # Bind click
+        c.tag_bind(tag, "<Button-1>", lambda e, i=idx: self._vlh_select(i))
+        c.tag_bind(tag, "<Enter>",    lambda e, t=tag: self._vlh_canvas.config(cursor="hand2"))
+        c.tag_bind(tag, "<Leave>",    lambda e: self._vlh_canvas.config(cursor=""))
+
+    def _vlh_on_canvas_resize(self, event) -> None:
+        w, h = event.width, event.height
+        meadow_top = h * self._VLH_MEADOW_TOP
+        for spr in self._vlh_sprites:
+            r = spr["radius"]
+            if not spr.get("_px_ready"):
+                continue
+            spr["x"] = max(r + 8, min(w - r - 8, spr["x"]))
+            # clamp Y dentro la metà inferiore
+            spr["y"] = max(meadow_top + r + 4, min(h - r - 8, spr["y"]))
+
+    def _vlh_select(self, idx: int) -> None:
+        self._vlh_selected = idx
+        self._vlh_show_detail(idx)
+
+    def _vlh_show_detail(self, idx: int) -> None:
+        if not self._vlh_detail_frame:
+            return
+        entry = self._vlh_entries[idx]
+        f = self._vlh_detail_frame
+
+        # Griglia nel body: canvas a sinistra, detail a destra
+        body = f.master
+        body.grid_columnconfigure(1, weight=0, minsize=270)
+        f.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+
+        # Pulisci il frame
+        for w in f.winfo_children():
+            w.destroy()
+
+        from datetime import datetime as _dt
+        death_ts = _dt.fromtimestamp(entry.death_timestamp).strftime("%d/%m/%Y %H:%M")
+
+        ctk.CTkLabel(
+            f, text=f"{entry.display_icon}  {entry.name}",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=TEXT_PRIMARY, anchor="w",
+        ).pack(fill="x", padx=12, pady=(12, 2))
+
+        ctk.CTkLabel(
+            f, text=f"{entry.stage_label}  •  {entry.element}",
+            font=ctk.CTkFont(size=11), text_color=TEXT_DIM, anchor="w",
+        ).pack(fill="x", padx=12, pady=(0, 8))
+
+        # Separatore
+        ctk.CTkFrame(f, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x", padx=8)
+
+        stat_rows = [
+            ("⚔  STR",  entry.stat_str),
+            ("🧠  INT",  entry.stat_int),
+            ("⚡  ENG",  entry.stat_eng),
+            ("😊  HAP",  entry.stat_hap),
+            ("🍅  Sessioni", entry.sessions),
+            ("🏅  Vittorie FW", entry.battles_won),
+            ("💀  Sconfitte FW", entry.battles_lost),
+        ]
+        for label, value in stat_rows:
+            row = ctk.CTkFrame(f, fg_color="transparent")
+            row.pack(fill="x", padx=12, pady=1)
+            ctk.CTkLabel(row, text=label, font=ctk.CTkFont(size=11),
+                          text_color=TEXT_DIM, anchor="w").pack(side="left")
+            ctk.CTkLabel(row, text=str(value), font=ctk.CTkFont(size=11, weight="bold"),
+                          text_color=TEXT_PRIMARY, anchor="e").pack(side="right")
+
+        ctk.CTkFrame(f, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x", padx=8, pady=4)
+
+        # Battaglie Valhalla
+        if entry.valhalla_wins > 0 or entry.valhalla_losses > 0:
+            row2 = ctk.CTkFrame(f, fg_color="transparent")
+            row2.pack(fill="x", padx=12, pady=1)
+            ctk.CTkLabel(row2, text="⚔  Valhalla W/L",
+                          font=ctk.CTkFont(size=11), text_color=TEXT_DIM, anchor="w").pack(side="left")
+            ctk.CTkLabel(row2, text=f"{entry.valhalla_wins}/{entry.valhalla_losses}",
+                          font=ctk.CTkFont(size=11, weight="bold"),
+                          text_color=SUCCESS, anchor="e").pack(side="right")
+
+        ctk.CTkLabel(
+            f, text=f"Morto il {death_ts}",
+            font=ctk.CTkFont(size=10), text_color=TEXT_DIM,
+        ).pack(padx=12, pady=(4, 8))
+
+        # Bottone Combatti
+        ctk.CTkButton(
+            f, text="⚔  Combatti online", height=36,
+            fg_color=ACCENT, hover_color=ACCENT_HOVER,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=lambda i=idx: self._vlh_open_fight_dialog(i),
+        ).pack(fill="x", padx=12, pady=(0, 4))
+
+        ctk.CTkButton(
+            f, text="✕  Chiudi", height=28,
+            fg_color=BG_TERTIARY, hover_color="#444",
+            font=ctk.CTkFont(size=11),
+            command=self._vlh_deselect,
+        ).pack(fill="x", padx=12, pady=(0, 10))
+
+    def _vlh_deselect(self) -> None:
+        self._vlh_selected = None
+        if self._vlh_detail_frame:
+            self._vlh_detail_frame.grid_remove()
+
+    def _vlh_open_fight_dialog(self, idx: int) -> None:
+        entry = self._vlh_entries[idx]
+        firebase_url = self.config_data.get("valhalla", {}).get("firebase_url", "").strip()
+        username     = self._sv_device.get("username", ctk.StringVar()).get().strip()
+
+        if not firebase_url:
+            messagebox.showwarning(
+                "Valhalla online",
+                "Per giocare online configura l'URL Firebase in Impostazioni → Valhalla.\n"
+                "Inserisci il tuo Firebase Realtime Database URL (es. "
+                "https://mio-progetto-default-rtdb.firebaseio.com).",
+            )
+            return
+
+        if not username:
+            messagebox.showwarning(
+                "Valhalla online",
+                "Imposta prima il tuo username in Impostazioni → Device.",
+            )
+            return
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Combatti nel Valhalla")
+        dlg.geometry("380x250")
+        dlg.resizable(False, False)
+        dlg.configure(fg_color=BG_PRIMARY)
+        dlg.grab_set()
+        dlg.attributes("-topmost", True)
+
+        ctk.CTkLabel(
+            dlg,
+            text=f"⚔  {entry.name}  vs  ???",
+            font=ctk.CTkFont(size=14, weight="bold"), text_color=TEXT_PRIMARY,
+        ).pack(pady=(20, 8))
+
+        ctk.CTkLabel(
+            dlg, text="Scegli la modalità di battaglia:",
+            font=ctk.CTkFont(size=11), text_color=TEXT_DIM,
+        ).pack(pady=(0, 10))
+
+        # Campo username avversario
+        sv_target = ctk.StringVar()
+        ctk.CTkEntry(
+            dlg, textvariable=sv_target,
+            placeholder_text="Username avversario (es. Mario#1234)",
+            fg_color=BG_SECONDARY, border_color=BORDER,
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=12),
+            width=320,
+        ).pack(padx=20, pady=(0, 8))
+
+        lbl_status = ctk.CTkLabel(
+            dlg, text="", font=ctk.CTkFont(size=11), text_color=TEXT_DIM,
+        )
+        lbl_status.pack()
+
+        btn_frame = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20, pady=10)
+
+        def _do_fight(random_mode: bool):
+            target = sv_target.get().strip()
+            if not random_mode and not target:
+                lbl_status.configure(text="Inserisci un username o usa Casuale.", text_color=WARNING)
+                return
+            lbl_status.configure(text="Invio sfida in corso...", text_color=TEXT_DIM)
+            btn_frame.winfo_children()[0].configure(state="disabled")
+            btn_frame.winfo_children()[1].configure(state="disabled")
+
+            from config_schema import device_tag
+            full_tag = device_tag(username, self._device_id)
+            entry.owner = full_tag
+
+            client = ValhallaBattleClient(firebase_url, full_tag)
+            if random_mode:
+                cid = client.send_random_challenge(entry)
+            else:
+                cid = client.send_challenge(target, entry)
+
+            if cid:
+                lbl_status.configure(
+                    text=f"Sfida inviata! ID: {cid}", text_color=SUCCESS
+                )
+                self.after(2000, dlg.destroy)
+            else:
+                lbl_status.configure(
+                    text="Invio fallito. Controlla la connessione.", text_color=ERROR
+                )
+                for btn in btn_frame.winfo_children():
+                    btn.configure(state="normal")
+
+        ctk.CTkButton(
+            btn_frame, text="🎲  Casuale", fg_color=BG_TERTIARY, hover_color="#444",
+            font=ctk.CTkFont(size=12),
+            command=lambda: _do_fight(True),
+        ).pack(side="left", expand=True, fill="x", padx=(0, 4))
+
+        ctk.CTkButton(
+            btn_frame, text="⚔  Sfida utente", fg_color=ACCENT, hover_color=ACCENT_HOVER,
+            font=ctk.CTkFont(size=12),
+            command=lambda: _do_fight(False),
+        ).pack(side="left", expand=True, fill="x", padx=(4, 0))
+
+    def _vlh_add_entry_from_snapshot(self, snapshot: dict, owner: str = "") -> None:
+        """Aggiunge una nuova entry al Valhalla da un dict snapshot BLE."""
+        entry = vlh.ValhallaEntry(
+            element=snapshot["element"],
+            evo_stage=snapshot["evo_stage"],
+            line_variant=snapshot["line_variant"],
+            final_variant=snapshot["final_variant"],
+            stat_str=snapshot["stat_str"],
+            stat_int=snapshot["stat_int"],
+            stat_eng=snapshot["stat_eng"],
+            stat_hap=snapshot["stat_hap"],
+            sessions=snapshot["sessions"],
+            battles_won=snapshot["battles_won"],
+            battles_lost=snapshot["battles_lost"],
+            deaths_total=snapshot["deaths_total"],
+            owner=owner,
+        )
+        vlh.add_entry(entry)
+        self._vlh_entries = vlh.load_valhalla()
+        # Aggiungi sprite per la nuova creatura (coordinate normalizzate, prato)
+        import random, math
+        spr = {
+            "idx":       len(self._vlh_entries) - 1,
+            "x":         random.uniform(0.05, 0.95),
+            "y":         random.uniform(0.55, 0.90),
+            "vx":        math.cos(random.uniform(0, 6.28)) * 0.5,
+            "vy":        math.sin(random.uniform(0, 6.28)) * 0.5 * 0.5,
+            "radius":    28 + min(entry.evo_stage, 5) * 3,
+            "tag":       f"creature_{len(self._vlh_entries) - 1}",
+            "_px_ready": False,
+        }
+        self._vlh_sprites.append(spr)
+        self._vlh_refresh_count_label()
+        self._show_achievement_toast(
+            type("_", (), {
+                "icon": entry.display_icon,
+                "title": f"{entry.name} è entrata nel Valhalla",
+                "description": f"Stage {entry.stage_label} • {entry.sessions} sessioni • "
+                               f"{entry.battles_won}V/{entry.battles_lost}S",
+            })()
+        )
+        self._append_log_line(
+            f"⚔ {entry.name} ({entry.element}, {entry.stage_label}) è entrata nel Valhalla!",
+            color="#c0a030",
+        )
+
+    def _vlh_show_challenge_dialog(self, challenger: str, challenge_id: str,
+                                    creature_dict: dict) -> None:
+        """Mostra il dialog accetta/rifiuta quando arriva una sfida."""
+        try:
+            challenger_entry = vlh.ValhallaEntry.from_dict(creature_dict)
+        except Exception:
+            return
+
+        # Notifica tray
+        if HAS_TRAY and self.tray_icon:
+            try:
+                self.tray_icon.notify(
+                    f"Sfida da {challenger}",
+                    f"⚔  {challenger} ti ha sfidato a duello con {challenger_entry.name}!",
+                )
+            except Exception:
+                pass
+
+        # Dialog accetta/rifiuta
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Sfida ricevuta!")
+        dlg.geometry("400x260")
+        dlg.resizable(False, False)
+        dlg.configure(fg_color=BG_PRIMARY)
+        dlg.lift()
+        dlg.attributes("-topmost", True)
+
+        ctk.CTkLabel(
+            dlg, text="⚔  Sfida ricevuta!",
+            font=ctk.CTkFont(size=14, weight="bold"), text_color="#c0a030",
+        ).pack(pady=(20, 6))
+
+        ctk.CTkLabel(
+            dlg,
+            text=f"{challenger} ti ha sfidato a duello\ncon {challenger_entry.name} "
+                 f"({challenger_entry.element}, {challenger_entry.stage_label})",
+            font=ctk.CTkFont(size=12), text_color=TEXT_PRIMARY, justify="center",
+        ).pack(pady=(0, 10))
+
+        # Scegli quale tua creatura mandare
+        if self._vlh_entries:
+            options = [e.name for e in self._vlh_entries]
+        else:
+            options = ["Nessuna creatura"]
+
+        ctk.CTkLabel(
+            dlg, text="Scegli la tua creatura:",
+            font=ctk.CTkFont(size=11), text_color=TEXT_DIM,
+        ).pack()
+
+        sv_choice = ctk.StringVar(value=options[0] if options else "")
+        ctk.CTkOptionMenu(
+            dlg, values=options, variable=sv_choice,
+            fg_color=BG_SECONDARY, button_color=ACCENT,
+            button_hover_color=ACCENT_HOVER,
+        ).pack(padx=20, pady=4)
+
+        lbl_result = ctk.CTkLabel(dlg, text="", font=ctk.CTkFont(size=11), text_color=SUCCESS)
+        lbl_result.pack()
+
+        firebase_url = self.config_data.get("valhalla", {}).get("firebase_url", "").strip()
+        username = self._sv_device.get("username", ctk.StringVar()).get().strip()
+        from config_schema import device_tag
+        full_tag = device_tag(username, self._device_id)
+
+        def _accept():
+            chosen_name = sv_choice.get()
+            my_entry = next((e for e in self._vlh_entries if e.name == chosen_name), None)
+            if not my_entry:
+                lbl_result.configure(text="Nessuna creatura selezionata.", text_color=ERROR)
+                return
+            my_entry.owner = full_tag
+            client = ValhallaBattleClient(firebase_url, full_tag)
+            result = client.accept_challenge(challenge_id, my_entry)
+            if result:
+                winner = result.get("winner", "?")
+                attacker_won = result.get("attacker_won", False)
+                won = (result.get("winner_owner") == full_tag)
+                # Aggiorna W/L
+                ei = self._vlh_entries.index(my_entry)
+                vlh.update_entry_valhalla_record(
+                    ei,
+                    my_entry.valhalla_wins + (1 if won else 0),
+                    my_entry.valhalla_losses + (0 if won else 1),
+                )
+                self._vlh_entries = vlh.load_valhalla()
+                color = SUCCESS if won else ERROR
+                lbl_result.configure(
+                    text=f"{'Vittoria!' if won else 'Sconfitta!'} {winner} ha vinto dopo {result.get('turns', '?')} turni.",
+                    text_color=color,
+                )
+                self.after(3000, dlg.destroy)
+            else:
+                lbl_result.configure(text="Errore durante la battaglia.", text_color=ERROR)
+
+        def _reject():
+            if firebase_url:
+                client = ValhallaBattleClient(firebase_url, full_tag)
+                client.reject_challenge(challenge_id)
+            dlg.destroy()
+
+        btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_row.pack(fill="x", padx=20, pady=8)
+        ctk.CTkButton(
+            btn_row, text="✓  Accetta", fg_color=ACCENT, hover_color=ACCENT_HOVER,
+            font=ctk.CTkFont(size=12, weight="bold"), command=_accept,
+        ).pack(side="left", expand=True, fill="x", padx=(0, 4))
+        ctk.CTkButton(
+            btn_row, text="✕  Rifiuta", fg_color="#5a1a1a", hover_color="#7a2a2a",
+            font=ctk.CTkFont(size=12), command=_reject,
+        ).pack(side="left", expand=True, fill="x", padx=(4, 0))
+
+    def _vlh_on_challenge_received(self, challenger: str, challenge_id: str,
+                                    creature_dict: dict) -> None:
+        """Callback dal thread di polling, smistato sul thread GUI."""
+        self.after(0, lambda: self._vlh_show_challenge_dialog(
+            challenger, challenge_id, creature_dict
+        ))
+
+    def _vlh_start_polling_if_needed(self) -> None:
+        if self._vlh_polling_started:
+            return
+        firebase_url = self.config_data.get("valhalla", {}).get("firebase_url", "").strip()
+        username     = self._sv_device.get("username", ctk.StringVar()).get().strip()
+        if not firebase_url or not username:
+            return
+        from config_schema import device_tag
+        full_tag = device_tag(username, self._device_id)
+        self._vlh_battle_client = ValhallaBattleClient(
+            firebase_url, full_tag,
+            on_challenge=self._vlh_on_challenge_received,
+        )
+        self._vlh_battle_client.start_polling(interval_sec=15.0)
+        self._vlh_polling_started = True
 
     # ═══════════════════════════════════════════════════════════
     # Firmware Tab
@@ -1996,6 +2639,21 @@ class CompanionGUI(ctk.CTk):
             self._test_send_btn.configure(state="disabled", fg_color=BG_TERTIARY,
                                           hover_color=BG_TERTIARY)
 
+    def _vlh_check_new_death(self, snapshot: dict) -> None:
+        """Controlla se deaths_total nello snapshot è aumentato rispetto al cache.
+        Se sì, aggiunge la creatura caduta al Valhalla."""
+        dt_new = snapshot.get("deaths_total", 0)
+        if dt_new == 0:
+            return  # nessuna morte ancora (snapshot vuoto / FW < v35)
+        dt_cached = vlh.load_deaths_cache()
+        if dt_new > dt_cached:
+            # Nuova morte rilevata
+            username = self._sv_device.get("username", ctk.StringVar()).get().strip()
+            from config_schema import device_tag
+            owner = device_tag(username, self._device_id) if username else ""
+            self._vlh_add_entry_from_snapshot(snapshot, owner=owner)
+            vlh.save_deaths_cache(dt_new)
+
     def _on_sync_now(self) -> None:
         """Connessione BLE on-demand: sincronizza orologio, tag identità e
         bitmask achievement del PetCube, indipendentemente dal motore."""
@@ -2008,8 +2666,8 @@ class CompanionGUI(ctk.CTk):
             loop = asyncio.new_event_loop()
             try:
                 addr = loop.run_until_complete(fw_upd.scan_for_petcube(timeout=10.0))
-                mask, sessions = loop.run_until_complete(fw_upd.sync_now_ble(addr, tag)) if addr else (None, None)
-                self.after(0, lambda: self._sync_now_done(addr, mask, sessions=sessions))
+                mask, sessions, snapshot = loop.run_until_complete(fw_upd.sync_now_ble(addr, tag)) if addr else (None, None, None)
+                self.after(0, lambda: self._sync_now_done(addr, mask, sessions=sessions, snapshot=snapshot))
             except Exception as e:
                 self.after(0, lambda: self._sync_now_done(None, None, str(e)))
             finally:
@@ -2017,7 +2675,7 @@ class CompanionGUI(ctk.CTk):
 
         threading.Thread(target=run, daemon=True).start()
 
-    def _sync_now_done(self, addr: Optional[str], mask: Optional[int], err: str = "", sessions: Optional[int] = None) -> None:
+    def _sync_now_done(self, addr: Optional[str], mask: Optional[int], err: str = "", sessions: Optional[int] = None, snapshot: Optional[dict] = None) -> None:
         self.sync_now_btn.configure(state="normal", text="🔄 Sincronizza ora")
         if err:
             self._append_log_line(f"❌ Sincronizzazione fallita: {err}", color=ERROR)
@@ -2031,6 +2689,9 @@ class CompanionGUI(ctk.CTk):
             self._on_achv_mask_update(mask)
         if sessions is not None:
             self._on_pomodoro_session_count_update(sessions)
+        if snapshot is not None:
+            self._vlh_check_new_death(snapshot)
+        self._vlh_start_polling_if_needed()
 
     def _on_apply_brightness(self) -> None:
         """Invia la luminosità impostata dal cursore al PetCube via BLE (FW >= v30)."""

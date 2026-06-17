@@ -9,6 +9,7 @@ python -m PyInstaller ^
   --windowed ^
   --name "PetCube Companion" ^
   --add-data "config.json;." ^
+  --add-data "..\Sprite\Valhalla_BG.png;." ^
   --collect-all spacy ^
   --collect-all it_core_news_sm ^
   --hidden-import bleak ^

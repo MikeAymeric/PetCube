@@ -90,7 +90,7 @@ Preferences prefs;
 #define POOP_INTERVAL_MIN_MS (30UL * 60 * 1000)
 #define POOP_INTERVAL_MAX_MS (45UL * 60 * 1000)
 #define CANCEL_HAP_MALUS     2    // penalità HAP se si annulla pomodoro/riposo in corso
-#define FW_VERSION           34   // bump al cambio struttura NVS
+#define FW_VERSION           35   // bump al cambio struttura NVS
 
 // ── BLE UUIDs (devono matchare quelli della Companion App in config.json) ──
 #define BLE_DEVICE_NAME         "PetCube"
@@ -105,6 +105,7 @@ Preferences prefs;
 #define BLE_CHAR_TIME_UUID      "12345678-1234-5678-1234-56789abcdef8"
 #define BLE_CHAR_BRIGHTNESS_UUID "12345678-1234-5678-1234-56789abcdef9"
 #define BLE_CHAR_STATS_UUID     "12345678-1234-5678-1234-56789abcdefa"
+#define BLE_CHAR_SNAPSHOT_UUID  "12345678-1234-5678-1234-56789abcdefb"
 
 // Comandi della caratteristica RESET (vedi PetCubeResetCallbacks)
 #define RESET_CMD_FACTORY      0x01  // wipe NVS completo + riavvio
@@ -430,6 +431,7 @@ BLECharacteristic* bleAchvChar     = nullptr;
 BLECharacteristic* bleTimeChar     = nullptr;
 BLECharacteristic* bleBrightnessChar = nullptr;
 BLECharacteristic* bleStatsChar     = nullptr;
+BLECharacteristic* bleSnapshotChar  = nullptr;
 bool              bleAdvertising   = false;
 bool              bleClientConnected = false;
 bool              bleClientConnectedPrev = false;
@@ -1489,6 +1491,7 @@ void checkSick(unsigned long now) {
     tone(BUZZER, 200, 1000);
     saveToNVS();
     deathsTotal++;
+    saveObituary();   // Valhalla: salva snapshot creatura caduta (FW v35)
     achvSaveCounters();
     achvEvaluate();
   }
@@ -2458,6 +2461,70 @@ class PetCubeOtaDataCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
+// ── VALHALLA OBITUARY ────────────────────────────────────────────────────
+// Salva i dati dell'ultima creatura morta nel namespace NVS "obituary".
+// Letti dalla Companion App tramite la caratteristica SNAPSHOT (BLE_CHAR_SNAPSHOT_UUID).
+//
+// Layout 20 byte (little-endian):
+//   [0]    element (0=Fire, 1=Water)
+//   [1]    evo_stage (0-5)
+//   [2]    line_variant (0=STR 1=ENG 2=INT)
+//   [3]    final_variant (255=none, 0=STD 1=Light 2=Dark)
+//   [4]    stat_str
+//   [5]    stat_int
+//   [6]    stat_eng
+//   [7]    stat_hap
+//   [8-11] sessions (uint32 LE)
+//   [12-13] battles_won (uint16 LE)
+//   [14-15] battles_lost (uint16 LE)
+//   [16-19] deaths_total (uint32 LE)
+
+void saveObituary() {
+  prefs.begin("obituary", false);
+  prefs.putUChar("el",   (uint8_t)gElement);
+  prefs.putUChar("evo",  (uint8_t)evoStage);
+  prefs.putUChar("lv",   (uint8_t)lineVariant);
+  prefs.putUChar("fv",   (uint8_t)(finalVariant < 0 ? 255 : finalVariant));
+  prefs.putUChar("str",  (uint8_t)constrain(statSTR, 0, 99));
+  prefs.putUChar("int",  (uint8_t)constrain(statINT, 0, 99));
+  prefs.putUChar("eng",  (uint8_t)constrain(statENG, 0, 99));
+  prefs.putUChar("hap",  (uint8_t)constrain(statHAP, 0, 100));
+  prefs.putUInt("sess",  (uint32_t)sessTotal);
+  prefs.putUShort("bw",  (uint16_t)battlesWon);
+  prefs.putUShort("bl",  (uint16_t)battlesLost);
+  prefs.putUInt("dt",    (uint32_t)deathsTotal);
+  prefs.end();
+}
+
+void buildObituaryBytes(uint8_t* buf) {
+  prefs.begin("obituary", true);
+  buf[0]  = prefs.getUChar("el",  0);
+  buf[1]  = prefs.getUChar("evo", 0);
+  buf[2]  = prefs.getUChar("lv",  0);
+  buf[3]  = prefs.getUChar("fv",  255);
+  buf[4]  = prefs.getUChar("str", 0);
+  buf[5]  = prefs.getUChar("int", 0);
+  buf[6]  = prefs.getUChar("eng", 0);
+  buf[7]  = prefs.getUChar("hap", 0);
+  uint32_t sess = prefs.getUInt("sess", 0);
+  memcpy(buf + 8, &sess, 4);
+  uint16_t bw = prefs.getUShort("bw", 0);
+  uint16_t bl = prefs.getUShort("bl", 0);
+  memcpy(buf + 12, &bw, 2);
+  memcpy(buf + 14, &bl, 2);
+  uint32_t dt = prefs.getUInt("dt", 0);
+  memcpy(buf + 16, &dt, 4);
+  prefs.end();
+}
+
+class PetCubeSnapshotCallbacks : public BLECharacteristicCallbacks {
+  void onRead(BLECharacteristic* ch) override {
+    uint8_t buf[20] = {0};
+    buildObituaryBytes(buf);
+    ch->setValue(buf, 20);
+  }
+};
+
 // Inizializza BLE stack una volta sola (al boot)
 void bleInit() {
   if (bleInitialized) return;
@@ -2549,6 +2616,20 @@ void bleInit() {
     BLECharacteristic::PROPERTY_READ
   );
   bleStatsChar->setValue((uint8_t*)&lifetimeSessions, sizeof(lifetimeSessions));
+
+  // Caratteristica SNAPSHOT (read-only) — obituario dell'ultima creatura
+  // morta (20 byte, vedi saveObituary/buildObituaryBytes), aggiornato via
+  // callback onRead così la Companion riceve sempre i dati più recenti.
+  bleSnapshotChar = svc->createCharacteristic(
+    BLE_CHAR_SNAPSHOT_UUID,
+    BLECharacteristic::PROPERTY_READ
+  );
+  {
+    uint8_t initBuf[20] = {0};
+    buildObituaryBytes(initBuf);
+    bleSnapshotChar->setValue(initBuf, 20);
+  }
+  bleSnapshotChar->setCallbacks(new PetCubeSnapshotCallbacks());
 
   svc->start();
 
