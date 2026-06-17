@@ -198,6 +198,7 @@ def default_config() -> dict:
             "github_repo": "PetCube",
         },
         "valhalla": {
-            "firebase_url": "",
+            "mqtt_broker": "broker.hivemq.com",
+            "mqtt_port": 1883,
         },
     }
