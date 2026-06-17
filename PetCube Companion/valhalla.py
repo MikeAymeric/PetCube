@@ -13,8 +13,8 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-VALHALLA_PATH = Path(__file__).resolve().parent / "valhalla.json"
-_DEATHS_CACHE_PATH = Path(__file__).resolve().parent / "valhalla_deaths_cache.json"
+VALHALLA_PATH = Path("valhalla.json")
+_DEATHS_CACHE_PATH = Path("valhalla_deaths_cache.json")
 
 # ── Creature name tables (specchio esatto del firmware) ────────────────────
 _FIRE_SHARED  = ["Kindlekin", "Emberpaw", "Pyruff"]
@@ -113,9 +113,18 @@ def load_valhalla() -> list[ValhallaEntry]:
     try:
         with open(VALHALLA_PATH, encoding="utf-8") as f:
             data = json.load(f)
-        return [ValhallaEntry.from_dict(e) for e in data]
-    except (FileNotFoundError, json.JSONDecodeError, TypeError, KeyError):
+    except FileNotFoundError:
         return []
+    except (json.JSONDecodeError, OSError) as e:
+        log.warning("Impossibile leggere valhalla.json: %s", e)
+        return []
+    entries = []
+    for e in data:
+        try:
+            entries.append(ValhallaEntry.from_dict(e))
+        except (TypeError, KeyError) as exc:
+            log.warning("Valhalla: entry ignorata (dati corrotti): %s — %s", exc, e)
+    return entries
 
 
 def save_valhalla(entries: list[ValhallaEntry]) -> None:
