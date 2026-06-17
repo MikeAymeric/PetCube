@@ -1,31 +1,33 @@
 """
 valhalla_online.py
-Battaglie online del Valhalla tramite Firebase Realtime Database REST API.
-Non richiede l'SDK Firebase: usa solo 'requests' (già in requirements.txt).
+Battaglie online del Valhalla tramite MQTT (broker pubblico, nessun account richiesto).
+Richiede: pip install paho-mqtt
 
-Struttura dati Firebase:
-  /challenges/{username_safe}/{challenge_id}  → sfida in arrivo
-  /queue/{challenge_id}                        → coda matchmaking casuale
-  /results/{challenge_id}                      → risultato battaglia
+Struttura topic MQTT (prefisso petcube/valhalla/):
+  inbox/{username_safe}      → sfida diretta in arrivo per un utente
+  queue                      → matchmaking casuale (chiunque può rispondere)
+  result/{challenge_id}      → risultato battaglia (retained, qos=1)
 """
+import json
 import logging
-import random
-import threading
 import time
 import uuid
 from typing import Callable, Optional
-
-import requests
 
 from valhalla import ValhallaEntry
 
 log = logging.getLogger(__name__)
 
+DEFAULT_BROKER = "broker.hivemq.com"
+DEFAULT_PORT   = 1883
+_PREFIX        = "petcube/valhalla"
 
-# ── Battle resolution ─────────────────────────────────────────────────────
+
+# ── Battle resolution ─────────────────────────────────────────────────────────
 
 def resolve_battle(attacker: ValhallaEntry, defender: ValhallaEntry) -> dict:
     """Calcolo automatico della battaglia. Restituisce un dict con il risultato."""
+    import random
     a_atk = attacker.stat_str * 0.5 + attacker.stat_eng * 0.25 + attacker.stat_int * 0.25
     d_atk = defender.stat_str * 0.5 + defender.stat_eng * 0.25 + defender.stat_int * 0.25
     a_def = attacker.stat_eng * 0.4  + attacker.stat_str * 0.35 + attacker.stat_int * 0.25
@@ -33,13 +35,11 @@ def resolve_battle(attacker: ValhallaEntry, defender: ValhallaEntry) -> dict:
     a_hp  = 60.0 + attacker.evo_stage * 12 + attacker.stat_hap * 0.4
     d_hp  = 60.0 + defender.evo_stage * 12 + defender.stat_hap * 0.4
 
-    rng = random.Random()  # unseeded → truly random
+    rng  = random.Random()
     turn = 0
     while a_hp > 0 and d_hp > 0 and turn < 25:
-        dmg_a = max(1.0, a_atk - d_def * 0.45) * rng.uniform(0.85, 1.15)
-        dmg_d = max(1.0, d_atk - a_def * 0.45) * rng.uniform(0.85, 1.15)
-        d_hp -= dmg_a
-        a_hp -= dmg_d
+        d_hp -= max(1.0, a_atk - d_def * 0.45) * rng.uniform(0.85, 1.15)
+        a_hp -= max(1.0, d_atk - a_def * 0.45) * rng.uniform(0.85, 1.15)
         turn += 1
 
     attacker_wins = a_hp >= d_hp
@@ -54,157 +54,189 @@ def resolve_battle(attacker: ValhallaEntry, defender: ValhallaEntry) -> dict:
     }
 
 
-# ── Firebase REST helpers ─────────────────────────────────────────────────
+# ── MQTT helpers ──────────────────────────────────────────────────────────────
 
 def _safe_key(s: str) -> str:
-    """Firebase keys cannot contain . # $ [ ] /"""
-    for ch in ".#$[]/@":
+    """Sanitizza username per topic MQTT: vieta +  #  /  spazio."""
+    for ch in "+#/ \\":
         s = s.replace(ch, "_")
     return s
 
 
+# ── Client ────────────────────────────────────────────────────────────────────
+
 class ValhallaBattleClient:
     def __init__(
         self,
-        firebase_url: str,
+        broker: str,
+        port: int,
         username: str,
         on_challenge: Optional[Callable[[str, str, dict], None]] = None,
     ):
         """
-        firebase_url : URL base del progetto Firebase (senza trailing slash)
-        username     : tag del giocatore locale (es. "Mario#1234")
-        on_challenge : callback(challenger_username, challenge_id, creature_dict)
-                       chiamata quando arriva una sfida
+        broker      : hostname del broker MQTT (default broker.hivemq.com)
+        port        : porta TCP (default 1883)
+        username    : tag del giocatore locale (es. "Mario#1234")
+        on_challenge: callback(challenger_username, challenge_id, creature_dict)
         """
-        self.base_url    = firebase_url.rstrip("/")
-        self.username    = username
+        self.broker       = broker
+        self.port         = port
+        self.username     = username
         self.on_challenge = on_challenge
-        self._stop_event  = threading.Event()
-        self._poll_thread: Optional[threading.Thread] = None
-        self._seen_challenges: set[str] = set()
+        self._client      = None
+        self._connected   = False
+        self._seen:    set[str]              = set()   # challenge_id già visti
+        self._result_cbs: dict[str, Callable] = {}     # cid → callback risultato
 
-    # ── Sfide ─────────────────────────────────────────────────────
+    # ── Connessione ───────────────────────────────────────────────
 
-    def send_challenge(self, target_username: str, creature: ValhallaEntry) -> Optional[str]:
-        """Invia una sfida a target_username. Restituisce il challenge_id o None."""
-        cid = str(uuid.uuid4())[:8]
-        payload = {
-            "id":          cid,
-            "from":        self.username,
-            "creature":    creature.to_dict(),
-            "timestamp":   time.time(),
-            "status":      "pending",
-        }
-        url = f"{self.base_url}/challenges/{_safe_key(target_username)}/{cid}.json"
+    def _ensure_client(self):
+        """Crea e connette il client MQTT al bisogno. Ritorna il client o None."""
+        if self._client and self._connected:
+            return self._client
         try:
-            r = requests.put(url, json=payload, timeout=10)
-            r.raise_for_status()
-            log.info("Sfida inviata a '%s' (id=%s)", target_username, cid)
-            return cid
-        except Exception as e:
-            log.warning("Invio sfida fallito: %s", e)
+            import paho.mqtt.client as mqtt
+        except ImportError:
+            log.error("paho-mqtt non installato. Usa 'Installa paho-mqtt' in Impostazioni → Valhalla.")
             return None
+
+        cid = f"petcube_{_safe_key(self.username)}_{uuid.uuid4().hex[:6]}"
+        c = mqtt.Client(client_id=cid)
+        c.on_connect    = self._on_connect
+        c.on_message    = self._on_message
+        c.on_disconnect = self._on_disconnect
+        try:
+            c.connect(self.broker, self.port, keepalive=60)
+            c.loop_start()
+            # Aspetta connessione max 5s
+            deadline = time.time() + 5
+            while not self._connected and time.time() < deadline:
+                time.sleep(0.1)
+        except Exception as e:
+            log.warning("MQTT connect %s:%d fallito: %s", self.broker, self.port, e)
+            return None
+        self._client = c
+        return c
+
+    def _on_connect(self, client, userdata, flags, rc):
+        if rc != 0:
+            log.warning("MQTT: connessione rifiutata (rc=%d)", rc)
+            return
+        self._connected = True
+        safe = _safe_key(self.username)
+        client.subscribe(f"{_PREFIX}/inbox/{safe}", qos=1)
+        client.subscribe(f"{_PREFIX}/queue",         qos=0)
+        log.info("MQTT: connesso a %s, iscritto inbox/%s + queue", self.broker, safe)
+
+    def _on_disconnect(self, client, userdata, rc):
+        self._connected = False
+
+    def _on_message(self, client, userdata, msg):
+        try:
+            payload = json.loads(msg.payload.decode())
+        except Exception:
+            return
+        t = msg.topic
+        if t == f"{_PREFIX}/queue" or t.startswith(f"{_PREFIX}/inbox/"):
+            from_queue = (t == f"{_PREFIX}/queue")
+            self._handle_incoming(payload, from_queue)
+        elif t.startswith(f"{_PREFIX}/result/"):
+            cid = t.rsplit("/", 1)[-1]
+            cb  = self._result_cbs.pop(cid, None)
+            if cb:
+                cb(payload)
+
+    def _handle_incoming(self, payload: dict, from_queue: bool) -> None:
+        cid        = payload.get("id", "")
+        challenger = payload.get("from", "")
+        creature   = payload.get("creature", {})
+        # Scarta messaggi propri, vuoti o già visti
+        if not cid or challenger == self.username or cid in self._seen:
+            return
+        self._seen.add(cid)
+        if self.on_challenge:
+            self.on_challenge(challenger, cid, creature)
+
+    # ── API pubblica ──────────────────────────────────────────────
+
+    def send_challenge(self, target: str, creature: ValhallaEntry) -> Optional[str]:
+        """Invia una sfida diretta a 'target'. Ritorna il challenge_id o None."""
+        c = self._ensure_client()
+        if not c:
+            return None
+        cid     = uuid.uuid4().hex[:8]
+        payload = json.dumps({"id": cid, "from": self.username,
+                               "creature": creature.to_dict(), "timestamp": time.time()})
+        res = c.publish(f"{_PREFIX}/inbox/{_safe_key(target)}", payload, qos=1)
+        if res.rc == 0:
+            log.info("MQTT: sfida inviata a '%s' (id=%s)", target, cid)
+            return cid
+        log.warning("MQTT: invio sfida fallito (rc=%d)", res.rc)
+        return None
 
     def send_random_challenge(self, creature: ValhallaEntry) -> Optional[str]:
-        """Inserisce la propria creatura in coda per matchmaking casuale."""
-        cid = str(uuid.uuid4())[:8]
-        payload = {
-            "id":        cid,
-            "from":      self.username,
-            "creature":  creature.to_dict(),
-            "timestamp": time.time(),
-        }
-        url = f"{self.base_url}/queue/{cid}.json"
-        try:
-            r = requests.put(url, json=payload, timeout=10)
-            r.raise_for_status()
-            log.info("Sfida casuale in coda (id=%s)", cid)
-            return cid
-        except Exception as e:
-            log.warning("Sfida casuale fallita: %s", e)
+        """Pubblica in coda di matchmaking. Ritorna il challenge_id o None."""
+        c = self._ensure_client()
+        if not c:
             return None
+        cid     = uuid.uuid4().hex[:8]
+        payload = json.dumps({"id": cid, "from": self.username,
+                               "creature": creature.to_dict(), "timestamp": time.time()})
+        res = c.publish(f"{_PREFIX}/queue", payload, qos=0)
+        if res.rc == 0:
+            log.info("MQTT: sfida casuale in coda (id=%s)", cid)
+            return cid
+        return None
 
     def accept_challenge(
-        self, challenge_id: str, my_creature: ValhallaEntry
+        self,
+        challenge_id: str,
+        my_creature: ValhallaEntry,
+        challenger_creature_dict: dict,   # già ricevuto nel messaggio MQTT
     ) -> Optional[dict]:
-        """Accetta una sfida, calcola la battaglia e posta il risultato."""
-        url = f"{self.base_url}/challenges/{_safe_key(self.username)}/{challenge_id}.json"
-        try:
-            r = requests.get(url, timeout=10)
-            r.raise_for_status()
-            challenge = r.json()
-            if not challenge:
-                return None
-        except Exception as e:
-            log.warning("Recupero sfida fallito: %s", e)
+        """Risolve la battaglia e pubblica il risultato sul topic result."""
+        c = self._ensure_client()
+        if not c:
             return None
-
         try:
-            challenger_creature = ValhallaEntry.from_dict(challenge["creature"])
+            challenger = ValhallaEntry.from_dict(challenger_creature_dict)
         except Exception as e:
-            log.warning("Dati creatura sfidante non validi: %s", e)
+            log.warning("MQTT: dati creatura sfidante non validi: %s", e)
             return None
-
-        result = resolve_battle(my_creature, challenger_creature)
-
-        # Posta il risultato e cancella la sfida
-        try:
-            res_url = f"{self.base_url}/results/{challenge_id}.json"
-            requests.put(res_url, json=result, timeout=10)
-            requests.delete(url, timeout=10)
-            self._seen_challenges.discard(challenge_id)
-        except Exception as e:
-            log.warning("Post risultato fallito: %s", e)
-
+        result = resolve_battle(my_creature, challenger)
+        c.publish(f"{_PREFIX}/result/{challenge_id}",
+                  json.dumps(result), qos=1, retain=True)
+        log.info("MQTT: risultato pubblicato per sfida %s", challenge_id)
         return result
 
     def reject_challenge(self, challenge_id: str) -> None:
-        """Rifiuta e cancella una sfida."""
-        url = f"{self.base_url}/challenges/{_safe_key(self.username)}/{challenge_id}.json"
-        try:
-            requests.delete(url, timeout=10)
-            self._seen_challenges.discard(challenge_id)
-        except Exception as e:
-            log.warning("Rifiuto sfida fallito: %s", e)
+        """Notifica il rifiuto della sfida."""
+        c = self._ensure_client()
+        if not c:
+            return
+        c.publish(f"{_PREFIX}/result/{challenge_id}",
+                  json.dumps({"rejected": True, "id": challenge_id}), qos=1, retain=True)
 
-    # ── Polling ───────────────────────────────────────────────────
+    def subscribe_result(self, challenge_id: str, callback: Callable) -> None:
+        """Iscriviti al topic risultato per ricevere l'esito di una sfida inviata."""
+        c = self._ensure_client()
+        if not c:
+            return
+        self._result_cbs[challenge_id] = callback
+        c.subscribe(f"{_PREFIX}/result/{challenge_id}", qos=1)
 
     def start_polling(self, interval_sec: float = 15.0) -> None:
-        self._stop_event.clear()
-        self._poll_thread = threading.Thread(
-            target=self._poll_loop, args=(interval_sec,), daemon=True, name="valhalla-poll"
-        )
-        self._poll_thread.start()
-        log.info("Valhalla: polling sfide avviato (ogni %.0fs)", interval_sec)
+        """Connette il client e iscrive ai topic (loop MQTT già in daemon thread)."""
+        self._ensure_client()
 
     def stop_polling(self) -> None:
-        self._stop_event.set()
-        log.info("Valhalla: polling sfide fermato")
-
-    def _poll_loop(self, interval_sec: float) -> None:
-        while not self._stop_event.wait(interval_sec):
-            self._check_incoming_challenges()
-
-    def _check_incoming_challenges(self) -> None:
-        if not self.on_challenge or not self.username:
-            return
-        url = f"{self.base_url}/challenges/{_safe_key(self.username)}.json"
-        try:
-            r = requests.get(url, timeout=10)
-            if r.status_code != 200:
-                return
-            data = r.json()
-            if not data or not isinstance(data, dict):
-                return
-            for cid, challenge in data.items():
-                if not isinstance(challenge, dict):
-                    continue
-                if cid in self._seen_challenges:
-                    continue
-                if challenge.get("status") == "pending":
-                    self._seen_challenges.add(cid)
-                    challenger = challenge.get("from", "Unknown")
-                    creature   = challenge.get("creature", {})
-                    self.on_challenge(challenger, cid, creature)
-        except Exception as e:
-            log.debug("Polling sfide fallito: %s", e)
+        """Disconnette il client MQTT."""
+        if self._client:
+            try:
+                self._client.loop_stop()
+                self._client.disconnect()
+            except Exception:
+                pass
+            self._client    = None
+            self._connected = False
+        log.info("MQTT: client fermato")
