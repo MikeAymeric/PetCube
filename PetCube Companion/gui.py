@@ -676,16 +676,44 @@ class CompanionGUI(ctk.CTk):
         vlh_frame.grid_columnconfigure(1, weight=1)
 
         vlh_cfg = self.config_data.get("valhalla", {})
-        sv_firebase = ctk.StringVar(value=str(vlh_cfg.get("firebase_url", "")))
-        self._sv_valhalla_firebase = sv_firebase
-        self._build_field_row(vlh_frame, 0, "Firebase URL", sv_firebase, "text")
+        self._sv_valhalla_mqtt_broker = ctk.StringVar(
+            value=str(vlh_cfg.get("mqtt_broker", "broker.hivemq.com"))
+        )
+        self._sv_valhalla_mqtt_port = ctk.StringVar(
+            value=str(vlh_cfg.get("mqtt_port", 1883))
+        )
+        self._build_field_row(vlh_frame, 0, "MQTT Broker", self._sv_valhalla_mqtt_broker, "text")
+        self._build_field_row(vlh_frame, 1, "MQTT Port",   self._sv_valhalla_mqtt_port,   "int")
 
         ctk.CTkLabel(
             vlh_frame,
-            text="URL del tuo Firebase Realtime Database (es. https://mio-db.firebaseio.com) "
-                 "per le battaglie online nel Valhalla.",
+            text="Broker MQTT pubblico per le battaglie online nel Valhalla. "
+                 "Default: broker.hivemq.com:1883 (gratuito, nessun account).",
             text_color=TEXT_DIM, font=ctk.CTkFont(size=10), wraplength=500, anchor="w",
-        ).grid(row=1, column=0, columnspan=2, padx=(12, 8), pady=(0, 8), sticky="w")
+        ).grid(row=2, column=0, columnspan=2, padx=(12, 8), pady=(0, 4), sticky="w")
+
+        def _install_paho_mqtt():
+            import subprocess, sys as _sys
+            btn_paho.configure(text="Installazione...", state="disabled")
+            try:
+                subprocess.check_call(
+                    [_sys.executable, "-m", "pip", "install", "paho-mqtt"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                btn_paho.configure(text="✓ paho-mqtt installato!", state="disabled",
+                                   fg_color=SUCCESS)
+            except Exception as ex:
+                btn_paho.configure(
+                    text=f"✗ Errore: {ex}", state="normal", fg_color=ERROR,
+                )
+
+        btn_paho = ctk.CTkButton(
+            vlh_frame, text="Installa paho-mqtt",
+            fg_color=BG_PRIMARY, hover_color=BG_TERTIARY,
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=11),
+            command=_install_paho_mqtt,
+        )
+        btn_paho.grid(row=3, column=0, columnspan=2, padx=12, pady=(0, 10), sticky="w")
 
         # Sezione Logging
         self._build_section_header(scroll, "LOGGING")
@@ -879,8 +907,13 @@ class CompanionGUI(ctk.CTk):
         raw.setdefault("logging", {})["level"] = self._sv_log_level.get()
 
         # Valhalla
-        if hasattr(self, "_sv_valhalla_firebase"):
-            raw.setdefault("valhalla", {})["firebase_url"] = self._sv_valhalla_firebase.get().strip()
+        if hasattr(self, "_sv_valhalla_mqtt_broker"):
+            vlh = raw.setdefault("valhalla", {})
+            vlh["mqtt_broker"] = self._sv_valhalla_mqtt_broker.get().strip() or "broker.hivemq.com"
+            try:
+                vlh["mqtt_port"] = int(self._sv_valhalla_mqtt_port.get().strip())
+            except ValueError:
+                vlh["mqtt_port"] = 1883
 
         try:
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -945,8 +978,10 @@ class CompanionGUI(ctk.CTk):
         self._sv_log_level.set(raw.get("logging", {}).get("level", "INFO"))
 
         # Valhalla
-        if hasattr(self, "_sv_valhalla_firebase"):
-            self._sv_valhalla_firebase.set(raw.get("valhalla", {}).get("firebase_url", ""))
+        if hasattr(self, "_sv_valhalla_mqtt_broker"):
+            vlh = raw.get("valhalla", {})
+            self._sv_valhalla_mqtt_broker.set(vlh.get("mqtt_broker", "broker.hivemq.com"))
+            self._sv_valhalla_mqtt_port.set(str(vlh.get("mqtt_port", 1883)))
 
         self._show_settings_message("↺ Configurazione ricaricata.", TEXT_PRIMARY)
 
@@ -1885,17 +1920,10 @@ class CompanionGUI(ctk.CTk):
 
     def _vlh_open_fight_dialog(self, idx: int) -> None:
         entry = self._vlh_entries[idx]
-        firebase_url = self.config_data.get("valhalla", {}).get("firebase_url", "").strip()
+        vlh_cfg      = self.config_data.get("valhalla", {})
+        mqtt_broker  = vlh_cfg.get("mqtt_broker", "broker.hivemq.com").strip()
+        mqtt_port    = int(vlh_cfg.get("mqtt_port", 1883))
         username     = self._sv_device.get("username", ctk.StringVar()).get().strip()
-
-        if not firebase_url:
-            messagebox.showwarning(
-                "Valhalla online",
-                "Per giocare online configura l'URL Firebase in Impostazioni → Valhalla.\n"
-                "Inserisci il tuo Firebase Realtime Database URL (es. "
-                "https://mio-progetto-default-rtdb.firebaseio.com).",
-            )
-            return
 
         if not username:
             messagebox.showwarning(
@@ -1954,7 +1982,7 @@ class CompanionGUI(ctk.CTk):
             full_tag = device_tag(username, self._device_id)
             entry.owner = full_tag
 
-            client = ValhallaBattleClient(firebase_url, full_tag)
+            client = ValhallaBattleClient(mqtt_broker, mqtt_port, full_tag)
             if random_mode:
                 cid = client.send_random_challenge(entry)
             else:
@@ -2090,8 +2118,10 @@ class CompanionGUI(ctk.CTk):
         lbl_result = ctk.CTkLabel(dlg, text="", font=ctk.CTkFont(size=11), text_color=SUCCESS)
         lbl_result.pack()
 
-        firebase_url = self.config_data.get("valhalla", {}).get("firebase_url", "").strip()
-        username = self._sv_device.get("username", ctk.StringVar()).get().strip()
+        vlh_cfg     = self.config_data.get("valhalla", {})
+        mqtt_broker = vlh_cfg.get("mqtt_broker", "broker.hivemq.com").strip()
+        mqtt_port   = int(vlh_cfg.get("mqtt_port", 1883))
+        username    = self._sv_device.get("username", ctk.StringVar()).get().strip()
         from config_schema import device_tag
         full_tag = device_tag(username, self._device_id)
 
@@ -2102,8 +2132,8 @@ class CompanionGUI(ctk.CTk):
                 lbl_result.configure(text="Nessuna creatura selezionata.", text_color=ERROR)
                 return
             my_entry.owner = full_tag
-            client = ValhallaBattleClient(firebase_url, full_tag)
-            result = client.accept_challenge(challenge_id, my_entry)
+            client = ValhallaBattleClient(mqtt_broker, mqtt_port, full_tag)
+            result = client.accept_challenge(challenge_id, my_entry, creature_dict)
             if result:
                 winner = result.get("winner", "?")
                 attacker_won = result.get("attacker_won", False)
@@ -2126,9 +2156,8 @@ class CompanionGUI(ctk.CTk):
                 lbl_result.configure(text="Errore durante la battaglia.", text_color=ERROR)
 
         def _reject():
-            if firebase_url:
-                client = ValhallaBattleClient(firebase_url, full_tag)
-                client.reject_challenge(challenge_id)
+            client = ValhallaBattleClient(mqtt_broker, mqtt_port, full_tag)
+            client.reject_challenge(challenge_id)
             dlg.destroy()
 
         btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
@@ -2152,14 +2181,16 @@ class CompanionGUI(ctk.CTk):
     def _vlh_start_polling_if_needed(self) -> None:
         if self._vlh_polling_started:
             return
-        firebase_url = self.config_data.get("valhalla", {}).get("firebase_url", "").strip()
-        username     = self._sv_device.get("username", ctk.StringVar()).get().strip()
-        if not firebase_url or not username:
+        vlh_cfg     = self.config_data.get("valhalla", {})
+        mqtt_broker = vlh_cfg.get("mqtt_broker", "broker.hivemq.com").strip()
+        mqtt_port   = int(vlh_cfg.get("mqtt_port", 1883))
+        username    = self._sv_device.get("username", ctk.StringVar()).get().strip()
+        if not username:
             return
         from config_schema import device_tag
         full_tag = device_tag(username, self._device_id)
         self._vlh_battle_client = ValhallaBattleClient(
-            firebase_url, full_tag,
+            mqtt_broker, mqtt_port, full_tag,
             on_challenge=self._vlh_on_challenge_received,
         )
         self._vlh_battle_client.start_polling(interval_sec=15.0)
