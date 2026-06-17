@@ -284,6 +284,7 @@ class CompanionGUI(ctk.CTk):
         self._vlh_sprites: list[dict] = []             # canvas sprite state
         self._vlh_canvas: Optional[tk.Canvas] = None
         self._vlh_detail_frame: Optional[ctk.CTkFrame] = None
+        self._vlh_detail_win: Optional[ctk.CTkToplevel] = None
         self._vlh_battle_client: Optional[ValhallaBattleClient] = None
         self._vlh_polling_started = False
 
@@ -1586,12 +1587,6 @@ class CompanionGUI(ctk.CTk):
         self._vlh_canvas.grid(row=0, column=0, sticky="nsew")
         self._vlh_canvas.bind("<Configure>", self._vlh_on_canvas_resize)
 
-        # Side panel (nascosto finché non si seleziona una creatura)
-        self._vlh_detail_frame = ctk.CTkFrame(
-            body, fg_color=BG_SECONDARY, width=260, corner_radius=8,
-        )
-        # Non la grid finché non c'è selezione
-
         # Avvia animazione
         self._vlh_init_sprites()
         self.after(200, self._vlh_animate)
@@ -1622,6 +1617,8 @@ class CompanionGUI(ctk.CTk):
                 "radius": 28 + min(entry.evo_stage, 5) * 3,
                 "tag":    f"creature_{i}",
                 "_px_ready": False,  # flag: coordinate ancora normalizzate
+                "anim_frame": 0,     # 0=happy1  1=happy2
+                "anim_tick":  0,     # incrementato ad ogni frame, flip ogni 6 tick (~480ms)
             })
 
     def _vlh_animate(self) -> None:
@@ -1662,6 +1659,13 @@ class CompanionGUI(ctk.CTk):
 
             spr["x"] += spr["vx"]
             spr["y"] += spr["vy"]
+
+            # Avanza il frame dell'animazione ogni 6 tick (~480ms a 80ms/tick)
+            spr["anim_tick"] += 1
+            if spr["anim_tick"] >= 6:
+                spr["anim_tick"] = 0
+                spr["anim_frame"] ^= 1
+
             self._vlh_draw_sprite(c, spr)
 
         self.after(80, self._vlh_animate)
@@ -1686,28 +1690,37 @@ class CompanionGUI(ctk.CTk):
                             fill=self._VLH_BG, outline="")
 
     def _vlh_load_sprite(self, name: str):
-        """Carica e scala (2×, NEAREST) la PNG di una creatura; ritorna ImageTk.PhotoImage o None."""
+        """Estrae happy1/happy2 dallo spritesheet (griglia 3×4 di celle 16×16),
+        li scala 4× con NEAREST e ritorna [h1_norm, h1_flip, h2_norm, h2_flip] o None."""
         if name in self._vlh_sprite_imgs:
             return self._vlh_sprite_imgs[name]
         try:
             import sys as _sys
             from PIL import Image as _PILImage
             from PIL import ImageTk as _ImageTkLocal
-            # Risolvi il percorso (exe bundled o sviluppo)
             if getattr(_sys, "_MEIPASS", None):
                 base = Path(_sys._MEIPASS)
             else:
                 base = Path(__file__).resolve().parent.parent / "Sprite"
-            # Prova esatto, poi lowercase (pyruff.png vs Pyruff)
             for candidate in (f"{name}.png", f"{name.lower()}.png"):
                 path = base / candidate
                 if path.exists():
-                    img = _PILImage.open(path).convert("RGBA")
-                    # Scala 2× con NEAREST per mantenere i pixel nitidi
-                    img = img.resize((img.width * 2, img.height * 2), _PILImage.NEAREST)
-                    photo = _ImageTkLocal.PhotoImage(img)
-                    self._vlh_sprite_imgs[name] = photo
-                    return photo
+                    sheet = _PILImage.open(path).convert("RGBA")
+                    CELL = 16
+                    # happy1: indice 3 → row=1 col=0 → crop (0,16,16,32)
+                    # happy2: indice 7 → row=2 col=1 → crop (16,32,32,48)
+                    coords = [(0, CELL, CELL, CELL*2), (CELL, CELL*2, CELL*2, CELL*3)]
+                    photos = []
+                    for (l, t, r2, b) in coords:
+                        cell = sheet.crop((l, t, r2, b))
+                        scaled = cell.resize((CELL * 4, CELL * 4), _PILImage.NEAREST)
+                        photos.append(_ImageTkLocal.PhotoImage(scaled))
+                        photos.append(_ImageTkLocal.PhotoImage(
+                            scaled.transpose(_PILImage.FLIP_LEFT_RIGHT)
+                        ))
+                    # ordine: [h1_norm, h1_flip, h2_norm, h2_flip]
+                    self._vlh_sprite_imgs[name] = photos
+                    return photos
         except Exception:
             pass
         self._vlh_sprite_imgs[name] = None  # non ritentare
@@ -1729,9 +1742,13 @@ class CompanionGUI(ctk.CTk):
                            fill="", outline="#ffffffaa", width=4, tags=(tag,))
 
         # Prova a usare la sprite pixel art; fallback all'ovale colorato
-        photo = self._vlh_load_sprite(entry.name)
-        if photo is not None:
-            c.create_image(x, y, image=photo, anchor="center", tags=(tag,))
+        photos = self._vlh_load_sprite(entry.name)
+        if photos is not None:
+            # Seleziona frame happy1/happy2 e normale/specchiato in base alla direzione
+            frame_idx  = spr.get("anim_frame", 0)        # 0 = happy1, 1 = happy2
+            flipped    = spr.get("vx", 0) > 0            # specchia quando si muove a destra
+            photo_idx  = frame_idx * 2 + (1 if flipped else 0)
+            c.create_image(x, y, image=photos[photo_idx], anchor="center", tags=(tag,))
         else:
             if entry.element == "Fire":
                 fill = self._VLH_FIRE_FILL
@@ -1775,22 +1792,31 @@ class CompanionGUI(ctk.CTk):
         self._vlh_show_detail(idx)
 
     def _vlh_show_detail(self, idx: int) -> None:
-        if not self._vlh_detail_frame:
-            return
+        """Apre una finestra flottante con le statistiche della creatura selezionata."""
+        # Chiudi eventuale finestra precedente senza toccare il canvas
+        if self._vlh_detail_win and self._vlh_detail_win.winfo_exists():
+            self._vlh_detail_win.destroy()
+
         entry = self._vlh_entries[idx]
-        f = self._vlh_detail_frame
-
-        # Griglia nel body: canvas a sinistra, detail a destra
-        body = f.master
-        body.grid_columnconfigure(1, weight=0, minsize=270)
-        f.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
-
-        # Pulisci il frame
-        for w in f.winfo_children():
-            w.destroy()
-
         from datetime import datetime as _dt
         death_ts = _dt.fromtimestamp(entry.death_timestamp).strftime("%d/%m/%Y %H:%M")
+
+        win = ctk.CTkToplevel(self)
+        self._vlh_detail_win = win
+        win.title(entry.name)
+        win.resizable(False, False)
+        win.configure(fg_color=BG_SECONDARY)
+        win.attributes("-topmost", True)
+        win.protocol("WM_DELETE_WINDOW", self._vlh_deselect)
+
+        # Centra sulla finestra principale
+        self.update_idletasks()
+        ww, wh = 280, 400
+        x = self.winfo_x() + (self.winfo_width()  - ww) // 2
+        y = self.winfo_y() + (self.winfo_height() - wh) // 2
+        win.geometry(f"{ww}x{wh}+{x}+{y}")
+
+        f = win   # per comodità usa win direttamente come contenitore
 
         ctk.CTkLabel(
             f, text=f"{entry.display_icon}  {entry.name}",
@@ -1803,7 +1829,6 @@ class CompanionGUI(ctk.CTk):
             font=ctk.CTkFont(size=11), text_color=TEXT_DIM, anchor="w",
         ).pack(fill="x", padx=12, pady=(0, 8))
 
-        # Separatore
         ctk.CTkFrame(f, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x", padx=8)
 
         stat_rows = [
@@ -1825,7 +1850,6 @@ class CompanionGUI(ctk.CTk):
 
         ctk.CTkFrame(f, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x", padx=8, pady=4)
 
-        # Battaglie Valhalla
         if entry.valhalla_wins > 0 or entry.valhalla_losses > 0:
             row2 = ctk.CTkFrame(f, fg_color="transparent")
             row2.pack(fill="x", padx=12, pady=1)
@@ -1838,9 +1862,8 @@ class CompanionGUI(ctk.CTk):
         ctk.CTkLabel(
             f, text=f"Morto il {death_ts}",
             font=ctk.CTkFont(size=10), text_color=TEXT_DIM,
-        ).pack(padx=12, pady=(4, 8))
+        ).pack(padx=12, pady=(4, 6))
 
-        # Bottone Combatti
         ctk.CTkButton(
             f, text="⚔  Combatti online", height=36,
             fg_color=ACCENT, hover_color=ACCENT_HOVER,
@@ -1857,8 +1880,9 @@ class CompanionGUI(ctk.CTk):
 
     def _vlh_deselect(self) -> None:
         self._vlh_selected = None
-        if self._vlh_detail_frame:
-            self._vlh_detail_frame.grid_remove()
+        if self._vlh_detail_win and self._vlh_detail_win.winfo_exists():
+            self._vlh_detail_win.destroy()
+        self._vlh_detail_win = None
 
     def _vlh_open_fight_dialog(self, idx: int) -> None:
         entry = self._vlh_entries[idx]
