@@ -237,6 +237,15 @@ class CompanionGUI(ctk.CTk):
         self._test_send_btn: Optional[ctk.CTkButton] = None
         self._test_log: Optional[ctk.CTkTextbox] = None
 
+        # Konami code easter egg
+        self._konami_unlocked: bool = False
+        self._konami_idx: int = 0
+        self._vlh_test_section = None   # CTkFrame rivelato dal Konami
+        self._vlh_test_el_var  = ctk.StringVar(value="Fire")
+        self._vlh_test_evo_var = ctk.StringVar(value="3")
+        self._vlh_test_line_var = ctk.StringVar(value="STR")
+        self._vlh_test_fv_var  = ctk.StringVar(value="STD")
+
         # Firmware tab state
         self._fw_ble_address: Optional[str] = None
         self._fw_device_ver: Optional[int] = None
@@ -296,6 +305,7 @@ class CompanionGUI(ctk.CTk):
         self._running_banner: Optional[ctk.CTkLabel] = None
 
         self._build_ui()
+        self.bind_all("<KeyPress>", self._on_konami_key)
         self.attributes("-topmost", True)
         self.protocol("WM_DELETE_WINDOW", self._on_close_window)
         self.after(100, self._poll_event_queue)
@@ -1072,6 +1082,68 @@ class CompanionGUI(ctk.CTk):
         )
         self._test_log.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
+        # ── Sezione segreta Valhalla (rivelata dal Konami code) ──
+        parent.grid_rowconfigure(2, weight=0)
+        sec = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=8,
+                           border_width=1, border_color="#7b2d8b")
+        self._vlh_test_section = sec
+        # NON chiamare .grid() qui — viene mostrata solo dopo il Konami code
+
+        sec.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            sec, text="☠  GENERATORE VALHALLA  ☠",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#d4af37", anchor="w",
+        ).grid(row=0, column=0, columnspan=2, padx=15, pady=(12, 8), sticky="w")
+
+        seg_kw2 = dict(
+            fg_color="#2a1a3e",
+            selected_color="#7b2d8b", selected_hover_color="#9b3dab",
+            unselected_color="#2a1a3e", unselected_hover_color="#3a2a4e",
+            text_color=TEXT_PRIMARY, font=ctk.CTkFont(size=11),
+        )
+
+        ctk.CTkLabel(sec, text="Elemento", anchor="w", width=90,
+                     text_color=TEXT_DIM, font=ctk.CTkFont(size=11, weight="bold"),
+                     ).grid(row=1, column=0, padx=(15, 8), pady=4, sticky="w")
+        ctk.CTkSegmentedButton(
+            sec, values=["Fire", "Water"],
+            variable=self._vlh_test_el_var, **seg_kw2,
+        ).grid(row=1, column=1, padx=(0, 15), pady=4, sticky="w")
+
+        ctk.CTkLabel(sec, text="Evo Stage", anchor="w", width=90,
+                     text_color=TEXT_DIM, font=ctk.CTkFont(size=11, weight="bold"),
+                     ).grid(row=2, column=0, padx=(15, 8), pady=4, sticky="w")
+        ctk.CTkSegmentedButton(
+            sec, values=["0","1","2","3","4","5"],
+            variable=self._vlh_test_evo_var, **seg_kw2,
+        ).grid(row=2, column=1, padx=(0, 15), pady=4, sticky="w")
+
+        ctk.CTkLabel(sec, text="Linea", anchor="w", width=90,
+                     text_color=TEXT_DIM, font=ctk.CTkFont(size=11, weight="bold"),
+                     ).grid(row=3, column=0, padx=(15, 8), pady=4, sticky="w")
+        ctk.CTkSegmentedButton(
+            sec, values=["STR", "ENG", "INT"],
+            variable=self._vlh_test_line_var, **seg_kw2,
+        ).grid(row=3, column=1, padx=(0, 15), pady=4, sticky="w")
+
+        ctk.CTkLabel(sec, text="Variante", anchor="w", width=90,
+                     text_color=TEXT_DIM, font=ctk.CTkFont(size=11, weight="bold"),
+                     ).grid(row=4, column=0, padx=(15, 8), pady=4, sticky="w")
+        ctk.CTkSegmentedButton(
+            sec, values=["STD", "Light", "Dark"],
+            variable=self._vlh_test_fv_var, **seg_kw2,
+        ).grid(row=4, column=1, padx=(0, 15), pady=4, sticky="w")
+
+        ctk.CTkButton(
+            sec, text="💀  Spawna nel Valhalla",
+            width=200, height=36,
+            fg_color="#7b2d8b", hover_color="#9b3dab",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=self._on_vlh_test_spawn,
+        ).grid(row=5, column=0, columnspan=2, padx=15, pady=(10, 14), sticky="w")
+
     def _on_test_send(self) -> None:
         if not self.engine or not self.engine.is_running():
             self._test_feedback_lbl.configure(
@@ -1119,6 +1191,84 @@ class CompanionGUI(ctk.CTk):
         self.after(4000, lambda: self._test_feedback_lbl.configure(
             text="", text_color=TEXT_DIM
         ) if self._test_feedback_lbl.winfo_exists() else None)
+
+    # ── Konami code easter egg ───────────────────────────────────
+
+    _KONAMI_SEQ = ["Up","Up","Down","Down","Left","Right","Left","Right","b","a","Return"]
+
+    def _on_konami_key(self, event) -> None:
+        expected = self._KONAMI_SEQ[self._konami_idx]
+        if event.keysym == expected:
+            self._konami_idx += 1
+            if self._konami_idx == len(self._KONAMI_SEQ):
+                self._konami_idx = 0
+                self._vlh_konami_unlock()
+        else:
+            # reset, ma se il tasto corrisponde all'inizio della sequenza riprova
+            self._konami_idx = 1 if event.keysym == self._KONAMI_SEQ[0] else 0
+
+    def _vlh_konami_unlock(self) -> None:
+        if self._vlh_test_section is None:
+            return
+        if not self._konami_unlocked:
+            self._konami_unlocked = True
+            self._vlh_test_section.grid(
+                row=2, column=0, sticky="ew", pady=(10, 0)
+            )
+        # Flash del bordo per feedback visivo
+        def _flash(color: str, times: int) -> None:
+            if not self._vlh_test_section.winfo_exists():
+                return
+            self._vlh_test_section.configure(border_color=color)
+            if times > 0:
+                self.after(150, lambda: _flash(
+                    "#d4af37" if color == "#7b2d8b" else "#7b2d8b", times - 1
+                ))
+        _flash("#d4af37", 5)
+
+    def _on_vlh_test_spawn(self) -> None:
+        import random, time as _time
+        el       = self._vlh_test_el_var.get()
+        evo      = int(self._vlh_test_evo_var.get())
+        line_map = {"STR": 0, "ENG": 1, "INT": 2}
+        fv_map   = {"STD": 0, "Light": 1, "Dark": 2}
+        lv       = line_map[self._vlh_test_line_var.get()]
+        fv       = fv_map[self._vlh_test_fv_var.get()] if evo >= 5 else -1
+
+        # Stats proporzionali all'evo stage + rumore random
+        base = 20 + evo * 12
+        entry = vlh.ValhallaEntry(
+            element=el,
+            evo_stage=evo,
+            line_variant=lv,
+            final_variant=fv,
+            stat_str=min(99, base + random.randint(-10, 20)),
+            stat_int=min(99, base + random.randint(-10, 20)),
+            stat_eng=min(99, base + random.randint(-10, 20)),
+            stat_hap=min(100, base + random.randint(-5, 15)),
+            sessions=random.randint(10 + evo * 5, 50 + evo * 20),
+            battles_won=random.randint(0, 10 + evo * 3),
+            battles_lost=random.randint(0, 8 + evo * 2),
+            deaths_total=vlh.load_deaths_cache() + 1,
+            owner=self.config.get("device", {}).get("username", "") or "TEST",
+            death_timestamp=_time.time(),
+        )
+        vlh.add_entry(entry)
+        vlh.save_deaths_cache(entry.deaths_total)
+
+        # Ricarica il canvas Valhalla
+        self._vlh_entries = vlh.load_valhalla()
+        self._vlh_init_sprites()
+        self._vlh_lbl_count.configure(text=f"{len(self._vlh_entries)} creature")
+
+        # Log in test console
+        ts = datetime.now().strftime("%H:%M:%S")
+        log_line = f"{ts}  [VALHALLA]  Spawned: {entry.name} (evo={evo} {el})  stats={entry.stat_str}/{entry.stat_int}/{entry.stat_eng}/{entry.stat_hap}\n"
+        if self._test_log:
+            self._test_log.configure(state="normal")
+            self._test_log.insert("end", log_line)
+            self._test_log.see("end")
+            self._test_log.configure(state="disabled")
 
     # ═══════════════════════════════════════════════════════════
     # Achievements Tab
